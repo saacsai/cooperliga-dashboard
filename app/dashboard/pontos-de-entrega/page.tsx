@@ -30,7 +30,7 @@ export default function PontosDeEntregaPage() {
       getSupabase().from('contratos').select('id, orgao, clientes(nome)').eq('ativo', true).order('orgao'),
     ])
     setPontos(p || [])
-    setContratos(c || [])
+    setContratos((c || []) as ContratoDropdown[])
     setLoading(false)
   }
 
