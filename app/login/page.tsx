@@ -56,7 +56,7 @@ export default function LoginPage() {
           </button>
         </div>
         <div className="flex justify-center pb-5">
-          <Image src="/logo_saacs.png" alt="SAACS" width={64} height={20} className="object-contain" style={{ opacity: 0.3 }} />
+          <Image src="/logo_saacs_negativo.png" alt="SAACS" width={64} height={20} className="object-contain" style={{ opacity: 0.3 }} />
         </div>
       </div>
     </div>
@@ -69,11 +69,11 @@ export default function LoginPage() {
         {/* Logo */}
         <div className="px-6 pt-8 pb-5 flex flex-col items-center gap-2">
           <Image
-            src="/cooperliga_logo.jpg"
+            src="/logo_fonte.jpg"
             alt="CooperLiga"
-            width={160}
-            height={52}
-            className="object-contain rounded-lg"
+            width={220}
+            height={40}
+            className="object-contain"
             priority
           />
           <p className="text-xs tracking-wide" style={{ color: ACCENT }}>Gestão Logística</p>
@@ -169,7 +169,7 @@ export default function LoginPage() {
 
         {/* Footer */}
         <div className="flex justify-center py-4">
-          <Image src="/logo_saacs.png" alt="SAACS" width={64} height={20} className="object-contain" style={{ opacity: 0.25 }} />
+          <Image src="/logo_saacs_negativo.png" alt="SAACS" width={64} height={20} className="object-contain" style={{ opacity: 0.25 }} />
         </div>
 
       </div>
