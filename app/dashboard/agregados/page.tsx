@@ -1,0 +1,171 @@
+'use client'
+
+import { useEffect, useState } from 'react'
+import { getSupabase } from '@/lib/supabase'
+import Drawer from '@/components/Drawer'
+import type { Agregado } from '@/lib/supabase'
+
+const PRIMARY = '#5C0F0F'
+
+const TIPOS_VEICULO = ['truck', 'toco', 'van', 'outro']
+const TIPO_LABEL: Record<string, string> = { truck: 'Truck', toco: 'Toco', van: 'Van', outro: 'Outro' }
+
+const VAZIO = { nome: '', cpf_cnpj: '', chave_pix: '', whatsapp: '', veiculo_placa: '', veiculo_tipo: '' }
+
+export default function AgregadosPage() {
+  const [agregados, setAgregados] = useState<Agregado[]>([])
+  const [loading,   setLoading]   = useState(true)
+  const [drawer,    setDrawer]    = useState(false)
+  const [editId,    setEditId]    = useState<string | null>(null)
+  const [salvando,  setSalvando]  = useState(false)
+  const [erro,      setErro]      = useState('')
+  const [form,      setForm]      = useState(VAZIO)
+
+  const set = (f: keyof typeof VAZIO) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
+    setForm(p => ({ ...p, [f]: e.target.value }))
+
+  async function carregar() {
+    const { data } = await getSupabase().from('agregados').select('*').order('nome')
+    setAgregados(data || [])
+    setLoading(false)
+  }
+
+  useEffect(() => { carregar() }, [])
+
+  function abrirNovo() {
+    setEditId(null); setForm(VAZIO); setErro(''); setDrawer(true)
+  }
+
+  function abrirEditar(a: Agregado) {
+    setEditId(a.id)
+    setForm({ nome: a.nome, cpf_cnpj: a.cpf_cnpj || '', chave_pix: a.chave_pix || '', whatsapp: a.whatsapp || '', veiculo_placa: a.veiculo_placa || '', veiculo_tipo: a.veiculo_tipo || '' })
+    setErro(''); setDrawer(true)
+  }
+
+  async function handleSalvar(e: React.FormEvent) {
+    e.preventDefault()
+    setSalvando(true); setErro('')
+    const payload = {
+      nome: form.nome,
+      cpf_cnpj: form.cpf_cnpj || null,
+      chave_pix: form.chave_pix || null,
+      whatsapp: form.whatsapp || null,
+      veiculo_placa: form.veiculo_placa || null,
+      veiculo_tipo: form.veiculo_tipo || null,
+    }
+    const { error } = editId
+      ? await getSupabase().from('agregados').update(payload).eq('id', editId)
+      : await getSupabase().from('agregados').insert(payload)
+    if (error) { setErro(error.message); setSalvando(false); return }
+    setDrawer(false); setSalvando(false); carregar()
+  }
+
+  async function toggleAtivo(a: Agregado) {
+    await getSupabase().from('agregados').update({ ativo: !a.ativo }).eq('id', a.id)
+    carregar()
+  }
+
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-6">
+        <div>
+          <h1 className="text-xl font-bold text-gray-900">Agregados</h1>
+          <p className="text-sm text-gray-500 mt-0.5">Motoristas e transportadores parceiros</p>
+        </div>
+        <button onClick={abrirNovo} className="text-white text-sm font-medium px-4 py-2 rounded-lg hover:opacity-90 transition-opacity" style={{ background: PRIMARY }}>
+          + Novo agregado
+        </button>
+      </div>
+
+      {loading ? <p className="text-sm text-gray-400">Carregando…</p> : (
+        <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-gray-100">
+                <th className="text-left px-4 py-3 text-xs font-medium text-gray-500">Nome</th>
+                <th className="text-left px-4 py-3 text-xs font-medium text-gray-500">Placa</th>
+                <th className="text-left px-4 py-3 text-xs font-medium text-gray-500">Tipo</th>
+                <th className="text-left px-4 py-3 text-xs font-medium text-gray-500">WhatsApp</th>
+                <th className="text-left px-4 py-3 text-xs font-medium text-gray-500">Chave PIX</th>
+                <th className="text-left px-4 py-3 text-xs font-medium text-gray-500">Status</th>
+                <th className="px-4 py-3" />
+              </tr>
+            </thead>
+            <tbody>
+              {agregados.map(a => (
+                <tr key={a.id} className="border-b border-gray-50 last:border-0 hover:bg-gray-50/50">
+                  <td className="px-4 py-3 font-medium text-gray-900">{a.nome}</td>
+                  <td className="px-4 py-3 font-mono text-gray-700">{a.veiculo_placa || '—'}</td>
+                  <td className="px-4 py-3 text-gray-500">{a.veiculo_tipo ? TIPO_LABEL[a.veiculo_tipo] || a.veiculo_tipo : '—'}</td>
+                  <td className="px-4 py-3 text-gray-500">{a.whatsapp || '—'}</td>
+                  <td className="px-4 py-3 text-gray-500 text-xs">{a.chave_pix || '—'}</td>
+                  <td className="px-4 py-3">
+                    <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${a.ativo ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
+                      {a.ativo ? 'ativo' : 'inativo'}
+                    </span>
+                  </td>
+                  <td className="px-4 py-3 text-right">
+                    <div className="flex items-center justify-end gap-3">
+                      <button onClick={() => abrirEditar(a)} className="text-xs font-medium hover:opacity-80" style={{ color: PRIMARY }}>Editar</button>
+                      <button onClick={() => toggleAtivo(a)} className="text-xs text-gray-400 hover:text-gray-700">{a.ativo ? 'Desativar' : 'Ativar'}</button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+              {agregados.length === 0 && (
+                <tr><td colSpan={7} className="px-4 py-8 text-center text-sm text-gray-400">Nenhum agregado cadastrado.</td></tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      <Drawer open={drawer} onClose={() => setDrawer(false)} title={editId ? 'Editar agregado' : 'Novo agregado'}>
+        <form onSubmit={handleSalvar} className="space-y-4">
+          <div>
+            <label className="block text-xs font-medium text-gray-600 mb-1">Nome *</label>
+            <input type="text" value={form.nome} onChange={set('nome')} required autoFocus
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#5C0F0F]" />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-gray-600 mb-1">CPF / CNPJ</label>
+            <input type="text" value={form.cpf_cnpj} onChange={set('cpf_cnpj')}
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#5C0F0F]" />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1">Placa</label>
+              <input type="text" value={form.veiculo_placa} onChange={set('veiculo_placa')} placeholder="ABC-1234"
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#5C0F0F] font-mono uppercase" />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1">Tipo de veículo</label>
+              <select value={form.veiculo_tipo} onChange={set('veiculo_tipo')}
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#5C0F0F]">
+                <option value="">Selecione…</option>
+                {TIPOS_VEICULO.map(t => <option key={t} value={t}>{TIPO_LABEL[t]}</option>)}
+              </select>
+            </div>
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-gray-600 mb-1">WhatsApp</label>
+            <input type="tel" value={form.whatsapp} onChange={set('whatsapp')} placeholder="(11) 99999-9999"
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#5C0F0F]" />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-gray-600 mb-1">Chave PIX</label>
+            <input type="text" value={form.chave_pix} onChange={set('chave_pix')} placeholder="CPF, e-mail ou chave aleatória"
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#5C0F0F]" />
+          </div>
+          {erro && <p className="text-xs text-red-600 bg-red-50 border border-red-200 rounded-lg p-2">{erro}</p>}
+          <div className="flex gap-2 pt-2">
+            <button type="button" onClick={() => setDrawer(false)} className="flex-1 border border-gray-200 rounded-lg py-2 text-sm text-gray-600 hover:bg-gray-50">Cancelar</button>
+            <button type="submit" disabled={salvando} className="flex-1 text-white rounded-lg py-2 text-sm font-medium disabled:opacity-50" style={{ background: PRIMARY }}>
+              {salvando ? 'Salvando…' : 'Salvar'}
+            </button>
+          </div>
+        </form>
+      </Drawer>
+    </div>
+  )
+}
