@@ -75,7 +75,7 @@ export default function PontosDeEntregaPage() {
     carregar()
   }
 
-  function labelContrato(c: Contrato) {
+  function labelContrato(c: ContratoDropdown) {
     const cliente = (c as any).clientes?.nome || ''
     return `${c.orgao}${cliente ? ` — ${cliente}` : ''}`
   }
