@@ -3,15 +3,17 @@
 import { useEffect, useState } from 'react'
 import { getSupabase } from '@/lib/supabase'
 import Drawer from '@/components/Drawer'
-import type { Contrato, PontoDeEntrega } from '@/lib/supabase'
+import type { PontoDeEntrega } from '@/lib/supabase'
 
 const PRIMARY = '#5C0F0F'
+
+type ContratoDropdown = { id: string; orgao: string; clientes: { nome: string } | null }
 
 const VAZIO = { nome: '', contrato_id: '', codigo_interno: '', codigo_estado: '', codigo_prefeitura: '', endereco: '', municipio: '', contato_nome: '' }
 
 export default function PontosDeEntregaPage() {
   const [pontos,    setPontos]   = useState<PontoDeEntrega[]>([])
-  const [contratos, setContratos] = useState<Pick<Contrato, 'id' | 'orgao'> & { clientes: { nome: string } | null }[]>([])
+  const [contratos, setContratos] = useState<ContratoDropdown[]>([])
   const [loading,   setLoading]  = useState(true)
   const [drawer,    setDrawer]   = useState(false)
   const [editId,    setEditId]   = useState<string | null>(null)
