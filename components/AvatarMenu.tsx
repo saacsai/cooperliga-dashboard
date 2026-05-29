@@ -10,6 +10,7 @@ interface Props {
   onGerenciarPlano: () => void
   onUsoCredits: () => void
   onSair: () => void
+  dark?: boolean  // fundo escuro — inverte cores do trigger
 }
 
 function IconEdit() {
@@ -57,7 +58,7 @@ function IconChevron({ up }: { up: boolean }) {
   )
 }
 
-export default function AvatarMenu({ nomeExibido, email, initials, onEditarPerfil, onGerenciarPlano, onUsoCredits, onSair }: Props) {
+export default function AvatarMenu({ nomeExibido, email, initials, onEditarPerfil, onGerenciarPlano, onUsoCredits, onSair, dark = false }: Props) {
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
 
@@ -112,16 +113,22 @@ export default function AvatarMenu({ nomeExibido, email, initials, onEditarPerfi
 
       <button
         onClick={() => setOpen(v => !v)}
-        className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg hover:bg-gray-50 transition-colors text-left"
+        className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg transition-colors text-left"
+        style={{ background: open ? (dark ? 'rgba(255,255,255,0.12)' : '#f9fafb') : 'transparent' }}
+        onMouseEnter={e => (e.currentTarget.style.background = dark ? 'rgba(255,255,255,0.12)' : '#f9fafb')}
+        onMouseLeave={e => (e.currentTarget.style.background = open ? (dark ? 'rgba(255,255,255,0.12)' : '#f9fafb') : 'transparent')}
       >
-        <div className="w-8 h-8 rounded-full bg-gradient-to-br from-purple-500 to-teal-400 flex items-center justify-center flex-shrink-0">
-          <span className="text-white text-xs font-semibold">{initials}</span>
+        <div
+          className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 text-xs font-semibold"
+          style={{ background: dark ? '#D4A0A0' : 'linear-gradient(135deg,#a855f7,#2dd4bf)', color: dark ? '#5C0F0F' : 'white' }}
+        >
+          {initials}
         </div>
         <div className="flex-1 min-w-0">
-          <div className="text-sm font-medium text-gray-800 truncate">{nomeExibido}</div>
-          <div className="text-xs text-gray-400 truncate">{email}</div>
+          <div className="text-sm font-medium truncate" style={{ color: dark ? 'white' : '#1f2937' }}>{nomeExibido}</div>
+          <div className="text-xs truncate" style={{ color: dark ? 'rgba(212,160,160,0.8)' : '#9ca3af' }}>{email}</div>
         </div>
-        <span className="text-gray-400"><IconChevron up={open} /></span>
+        <span style={{ color: dark ? 'rgba(212,160,160,0.7)' : '#9ca3af' }}><IconChevron up={open} /></span>
       </button>
     </div>
   )

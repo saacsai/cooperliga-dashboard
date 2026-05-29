@@ -4,6 +4,7 @@ import Image from 'next/image'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { getSupabase } from '@/lib/supabase'
+import AvatarMenu from './AvatarMenu'
 import type { Perfil } from '@/lib/supabase'
 
 const PRIMARY   = '#5C0F0F'
@@ -29,13 +30,14 @@ interface Props {
   nome: string
   email: string
   perfil: Perfil
+  onEditarPerfil: () => void
 }
 
 function iniciais(nome: string) {
   return nome.split(' ').filter(Boolean).slice(0, 2).map(p => p[0].toUpperCase()).join('')
 }
 
-export default function Sidebar({ nome, email, perfil }: Props) {
+export default function Sidebar({ nome, email, perfil, onEditarPerfil }: Props) {
   const pathname = usePathname()
   const router   = useRouter()
 
@@ -112,31 +114,21 @@ export default function Sidebar({ nome, email, perfil }: Props) {
       </div>
 
       {/* Usuário */}
-      <div className="px-3 pb-4">
-        <div className="flex items-center gap-2.5 px-3 py-2.5 rounded-lg" style={{ background: 'rgba(255,255,255,0.08)' }}>
-          <div
-            className="flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold"
-            style={{ background: ACCENT, color: PRIMARY }}
-          >
-            {iniciais(nome || email)}
-          </div>
-          <div className="flex-1 min-w-0">
-            <p className="text-xs font-medium text-white truncate">{nome || email}</p>
-            <p className="text-[10px] capitalize" style={{ color: ACCENT }}>{perfil}</p>
-          </div>
-          <button
-            onClick={handleLogout}
-            title="Sair"
-            className="text-xs transition-opacity hover:opacity-100 opacity-50"
-            style={{ color: ACCENT }}
-          >
-            ↩
-          </button>
-        </div>
+      <div className="px-2 pb-2">
+        <AvatarMenu
+          nomeExibido={nome || email}
+          email={email}
+          initials={iniciais(nome || email)}
+          dark
+          onEditarPerfil={onEditarPerfil}
+          onGerenciarPlano={() => {}}
+          onUsoCredits={() => {}}
+          onSair={handleLogout}
+        />
+      </div>
 
-        <div className="flex justify-center mt-3">
-          <Image src="/logo_saacs.png" alt="SAACS" width={72} height={22} className="object-contain opacity-30" />
-        </div>
+      <div className="flex justify-center pb-3">
+        <Image src="/logo_saacs.png" alt="SAACS" width={72} height={22} className="object-contain opacity-25" />
       </div>
     </aside>
   )
