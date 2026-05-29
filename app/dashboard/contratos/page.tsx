@@ -13,7 +13,7 @@ const VAZIO = { cliente_id: '', orgao: '', numero: '', tipo_gr: '' as '' | 'esta
 
 export default function ContratosPage() {
   const [contratos, setContratos] = useState<Contrato[]>([])
-  const [clientes,  setClientes]  = useState<Cliente[]>([])
+  const [clientes,  setClientes]  = useState<Pick<Cliente, 'id' | 'nome'>[]>([])
   const [loading,   setLoading]   = useState(true)
   const [drawer,    setDrawer]    = useState(false)
   const [editId,    setEditId]    = useState<string | null>(null)
