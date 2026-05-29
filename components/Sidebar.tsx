@@ -1,79 +1,142 @@
 'use client'
 
+import Image from 'next/image'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import { createBrowserSupabase } from '@/lib/supabase'
+import { getSupabase } from '@/lib/supabase'
 import type { Perfil } from '@/lib/supabase'
+
+const PRIMARY   = '#5C0F0F'
+const ACCENT    = '#D4A0A0'
+const SIDEBAR_W = '224px'
 
 interface NavItem {
   href: string
   label: string
+  icon: string
   perfis: Perfil[]
 }
 
 const NAV: NavItem[] = [
-  { href: '/manifestos',         label: 'Manifestos',     perfis: ['admin','gestor','analista','operador'] },
-  { href: '/manifestos/processar', label: '↳ Processar ZIP', perfis: ['admin','gestor'] },
-  { href: '/romaneios/patio',    label: 'Pátio',          perfis: ['admin','gestor','analista','operador'] },
-  { href: '/cadastros/rotas',    label: 'Rotas',          perfis: ['admin','gestor'] },
-  { href: '/cadastros/escolas',  label: 'Escolas',        perfis: ['admin','gestor'] },
-  { href: '/financeiro/dashboard', label: 'Financeiro',   perfis: ['admin','financeiro'] },
-  { href: '/admin/usuarios',     label: 'Usuários',       perfis: ['admin'] },
+  { href: '/dashboard/manifestos', label: 'Manifestos',   icon: '📋', perfis: ['admin','gestor','analista','operador'] },
+  { href: '/dashboard/guias',      label: 'Guias (GRs)',  icon: '📦', perfis: ['admin','gestor','analista','operador'] },
+  { href: '/dashboard/cadastros',  label: 'Cadastros',    icon: '🗂️',  perfis: ['admin','gestor'] },
+  { href: '/dashboard/financeiro', label: 'Financeiro',   icon: '💰', perfis: ['admin','financeiro'] },
+  { href: '/dashboard/admin/usuarios', label: 'Usuários', icon: '👥', perfis: ['admin'] },
 ]
 
 interface Props {
   nome: string
-  perfil: string
+  email: string
+  perfil: Perfil
 }
 
-export default function Sidebar({ nome, perfil }: Props) {
+function iniciais(nome: string) {
+  return nome.split(' ').filter(Boolean).slice(0, 2).map(p => p[0].toUpperCase()).join('')
+}
+
+export default function Sidebar({ nome, email, perfil }: Props) {
   const pathname = usePathname()
-  const router = useRouter()
+  const router   = useRouter()
 
   async function handleLogout() {
-    const sb = createBrowserSupabase()
-    await sb.auth.signOut()
+    await getSupabase().auth.signOut()
     router.push('/login')
     router.refresh()
   }
 
-  const visivel = NAV.filter(n => n.perfis.includes(perfil as Perfil))
+  const itens = NAV.filter(n => n.perfis.includes(perfil))
 
   return (
-    <aside className="fixed left-0 top-0 h-screen w-56 bg-white border-r border-gray-200 flex flex-col">
-      <div className="px-4 py-5 border-b border-gray-100">
-        <p className="text-sm font-bold text-gray-900">CooperLiga</p>
-        <p className="text-xs text-gray-400 mt-0.5">Gestão logística</p>
+    <aside
+      style={{ width: SIDEBAR_W, minWidth: SIDEBAR_W, background: PRIMARY }}
+      className="fixed left-0 top-0 h-screen flex flex-col z-10"
+    >
+      {/* Logo */}
+      <div className="px-4 pt-5 pb-4">
+        <div className="rounded-lg overflow-hidden flex items-center justify-center" style={{ background: PRIMARY, height: 54 }}>
+          <Image
+            src="/cooperliga_logo.jpg"
+            alt="CooperLiga"
+            width={180}
+            height={54}
+            className="object-contain"
+            priority
+          />
+        </div>
+        <p className="text-center mt-2 text-xs" style={{ color: ACCENT }}>
+          Gestão Logística
+        </p>
       </div>
 
+      <div style={{ borderTop: `1px solid rgba(255,255,255,0.1)` }} />
+
+      {/* Nav */}
       <nav className="flex-1 px-2 py-3 space-y-0.5 overflow-y-auto">
-        {visivel.map(item => {
-          const ativo = pathname === item.href || (item.href !== '/manifestos' && pathname.startsWith(item.href))
+        {itens.map(item => {
+          const ativo = pathname === item.href || pathname.startsWith(item.href + '/')
           return (
             <Link
               key={item.href}
               href={item.href}
-              className={`block px-3 py-2 rounded-lg text-sm transition-colors ${
-                ativo
-                  ? 'bg-blue-50 text-blue-700 font-medium'
-                  : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
-              }`}
+              className="flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm transition-colors"
+              style={{
+                background: ativo ? 'rgba(255,255,255,0.15)' : 'transparent',
+                color: ativo ? '#FFFFFF' : 'rgba(255,255,255,0.65)',
+                fontWeight: ativo ? 600 : 400,
+              }}
             >
-              {item.label}
+              <span className="text-base leading-none">{item.icon}</span>
+              <span>{item.label}</span>
             </Link>
           )
         })}
       </nav>
 
-      <div className="px-4 py-4 border-t border-gray-100">
-        <p className="text-xs font-medium text-gray-700 truncate">{nome}</p>
-        <p className="text-xs text-gray-400 capitalize">{perfil}</p>
+      <div style={{ borderTop: `1px solid rgba(255,255,255,0.1)` }} />
+
+      {/* BIA — preview */}
+      <div className="px-3 py-3">
         <button
-          onClick={handleLogout}
-          className="mt-2 text-xs text-gray-400 hover:text-gray-700 transition-colors"
+          className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm transition-colors"
+          style={{ background: 'rgba(212,160,160,0.2)', color: ACCENT }}
+          disabled
+          title="Em breve"
         >
-          Sair
+          <span className="text-base leading-none">🤖</span>
+          <span className="flex-1 text-left">BIA</span>
+          <span className="text-[10px] rounded px-1.5 py-0.5" style={{ background: 'rgba(212,160,160,0.3)', color: ACCENT }}>
+            em breve
+          </span>
         </button>
+      </div>
+
+      {/* Usuário */}
+      <div className="px-3 pb-4">
+        <div className="flex items-center gap-2.5 px-3 py-2.5 rounded-lg" style={{ background: 'rgba(255,255,255,0.08)' }}>
+          <div
+            className="flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold"
+            style={{ background: ACCENT, color: PRIMARY }}
+          >
+            {iniciais(nome || email)}
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-xs font-medium text-white truncate">{nome || email}</p>
+            <p className="text-[10px] capitalize" style={{ color: ACCENT }}>{perfil}</p>
+          </div>
+          <button
+            onClick={handleLogout}
+            title="Sair"
+            className="text-xs transition-opacity hover:opacity-100 opacity-50"
+            style={{ color: ACCENT }}
+          >
+            ↩
+          </button>
+        </div>
+
+        <div className="flex justify-center mt-3">
+          <Image src="/logo_saacs.png" alt="SAACS" width={72} height={22} className="object-contain opacity-30" />
+        </div>
       </div>
     </aside>
   )
