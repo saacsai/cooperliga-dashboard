@@ -128,7 +128,7 @@ export default function Sidebar({ nome, email, perfil, onEditarPerfil }: Props) 
       </div>
 
       <div className="flex justify-center pb-3">
-        <Image src="/logo_saacs_negativo.png" alt="SAACS" width={72} height={26} className="object-contain opacity-[0.05]" />
+        <Image src="/logo_saacs_sem_slogan.png" alt="SAACS" width={83} height={22} className="object-contain opacity-70" />
       </div>
     </aside>
   )
