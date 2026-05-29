@@ -29,7 +29,7 @@ export default function PontosDeEntregaPage() {
       getSupabase().from('pontos_de_entrega').select('*, contratos(orgao, clientes(nome))').order('nome'),
       getSupabase().from('contratos').select('id, orgao, clientes(nome)').eq('ativo', true).order('orgao'),
     ])
-    setPontos(p || [])
+    setPontos((p || []) as unknown as PontoDeEntrega[])
     setContratos((c || []) as unknown as ContratoDropdown[])
     setLoading(false)
   }

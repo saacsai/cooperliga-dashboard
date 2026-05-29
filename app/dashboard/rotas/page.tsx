@@ -3,7 +3,9 @@
 import { useEffect, useState } from 'react'
 import { getSupabase } from '@/lib/supabase'
 import Drawer from '@/components/Drawer'
-import type { Agregado, Rota } from '@/lib/supabase'
+import type { Rota } from '@/lib/supabase'
+
+type AgregadoDropdown = { id: string; nome: string }
 
 const PRIMARY = '#5C0F0F'
 
@@ -11,7 +13,7 @@ const VAZIO = { codigo: '', nome: '', regiao: '', agregado_id: '', valor_frete: 
 
 export default function RotasPage() {
   const [rotas,    setRotas]    = useState<Rota[]>([])
-  const [agregados, setAgregados] = useState<Agregado[]>([])
+  const [agregados, setAgregados] = useState<AgregadoDropdown[]>([])
   const [loading,  setLoading]  = useState(true)
   const [drawer,   setDrawer]   = useState(false)
   const [editId,   setEditId]   = useState<string | null>(null)
@@ -27,8 +29,8 @@ export default function RotasPage() {
       getSupabase().from('rotas').select('*, agregados(nome)').order('codigo'),
       getSupabase().from('agregados').select('id, nome').eq('ativo', true).order('nome'),
     ])
-    setRotas(r || [])
-    setAgregados(a || [])
+    setRotas((r || []) as unknown as Rota[])
+    setAgregados((a || []) as unknown as AgregadoDropdown[])
     setLoading(false)
   }
 

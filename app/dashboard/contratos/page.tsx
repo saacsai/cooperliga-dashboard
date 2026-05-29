@@ -29,8 +29,8 @@ export default function ContratosPage() {
       getSupabase().from('contratos').select('*, clientes(nome)').order('orgao'),
       getSupabase().from('clientes').select('id, nome').eq('ativo', true).order('nome'),
     ])
-    setContratos(c || [])
-    setClientes(cl || [])
+    setContratos((c || []) as unknown as Contrato[])
+    setClientes((cl || []) as unknown as Pick<Cliente, 'id' | 'nome'>[])
     setLoading(false)
   }
 
