@@ -11,7 +11,7 @@ const VAZIO = { nome: '', contrato_id: '', codigo_interno: '', codigo_estado: ''
 
 export default function PontosDeEntregaPage() {
   const [pontos,    setPontos]   = useState<PontoDeEntrega[]>([])
-  const [contratos, setContratos] = useState<Contrato[]>([])
+  const [contratos, setContratos] = useState<Pick<Contrato, 'id' | 'orgao'> & { clientes: { nome: string } | null }[]>([])
   const [loading,   setLoading]  = useState(true)
   const [drawer,    setDrawer]   = useState(false)
   const [editId,    setEditId]   = useState<string | null>(null)
