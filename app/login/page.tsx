@@ -56,7 +56,7 @@ export default function LoginPage() {
           </button>
         </div>
         <div className="flex justify-center pb-5">
-          <Image src="/logo_saacs_negativo.png" alt="SAACS" width={64} height={20} className="object-contain" style={{ opacity: 0.05 }} />
+          <Image src="/logo_saacs_negativo.png" alt="SAACS" width={64} height={20} className="object-contain" style={{ opacity: 0.5 }} />
         </div>
       </div>
     </div>
@@ -169,7 +169,7 @@ export default function LoginPage() {
 
         {/* Footer */}
         <div className="flex justify-center py-4">
-          <Image src="/logo_saacs_negativo.png" alt="SAACS" width={64} height={20} className="object-contain" style={{ opacity: 0.05 }} />
+          <Image src="/logo_saacs_negativo.png" alt="SAACS" width={64} height={20} className="object-contain" style={{ opacity: 0.5 }} />
         </div>
 
       </div>
