@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useMemo } from 'react'
 import { getSupabase } from '@/lib/supabase'
 import Drawer from '@/components/Drawer'
 import ImportarLote from '@/components/ImportarLote'
@@ -9,6 +9,8 @@ import type { PontoDeEntrega } from '@/lib/supabase'
 const PRIMARY = '#5C0F0F'
 
 type ContratoDropdown = { id: string; orgao: string; clientes: { nome: string } | null }
+type RotaItem = { id: string; nome: string }
+type RotaPonto = { rota_id: string; ponto_de_entrega_id: string }
 
 const VAZIO = { nome: '', contrato_id: '', codigo_interno: '', codigo_estado: '', codigo_prefeitura: '', endereco: '', municipio: '', contato_nome: '' }
 
@@ -23,29 +25,63 @@ const COLUNAS_IMPORT = [
 ]
 
 export default function PontosDeEntregaPage() {
-  const [pontos,    setPontos]   = useState<PontoDeEntrega[]>([])
-  const [contratos, setContratos] = useState<ContratoDropdown[]>([])
-  const [loading,   setLoading]  = useState(true)
-  const [drawer,    setDrawer]   = useState(false)
-  const [editId,    setEditId]   = useState<string | null>(null)
-  const [salvando,  setSalvando] = useState(false)
-  const [erro,      setErro]     = useState('')
-  const [form,      setForm]     = useState(VAZIO)
+  const [pontos,     setPontos]     = useState<PontoDeEntrega[]>([])
+  const [contratos,  setContratos]  = useState<ContratoDropdown[]>([])
+  const [rotas,      setRotas]      = useState<RotaItem[]>([])
+  const [rotaPontos, setRotaPontos] = useState<RotaPonto[]>([])
+  const [loading,    setLoading]    = useState(true)
+  const [drawer,     setDrawer]     = useState(false)
+  const [editId,     setEditId]     = useState<string | null>(null)
+  const [salvando,   setSalvando]   = useState(false)
+  const [erro,       setErro]       = useState('')
+  const [form,       setForm]       = useState(VAZIO)
+
+  const [busca,      setBusca]      = useState('')
+  const [rotaFiltro, setRotaFiltro] = useState('')
 
   const set = (f: keyof typeof VAZIO) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
     setForm(p => ({ ...p, [f]: e.target.value }))
 
   async function carregar() {
-    const [{ data: p }, { data: c }] = await Promise.all([
+    const [{ data: p }, { data: c }, { data: r }, { data: rp }] = await Promise.all([
       getSupabase().from('pontos_de_entrega').select('*, contratos(orgao, clientes(nome))').order('nome'),
       getSupabase().from('contratos').select('id, orgao, clientes(nome)').eq('ativo', true).order('orgao'),
+      getSupabase().from('rotas').select('id, nome').order('nome'),
+      getSupabase().from('rota_pontos').select('rota_id, ponto_de_entrega_id'),
     ])
     setPontos((p || []) as unknown as PontoDeEntrega[])
     setContratos((c || []) as unknown as ContratoDropdown[])
+    setRotas(r || [])
+    setRotaPontos(rp || [])
     setLoading(false)
   }
 
   useEffect(() => { carregar() }, [])
+
+  const pontosFiltrados = useMemo(() => {
+    let result = pontos
+
+    if (busca.trim()) {
+      const q = busca.toLowerCase()
+      result = result.filter(p =>
+        p.nome.toLowerCase().includes(q) ||
+        (p.codigo_estado || '').toLowerCase().includes(q) ||
+        (p.codigo_prefeitura || '').toLowerCase().includes(q) ||
+        (p.municipio || '').toLowerCase().includes(q)
+      )
+    }
+
+    if (rotaFiltro) {
+      const ids = new Set(
+        rotaPontos
+          .filter(rp => rp.rota_id === rotaFiltro)
+          .map(rp => rp.ponto_de_entrega_id)
+      )
+      result = result.filter(p => ids.has(p.id))
+    }
+
+    return result
+  }, [pontos, busca, rotaFiltro, rotaPontos])
 
   function abrirNovo() {
     setEditId(null); setForm(VAZIO); setErro(''); setDrawer(true)
@@ -108,6 +144,8 @@ export default function PontosDeEntregaPage() {
     return `${c.orgao}${cliente ? ` — ${cliente}` : ''}`
   }
 
+  const temFiltro = busca.trim() !== '' || rotaFiltro !== ''
+
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
@@ -121,6 +159,48 @@ export default function PontosDeEntregaPage() {
             + Novo ponto
           </button>
         </div>
+      </div>
+
+      {/* Filtros */}
+      <div className="flex items-center gap-3 mb-4">
+        <div className="relative flex-1 max-w-sm">
+          <svg className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+          </svg>
+          <input
+            type="text"
+            value={busca}
+            onChange={e => setBusca(e.target.value)}
+            placeholder="Buscar por nome, código ou município…"
+            className="w-full border border-gray-300 rounded-lg pl-8 pr-3 py-2 text-sm outline-none focus:border-[#5C0F0F]"
+          />
+        </div>
+
+        <select
+          value={rotaFiltro}
+          onChange={e => setRotaFiltro(e.target.value)}
+          className="border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#5C0F0F] bg-white text-gray-700"
+        >
+          <option value="">Todas as regiões</option>
+          {rotas.map(r => <option key={r.id} value={r.id}>{r.nome}</option>)}
+        </select>
+
+        {temFiltro && (
+          <button
+            onClick={() => { setBusca(''); setRotaFiltro('') }}
+            className="text-xs text-gray-400 hover:text-gray-700 transition-colors"
+          >
+            Limpar
+          </button>
+        )}
+
+        {!loading && (
+          <span className="text-xs text-gray-400 ml-auto">
+            {temFiltro
+              ? `${pontosFiltrados.length} de ${pontos.length}`
+              : `${pontos.length} pontos`}
+          </span>
+        )}
       </div>
 
       {loading ? <p className="text-sm text-gray-400">Carregando…</p> : (
@@ -138,7 +218,7 @@ export default function PontosDeEntregaPage() {
               </tr>
             </thead>
             <tbody>
-              {pontos.map(p => (
+              {pontosFiltrados.map(p => (
                 <tr key={p.id} className="border-b border-gray-50 last:border-0 hover:bg-gray-50/50">
                   <td className="px-4 py-3 font-medium text-gray-900">{p.nome}</td>
                   <td className="px-4 py-3 text-gray-500 text-xs">{(p as any).contratos?.orgao || '—'}</td>
@@ -158,8 +238,12 @@ export default function PontosDeEntregaPage() {
                   </td>
                 </tr>
               ))}
-              {pontos.length === 0 && (
-                <tr><td colSpan={7} className="px-4 py-8 text-center text-sm text-gray-400">Nenhum ponto de entrega cadastrado.</td></tr>
+              {pontosFiltrados.length === 0 && (
+                <tr>
+                  <td colSpan={7} className="px-4 py-8 text-center text-sm text-gray-400">
+                    {temFiltro ? 'Nenhum ponto encontrado para este filtro.' : 'Nenhum ponto de entrega cadastrado.'}
+                  </td>
+                </tr>
               )}
             </tbody>
           </table>

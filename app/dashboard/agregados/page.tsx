@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useMemo } from 'react'
 import { getSupabase } from '@/lib/supabase'
 import { buscarCNPJ } from '@/lib/useCNPJLookup'
 import { buscarCEP } from '@/lib/useCEPLookup'
@@ -42,6 +42,18 @@ export default function AgregadosPage() {
   const [form,         setForm]         = useState(VAZIO)
   const [buscandoCNPJ, setBuscandoCNPJ] = useState(false)
   const [buscandoCEP,  setBuscandoCEP]  = useState(false)
+  const [busca,        setBusca]        = useState('')
+
+  const agregadosFiltrados = useMemo(() => {
+    if (!busca.trim()) return agregados
+    const q = busca.toLowerCase()
+    return agregados.filter(a =>
+      a.nome.toLowerCase().includes(q) ||
+      (a.veiculo_placa || '').toLowerCase().includes(q) ||
+      (a.whatsapp || '').includes(q) ||
+      (a.municipio || '').toLowerCase().includes(q)
+    )
+  }, [agregados, busca])
 
   const set = (f: keyof typeof VAZIO) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
     setForm(p => ({ ...p, [f]: e.target.value }))
@@ -169,6 +181,23 @@ export default function AgregadosPage() {
         </div>
       </div>
 
+      <div className="flex items-center gap-3 mb-4">
+        <div className="relative flex-1 max-w-sm">
+          <svg className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+          </svg>
+          <input type="text" value={busca} onChange={e => setBusca(e.target.value)}
+            placeholder="Buscar por nome, placa ou município…"
+            className="w-full border border-gray-300 rounded-lg pl-8 pr-3 py-2 text-sm outline-none focus:border-[#5C0F0F]" />
+        </div>
+        {busca && <button onClick={() => setBusca('')} className="text-xs text-gray-400 hover:text-gray-700">Limpar</button>}
+        {!loading && (
+          <span className="text-xs text-gray-400 ml-auto">
+            {busca ? `${agregadosFiltrados.length} de ${agregados.length}` : `${agregados.length} agregados`}
+          </span>
+        )}
+      </div>
+
       {loading ? <p className="text-sm text-gray-400">Carregando…</p> : (
         <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
           <table className="w-full text-sm">
@@ -184,7 +213,7 @@ export default function AgregadosPage() {
               </tr>
             </thead>
             <tbody>
-              {agregados.map(a => (
+              {agregadosFiltrados.map(a => (
                 <tr key={a.id} className="border-b border-gray-50 last:border-0 hover:bg-gray-50/50">
                   <td className="px-4 py-3">
                     <span className="font-medium text-gray-900">{a.nome}</span>
@@ -209,8 +238,10 @@ export default function AgregadosPage() {
                   </td>
                 </tr>
               ))}
-              {agregados.length === 0 && (
-                <tr><td colSpan={7} className="px-4 py-8 text-center text-sm text-gray-400">Nenhum agregado cadastrado.</td></tr>
+              {agregadosFiltrados.length === 0 && (
+                <tr><td colSpan={7} className="px-4 py-8 text-center text-sm text-gray-400">
+                  {busca ? 'Nenhum agregado encontrado para esta busca.' : 'Nenhum agregado cadastrado.'}
+                </td></tr>
               )}
             </tbody>
           </table>
