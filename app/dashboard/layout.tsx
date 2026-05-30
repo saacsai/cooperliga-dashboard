@@ -61,13 +61,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     e.preventDefault()
     setSalvando(true)
     setErroEdit('')
-    const res = await fetch(`/api/admin/usuarios/${userId}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ nome: editNome, whatsapp: editWpp, perfil }),
-    })
-    const json = await res.json()
-    if (!res.ok) { setErroEdit(json.error || 'Erro ao salvar'); setSalvando(false); return }
+    const { error } = await getSupabase()
+      .from('usuarios')
+      .update({ nome: editNome, whatsapp: editWpp || null })
+      .eq('id', userId)
+    if (error) { setErroEdit(error.message); setSalvando(false); return }
     setNome(editNome)
     setOkEdit(true)
     setSalvando(false)
