@@ -79,9 +79,26 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     })
   }, [])
 
-  function abrirDrawerPerfil() {
+  async function abrirDrawerPerfil() {
     setErroEdit('')
     setOkEdit(false)
+    const { data: usuario } = await getSupabase()
+      .from('usuarios')
+      .select('nome, whatsapp, cpf, rg, data_nascimento, municipio, cep, endereco')
+      .eq('id', userId)
+      .single()
+    if (usuario) {
+      setForm({
+        nome:            usuario.nome            || '',
+        whatsapp:        usuario.whatsapp        || '',
+        cpf:             usuario.cpf             || '',
+        rg:              usuario.rg              || '',
+        data_nascimento: usuario.data_nascimento || '',
+        municipio:       usuario.municipio       || '',
+        cep:             usuario.cep             || '',
+        endereco:        usuario.endereco        || '',
+      })
+    }
     setDrawerPerfil(true)
   }
 
