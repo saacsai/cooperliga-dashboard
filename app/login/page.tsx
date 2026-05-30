@@ -125,8 +125,8 @@ export default function LoginPage() {
               )}
               <button
                 type="submit" disabled={loading}
-                className="w-full text-sm font-semibold rounded-lg py-2.5 disabled:opacity-50 transition-opacity clear-both"
-                style={{ background: 'white', color: PRIMARY }}
+                className="w-full text-sm font-semibold rounded-lg py-2.5 disabled:opacity-60 transition-all clear-both"
+                style={{ background: loading ? 'white' : ACCENT, color: PRIMARY }}
               >
                 {loading ? 'Entrando…' : 'Entrar'}
               </button>
