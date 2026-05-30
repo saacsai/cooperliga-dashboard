@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useMemo } from 'react'
 import { getSupabase } from '@/lib/supabase'
 import { buscarCEP } from '@/lib/useCEPLookup'
 import Drawer from '@/components/Drawer'
@@ -56,6 +56,17 @@ export default function UsuariosPage() {
   const [erro,        setErro]        = useState('')
   const [form,        setForm]        = useState<FormState>(FORM_VAZIO)
   const [buscandoCEP, setBuscandoCEP] = useState(false)
+  const [busca,       setBusca]       = useState('')
+
+  const usuariosFiltrados = useMemo(() => {
+    if (!busca.trim()) return usuarios
+    const q = busca.toLowerCase()
+    return usuarios.filter(u =>
+      u.nome.toLowerCase().includes(q) ||
+      u.email.toLowerCase().includes(q) ||
+      (u.whatsapp || '').includes(q)
+    )
+  }, [usuarios, busca])
 
   const set = (field: keyof FormState) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
     setForm(prev => ({ ...prev, [field]: e.target.value }))
@@ -174,6 +185,23 @@ export default function UsuariosPage() {
         </button>
       </div>
 
+      <div className="flex items-center gap-3 mb-4">
+        <div className="relative flex-1 max-w-sm">
+          <svg className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+          </svg>
+          <input type="text" value={busca} onChange={e => setBusca(e.target.value)}
+            placeholder="Buscar por nome, email ou WhatsApp…"
+            className="w-full border border-gray-300 rounded-lg pl-8 pr-3 py-2 text-sm outline-none focus:border-[#5C0F0F]" />
+        </div>
+        {busca && <button onClick={() => setBusca('')} className="text-xs text-gray-400 hover:text-gray-700">Limpar</button>}
+        {!loading && (
+          <span className="text-xs text-gray-400 ml-auto">
+            {busca ? `${usuariosFiltrados.length} de ${usuarios.length}` : `${usuarios.length} usuários`}
+          </span>
+        )}
+      </div>
+
       {loading ? (
         <p className="text-sm text-gray-400">Carregando…</p>
       ) : (
@@ -190,7 +218,7 @@ export default function UsuariosPage() {
               </tr>
             </thead>
             <tbody>
-              {usuarios.map(u => (
+              {usuariosFiltrados.map(u => (
                 <tr key={u.id} className="border-b border-gray-50 last:border-0 hover:bg-gray-50/50">
                   <td className="px-4 py-3 font-medium text-gray-900">{u.nome}</td>
                   <td className="px-4 py-3 text-gray-500">{u.email}</td>
@@ -224,10 +252,10 @@ export default function UsuariosPage() {
                   </td>
                 </tr>
               ))}
-              {usuarios.length === 0 && (
+              {usuariosFiltrados.length === 0 && (
                 <tr>
                   <td colSpan={6} className="px-4 py-8 text-center text-sm text-gray-400">
-                    Nenhum usuário cadastrado ainda.
+                    {busca ? 'Nenhum usuário encontrado para esta busca.' : 'Nenhum usuário cadastrado ainda.'}
                   </td>
                 </tr>
               )}
