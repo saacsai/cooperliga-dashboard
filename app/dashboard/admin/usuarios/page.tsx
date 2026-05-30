@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { getSupabase } from '@/lib/supabase'
 import { buscarCEP } from '@/lib/useCEPLookup'
+import Drawer from '@/components/Drawer'
 import type { Usuario, Perfil } from '@/lib/supabase'
 
 const PRIMARY = '#5C0F0F'
@@ -48,7 +49,7 @@ const FORM_VAZIO: FormState = {
 export default function UsuariosPage() {
   const [usuarios, setUsuarios]   = useState<Usuario[]>([])
   const [loading,  setLoading]    = useState(true)
-  const [modal,    setModal]      = useState(false)
+  const [drawer,   setDrawer]     = useState(false)
   const [modo,     setModo]       = useState<Modo>('criar')
   const [editId,   setEditId]     = useState<string | null>(null)
   const [salvando,    setSalvando]    = useState(false)
@@ -72,7 +73,7 @@ export default function UsuariosPage() {
     setEditId(null)
     setForm(FORM_VAZIO)
     setErro('')
-    setModal(true)
+    setDrawer(true)
   }
 
   function abrirEditar(u: Usuario) {
@@ -92,7 +93,7 @@ export default function UsuariosPage() {
       cep:             u.cep             || '',
     })
     setErro('')
-    setModal(true)
+    setDrawer(true)
   }
 
   async function handleCEPBlur() {
@@ -147,7 +148,7 @@ export default function UsuariosPage() {
       if (!res.ok) { setErro(json.error || 'Erro ao atualizar usuário'); setSalvando(false); return }
     }
 
-    setModal(false)
+    setDrawer(false)
     setSalvando(false)
     carregar()
   }
@@ -235,113 +236,105 @@ export default function UsuariosPage() {
         </div>
       )}
 
-      {modal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.4)' }}>
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg p-6 max-h-[90vh] overflow-y-auto">
-            <h2 className="text-base font-bold text-gray-900 mb-4">
-              {modo === 'criar' ? 'Novo usuário' : 'Editar usuário'}
-            </h2>
-
-            <form onSubmit={handleSalvar} className="space-y-3">
-              <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1">Nome completo</label>
-                <input type="text" value={form.nome} onChange={set('nome')} required autoFocus
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#5C0F0F]" />
-              </div>
-
-              <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1">Email</label>
-                {modo === 'criar' ? (
-                  <input type="email" value={form.email} onChange={set('email')} required
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#5C0F0F]" />
-                ) : (
-                  <input type="email" value={form.email} disabled
-                    className="w-full border border-gray-100 rounded-lg px-3 py-2 text-sm bg-gray-50 text-gray-400 cursor-not-allowed" />
-                )}
-              </div>
-
-              <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1">WhatsApp</label>
-                <input type="tel" value={form.whatsapp} onChange={set('whatsapp')} placeholder="(11) 99999-9999"
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#5C0F0F]" />
-              </div>
-
-              <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1">Perfil</label>
-                <select value={form.perfil} onChange={set('perfil')}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#5C0F0F]">
-                  {PERFIS.map(p => (
-                    <option key={p} value={p}>{PERFIL_LABEL[p]}</option>
-                  ))}
-                </select>
-              </div>
-
-              {modo === 'criar' && (
-                <div>
-                  <label className="block text-xs font-medium text-gray-600 mb-1">Senha inicial</label>
-                  <input type="password" value={form.senha} onChange={set('senha')} required minLength={6}
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#5C0F0F]" />
-                </div>
-              )}
-
-              <div className="border-t border-gray-100 pt-3">
-                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Ficha RH</p>
-                <div className="space-y-3">
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <label className="block text-xs font-medium text-gray-600 mb-1">CPF</label>
-                      <input type="text" value={form.cpf} onChange={set('cpf')} placeholder="000.000.000-00"
-                        className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#5C0F0F]" />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-medium text-gray-600 mb-1">RG</label>
-                      <input type="text" value={form.rg} onChange={set('rg')}
-                        className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#5C0F0F]" />
-                    </div>
-                  </div>
-                  <div>
-                    <label className="block text-xs font-medium text-gray-600 mb-1">Data de nascimento</label>
-                    <input type="date" value={form.data_nascimento} onChange={set('data_nascimento')}
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#5C0F0F]" />
-                  </div>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <label className="block text-xs font-medium text-gray-600 mb-1">Município</label>
-                      <input type="text" value={form.municipio} onChange={set('municipio')}
-                        className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#5C0F0F]" />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-medium text-gray-600 mb-1">CEP</label>
-                      <input type="text" value={form.cep} onChange={set('cep')} onBlur={handleCEPBlur} placeholder="00000-000"
-                        className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#5C0F0F]" />
-                      {buscandoCEP && <p className="text-xs text-gray-400 mt-0.5">Buscando CEP…</p>}
-                    </div>
-                  </div>
-                  <div>
-                    <label className="block text-xs font-medium text-gray-600 mb-1">Endereço</label>
-                    <input type="text" value={form.endereco} onChange={set('endereco')}
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#5C0F0F]" />
-                  </div>
-                </div>
-              </div>
-
-              {erro && <p className="text-xs text-red-600 bg-red-50 border border-red-200 rounded-lg p-2">{erro}</p>}
-
-              <div className="flex gap-2 pt-1">
-                <button type="button" onClick={() => setModal(false)}
-                  className="flex-1 border border-gray-200 rounded-lg py-2 text-sm text-gray-600 hover:bg-gray-50">
-                  Cancelar
-                </button>
-                <button type="submit" disabled={salvando}
-                  className="flex-1 text-white rounded-lg py-2 text-sm font-medium disabled:opacity-50"
-                  style={{ background: PRIMARY }}>
-                  {salvando ? 'Salvando…' : modo === 'criar' ? 'Criar usuário' : 'Salvar alterações'}
-                </button>
-              </div>
-            </form>
+      <Drawer open={drawer} onClose={() => setDrawer(false)} title={modo === 'criar' ? 'Novo usuário' : 'Editar usuário'}>
+        <form onSubmit={handleSalvar} className="space-y-4">
+          <div>
+            <label className="block text-xs font-medium text-gray-600 mb-1">Nome completo</label>
+            <input type="text" value={form.nome} onChange={set('nome')} required autoFocus
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#5C0F0F]" />
           </div>
-        </div>
-      )}
+
+          <div>
+            <label className="block text-xs font-medium text-gray-600 mb-1">Email</label>
+            {modo === 'criar' ? (
+              <input type="email" value={form.email} onChange={set('email')} required
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#5C0F0F]" />
+            ) : (
+              <input type="email" value={form.email} disabled
+                className="w-full border border-gray-100 rounded-lg px-3 py-2 text-sm bg-gray-50 text-gray-400 cursor-not-allowed" />
+            )}
+          </div>
+
+          <div>
+            <label className="block text-xs font-medium text-gray-600 mb-1">WhatsApp</label>
+            <input type="tel" value={form.whatsapp} onChange={set('whatsapp')} placeholder="(11) 99999-9999"
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#5C0F0F]" />
+          </div>
+
+          <div>
+            <label className="block text-xs font-medium text-gray-600 mb-1">Perfil</label>
+            <select value={form.perfil} onChange={set('perfil')}
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#5C0F0F] bg-white">
+              {PERFIS.map(p => (
+                <option key={p} value={p}>{PERFIL_LABEL[p]}</option>
+              ))}
+            </select>
+          </div>
+
+          {modo === 'criar' && (
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1">Senha inicial</label>
+              <input type="password" value={form.senha} onChange={set('senha')} required minLength={6}
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#5C0F0F]" />
+            </div>
+          )}
+
+          <div className="border-t border-gray-100 pt-3">
+            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Ficha RH</p>
+            <div className="space-y-3">
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">CPF</label>
+                  <input type="text" value={form.cpf} onChange={set('cpf')} placeholder="000.000.000-00"
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#5C0F0F]" />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">RG</label>
+                  <input type="text" value={form.rg} onChange={set('rg')}
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#5C0F0F]" />
+                </div>
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1">Data de nascimento</label>
+                <input type="date" value={form.data_nascimento} onChange={set('data_nascimento')}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#5C0F0F]" />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">Município</label>
+                  <input type="text" value={form.municipio} onChange={set('municipio')}
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#5C0F0F]" />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">CEP</label>
+                  <input type="text" value={form.cep} onChange={set('cep')} onBlur={handleCEPBlur} placeholder="00000-000"
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#5C0F0F]" />
+                  {buscandoCEP && <p className="text-xs text-gray-400 mt-0.5">Buscando CEP…</p>}
+                </div>
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1">Endereço</label>
+                <input type="text" value={form.endereco} onChange={set('endereco')}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#5C0F0F]" />
+              </div>
+            </div>
+          </div>
+
+          {erro && <p className="text-xs text-red-600 bg-red-50 border border-red-200 rounded-lg p-2">{erro}</p>}
+
+          <div className="flex gap-2 pt-2">
+            <button type="button" onClick={() => setDrawer(false)}
+              className="flex-1 border border-gray-200 rounded-lg py-2 text-sm text-gray-600 hover:bg-gray-50">
+              Cancelar
+            </button>
+            <button type="submit" disabled={salvando}
+              className="flex-1 text-white rounded-lg py-2 text-sm font-medium disabled:opacity-50"
+              style={{ background: PRIMARY }}>
+              {salvando ? 'Salvando…' : modo === 'criar' ? 'Criar usuário' : 'Salvar'}
+            </button>
+          </div>
+        </form>
+      </Drawer>
     </div>
   )
 }
