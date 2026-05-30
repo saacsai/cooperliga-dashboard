@@ -3,11 +3,19 @@
 import { useEffect, useState } from 'react'
 import { getSupabase } from '@/lib/supabase'
 import Drawer from '@/components/Drawer'
+import ImportarLote from '@/components/ImportarLote'
 import type { Produto } from '@/lib/supabase'
 
 const PRIMARY = '#5C0F0F'
 
 const VAZIO = { nome: '', unidade_padrao: 'UNIDADE' as 'UNIDADE' | 'CAIXA' | 'PACOTE', capacidade_por_caixa: '', categoria: '' }
+
+const COLUNAS_IMPORT = [
+  { key: 'nome',                label: 'Nome' },
+  { key: 'unidade_padrao',      label: 'Unidade' },
+  { key: 'capacidade_por_caixa', label: 'Cap. por caixa' },
+  { key: 'categoria',           label: 'Categoria' },
+]
 
 export default function ProdutosPage() {
   const [produtos, setProdutos] = useState<Produto[]>([])
@@ -52,6 +60,19 @@ export default function ProdutosPage() {
     setDrawer(false); setSalvando(false); carregar()
   }
 
+  async function handleImportar(rows: Record<string, string>[]) {
+    const UNIDADES = ['UNIDADE', 'CAIXA', 'PACOTE']
+    const payload = rows.filter(r => r.nome).map(r => ({
+      nome:                 r.nome,
+      unidade_padrao:       (UNIDADES.includes(r.unidade_padrao?.toUpperCase()) ? r.unidade_padrao.toUpperCase() : 'UNIDADE') as 'UNIDADE' | 'CAIXA' | 'PACOTE',
+      capacidade_por_caixa: r.capacidade_por_caixa ? parseInt(r.capacidade_por_caixa) : null,
+      categoria:            r.categoria || null,
+    }))
+    const { error } = await getSupabase().from('produtos').insert(payload)
+    if (error) throw new Error(error.message)
+    carregar()
+  }
+
   async function toggleAtivo(p: Produto) {
     await getSupabase().from('produtos').update({ ativo: !p.ativo }).eq('id', p.id)
     carregar()
@@ -64,9 +85,12 @@ export default function ProdutosPage() {
           <h1 className="text-xl font-bold text-gray-900">Produtos</h1>
           <p className="text-sm text-gray-500 mt-0.5">Gêneros alimentícios e itens entregues</p>
         </div>
-        <button onClick={abrirNovo} className="text-white text-sm font-medium px-4 py-2 rounded-lg hover:opacity-90 transition-opacity" style={{ background: PRIMARY }}>
-          + Novo produto
-        </button>
+        <div className="flex items-center gap-3">
+          <ImportarLote colunas={COLUNAS_IMPORT} onImportar={handleImportar} primaryColor={PRIMARY} />
+          <button onClick={abrirNovo} className="text-white text-sm font-medium px-4 py-2 rounded-lg hover:opacity-90 transition-opacity" style={{ background: PRIMARY }}>
+            + Novo produto
+          </button>
+        </div>
       </div>
 
       {loading ? <p className="text-sm text-gray-400">Carregando…</p> : (

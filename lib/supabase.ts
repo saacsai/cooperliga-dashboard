@@ -25,15 +25,28 @@ export interface Usuario {
   perfil: Perfil
   ativo: boolean
   created_at: string
+  cpf: string | null
+  rg: string | null
+  data_nascimento: string | null
+  endereco: string | null
+  municipio: string | null
+  cep: string | null
 }
 
 export interface Cliente {
   id: string
   nome: string
+  tipo: 'cooperativa' | 'contratante' | 'outro'
   cnpj: string | null
   codigo: string | null
   contato_nome: string | null
   contato_whatsapp: string | null
+  razao_social: string | null
+  endereco: string | null
+  municipio: string | null
+  cep: string | null
+  telefone: string | null
+  email: string | null
   ativo: boolean
   created_at: string
 }
@@ -95,6 +108,10 @@ export interface Agregado {
   whatsapp: string | null
   veiculo_placa: string | null
   veiculo_tipo: string | null
+  razao_social: string | null
+  endereco: string | null
+  municipio: string | null
+  cep: string | null
   ativo: boolean
   created_at: string
 }

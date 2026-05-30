@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { getSupabase } from '@/lib/supabase'
 import Drawer from '@/components/Drawer'
+import ImportarLote from '@/components/ImportarLote'
 import type { Rota } from '@/lib/supabase'
 
 type AgregadoDropdown = { id: string; nome: string }
@@ -10,6 +11,13 @@ type AgregadoDropdown = { id: string; nome: string }
 const PRIMARY = '#5C0F0F'
 
 const VAZIO = { codigo: '', nome: '', regiao: '', agregado_id: '', valor_frete: '' }
+
+const COLUNAS_IMPORT = [
+  { key: 'codigo',      label: 'Código' },
+  { key: 'nome',        label: 'Nome' },
+  { key: 'regiao',      label: 'Região' },
+  { key: 'valor_frete', label: 'Valor Frete' },
+]
 
 export default function RotasPage() {
   const [rotas,    setRotas]    = useState<Rota[]>([])
@@ -63,6 +71,20 @@ export default function RotasPage() {
     setDrawer(false); setSalvando(false); carregar()
   }
 
+  async function handleImportar(rows: Record<string, string>[]) {
+    const payload = rows.filter(r => r.codigo && r.nome).map(r => ({
+      codigo:      r.codigo,
+      nome:        r.nome,
+      regiao:      r.regiao      || null,
+      valor_frete: r.valor_frete ? parseFloat(r.valor_frete.replace(',', '.')) : null,
+    }))
+    const { error } = await getSupabase()
+      .from('rotas')
+      .upsert(payload, { onConflict: 'codigo' })
+    if (error) throw new Error(error.message)
+    carregar()
+  }
+
   async function toggleAtivo(r: Rota) {
     await getSupabase().from('rotas').update({ ativo: !r.ativo }).eq('id', r.id)
     carregar()
@@ -75,9 +97,12 @@ export default function RotasPage() {
           <h1 className="text-xl font-bold text-gray-900">Rotas</h1>
           <p className="text-sm text-gray-500 mt-0.5">Roteiros de entrega com agregado e valor de frete</p>
         </div>
-        <button onClick={abrirNovo} className="text-white text-sm font-medium px-4 py-2 rounded-lg hover:opacity-90 transition-opacity" style={{ background: PRIMARY }}>
-          + Nova rota
-        </button>
+        <div className="flex items-center gap-3">
+          <ImportarLote colunas={COLUNAS_IMPORT} onImportar={handleImportar} primaryColor={PRIMARY} />
+          <button onClick={abrirNovo} className="text-white text-sm font-medium px-4 py-2 rounded-lg hover:opacity-90 transition-opacity" style={{ background: PRIMARY }}>
+            + Nova rota
+          </button>
+        </div>
       </div>
 
       {loading ? <p className="text-sm text-gray-400">Carregando…</p> : (

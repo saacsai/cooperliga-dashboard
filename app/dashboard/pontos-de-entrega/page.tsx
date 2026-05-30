@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { getSupabase } from '@/lib/supabase'
 import Drawer from '@/components/Drawer'
+import ImportarLote from '@/components/ImportarLote'
 import type { PontoDeEntrega } from '@/lib/supabase'
 
 const PRIMARY = '#5C0F0F'
@@ -10,6 +11,16 @@ const PRIMARY = '#5C0F0F'
 type ContratoDropdown = { id: string; orgao: string; clientes: { nome: string } | null }
 
 const VAZIO = { nome: '', contrato_id: '', codigo_interno: '', codigo_estado: '', codigo_prefeitura: '', endereco: '', municipio: '', contato_nome: '' }
+
+const COLUNAS_IMPORT = [
+  { key: 'nome',              label: 'Nome' },
+  { key: 'codigo_prefeitura', label: 'Cód. Prefeitura' },
+  { key: 'codigo_estado',     label: 'Cód. Estado' },
+  { key: 'codigo_interno',    label: 'Cód. Interno' },
+  { key: 'municipio',         label: 'Município' },
+  { key: 'endereco',          label: 'Endereço' },
+  { key: 'contato_nome',      label: 'Contato' },
+]
 
 export default function PontosDeEntregaPage() {
   const [pontos,    setPontos]   = useState<PontoDeEntrega[]>([])
@@ -70,6 +81,23 @@ export default function PontosDeEntregaPage() {
     setDrawer(false); setSalvando(false); carregar()
   }
 
+  async function handleImportar(rows: Record<string, string>[]) {
+    const payload = rows.filter(r => r.nome).map(r => ({
+      nome:              r.nome,
+      codigo_prefeitura: r.codigo_prefeitura || null,
+      codigo_estado:     r.codigo_estado     || null,
+      codigo_interno:    r.codigo_interno    || null,
+      municipio:         r.municipio         || null,
+      endereco:          r.endereco          || null,
+      contato_nome:      r.contato_nome      || null,
+    }))
+    const { error } = await getSupabase()
+      .from('pontos_de_entrega')
+      .upsert(payload, { onConflict: 'codigo_prefeitura' })
+    if (error) throw new Error(error.message)
+    carregar()
+  }
+
   async function toggleAtivo(p: PontoDeEntrega) {
     await getSupabase().from('pontos_de_entrega').update({ ativo: !p.ativo }).eq('id', p.id)
     carregar()
@@ -87,9 +115,12 @@ export default function PontosDeEntregaPage() {
           <h1 className="text-xl font-bold text-gray-900">Pontos de Entrega</h1>
           <p className="text-sm text-gray-500 mt-0.5">Escolas, creches e unidades receptoras</p>
         </div>
-        <button onClick={abrirNovo} className="text-white text-sm font-medium px-4 py-2 rounded-lg hover:opacity-90 transition-opacity" style={{ background: PRIMARY }}>
-          + Novo ponto
-        </button>
+        <div className="flex items-center gap-3">
+          <ImportarLote colunas={COLUNAS_IMPORT} onImportar={handleImportar} primaryColor={PRIMARY} />
+          <button onClick={abrirNovo} className="text-white text-sm font-medium px-4 py-2 rounded-lg hover:opacity-90 transition-opacity" style={{ background: PRIMARY }}>
+            + Novo ponto
+          </button>
+        </div>
       </div>
 
       {loading ? <p className="text-sm text-gray-400">Carregando…</p> : (

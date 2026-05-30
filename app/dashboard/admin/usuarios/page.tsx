@@ -31,9 +31,18 @@ interface FormState {
   whatsapp: string
   perfil: Perfil
   senha: string
+  cpf: string
+  rg: string
+  data_nascimento: string
+  endereco: string
+  municipio: string
+  cep: string
 }
 
-const FORM_VAZIO: FormState = { nome: '', email: '', whatsapp: '', perfil: 'operador', senha: '' }
+const FORM_VAZIO: FormState = {
+  nome: '', email: '', whatsapp: '', perfil: 'operador', senha: '',
+  cpf: '', rg: '', data_nascimento: '', endereco: '', municipio: '', cep: '',
+}
 
 export default function UsuariosPage() {
   const [usuarios, setUsuarios]   = useState<Usuario[]>([])
@@ -67,7 +76,19 @@ export default function UsuariosPage() {
   function abrirEditar(u: Usuario) {
     setModo('editar')
     setEditId(u.id)
-    setForm({ nome: u.nome, email: u.email, whatsapp: u.whatsapp || '', perfil: u.perfil, senha: '' })
+    setForm({
+      nome:            u.nome,
+      email:           u.email,
+      whatsapp:        u.whatsapp        || '',
+      perfil:          u.perfil,
+      senha:           '',
+      cpf:             u.cpf             || '',
+      rg:              u.rg              || '',
+      data_nascimento: u.data_nascimento || '',
+      endereco:        u.endereco        || '',
+      municipio:       u.municipio       || '',
+      cep:             u.cep             || '',
+    })
     setErro('')
     setModal(true)
   }
@@ -81,7 +102,14 @@ export default function UsuariosPage() {
       const res = await fetch('/api/admin/usuarios', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ nome: form.nome, email: form.email, whatsapp: form.whatsapp, perfil: form.perfil, senha: form.senha }),
+        body: JSON.stringify({
+          nome: form.nome, email: form.email, whatsapp: form.whatsapp,
+          perfil: form.perfil, senha: form.senha,
+          cpf: form.cpf || null, rg: form.rg || null,
+          data_nascimento: form.data_nascimento || null,
+          endereco: form.endereco || null, municipio: form.municipio || null,
+          cep: form.cep || null,
+        }),
       })
       const json = await res.json()
       if (!res.ok) { setErro(json.error || 'Erro ao criar usuário'); setSalvando(false); return }
@@ -89,7 +117,13 @@ export default function UsuariosPage() {
       const res = await fetch(`/api/admin/usuarios/${editId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ nome: form.nome, whatsapp: form.whatsapp, perfil: form.perfil }),
+        body: JSON.stringify({
+          nome: form.nome, whatsapp: form.whatsapp, perfil: form.perfil,
+          cpf: form.cpf || null, rg: form.rg || null,
+          data_nascimento: form.data_nascimento || null,
+          endereco: form.endereco || null, municipio: form.municipio || null,
+          cep: form.cep || null,
+        }),
       })
       const json = await res.json()
       if (!res.ok) { setErro(json.error || 'Erro ao atualizar usuário'); setSalvando(false); return }
@@ -183,10 +217,9 @@ export default function UsuariosPage() {
         </div>
       )}
 
-      {/* Modal criar / editar */}
       {modal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.4)' }}>
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg p-6 max-h-[90vh] overflow-y-auto">
             <h2 className="text-base font-bold text-gray-900 mb-4">
               {modo === 'criar' ? 'Novo usuário' : 'Editar usuário'}
             </h2>
@@ -232,6 +265,46 @@ export default function UsuariosPage() {
                     className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#5C0F0F]" />
                 </div>
               )}
+
+              <div className="border-t border-gray-100 pt-3">
+                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Ficha RH</p>
+                <div className="space-y-3">
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs font-medium text-gray-600 mb-1">CPF</label>
+                      <input type="text" value={form.cpf} onChange={set('cpf')} placeholder="000.000.000-00"
+                        className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#5C0F0F]" />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-gray-600 mb-1">RG</label>
+                      <input type="text" value={form.rg} onChange={set('rg')}
+                        className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#5C0F0F]" />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 mb-1">Data de nascimento</label>
+                    <input type="date" value={form.data_nascimento} onChange={set('data_nascimento')}
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#5C0F0F]" />
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs font-medium text-gray-600 mb-1">Município</label>
+                      <input type="text" value={form.municipio} onChange={set('municipio')}
+                        className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#5C0F0F]" />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-gray-600 mb-1">CEP</label>
+                      <input type="text" value={form.cep} onChange={set('cep')} placeholder="00000-000"
+                        className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#5C0F0F]" />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 mb-1">Endereço</label>
+                    <input type="text" value={form.endereco} onChange={set('endereco')}
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#5C0F0F]" />
+                  </div>
+                </div>
+              </div>
 
               {erro && <p className="text-xs text-red-600 bg-red-50 border border-red-200 rounded-lg p-2">{erro}</p>}
 
