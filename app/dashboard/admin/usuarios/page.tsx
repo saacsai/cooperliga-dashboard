@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { getSupabase } from '@/lib/supabase'
+import { buscarCEP } from '@/lib/useCEPLookup'
 import type { Usuario, Perfil } from '@/lib/supabase'
 
 const PRIMARY = '#5C0F0F'
@@ -50,9 +51,10 @@ export default function UsuariosPage() {
   const [modal,    setModal]      = useState(false)
   const [modo,     setModo]       = useState<Modo>('criar')
   const [editId,   setEditId]     = useState<string | null>(null)
-  const [salvando, setSalvando]   = useState(false)
-  const [erro,     setErro]       = useState('')
-  const [form,     setForm]       = useState<FormState>(FORM_VAZIO)
+  const [salvando,    setSalvando]    = useState(false)
+  const [erro,        setErro]        = useState('')
+  const [form,        setForm]        = useState<FormState>(FORM_VAZIO)
+  const [buscandoCEP, setBuscandoCEP] = useState(false)
 
   const set = (field: keyof FormState) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
     setForm(prev => ({ ...prev, [field]: e.target.value }))
@@ -91,6 +93,22 @@ export default function UsuariosPage() {
     })
     setErro('')
     setModal(true)
+  }
+
+  async function handleCEPBlur() {
+    const digits = form.cep.replace(/\D/g, '')
+    if (digits.length !== 8) return
+    setBuscandoCEP(true)
+    const dados = await buscarCEP(form.cep)
+    if (dados) {
+      setForm(p => ({
+        ...p,
+        cep:      dados.cep,
+        municipio: p.municipio || dados.municipio,
+        endereco:  p.endereco  || [dados.logradouro, dados.bairro].filter(Boolean).join(', '),
+      }))
+    }
+    setBuscandoCEP(false)
   }
 
   async function handleSalvar(e: React.FormEvent) {
@@ -294,8 +312,9 @@ export default function UsuariosPage() {
                     </div>
                     <div>
                       <label className="block text-xs font-medium text-gray-600 mb-1">CEP</label>
-                      <input type="text" value={form.cep} onChange={set('cep')} placeholder="00000-000"
+                      <input type="text" value={form.cep} onChange={set('cep')} onBlur={handleCEPBlur} placeholder="00000-000"
                         className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#5C0F0F]" />
+                      {buscandoCEP && <p className="text-xs text-gray-400 mt-0.5">Buscando CEP…</p>}
                     </div>
                   </div>
                   <div>

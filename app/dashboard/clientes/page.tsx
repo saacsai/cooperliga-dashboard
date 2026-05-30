@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { getSupabase } from '@/lib/supabase'
 import { buscarCNPJ } from '@/lib/useCNPJLookup'
+import { buscarCEP } from '@/lib/useCEPLookup'
 import Drawer from '@/components/Drawer'
 import ImportarLote from '@/components/ImportarLote'
 import type { Cliente } from '@/lib/supabase'
@@ -39,6 +40,7 @@ export default function ClientesPage() {
   const [erro,         setErro]         = useState('')
   const [form,         setForm]         = useState(VAZIO)
   const [buscandoCNPJ, setBuscandoCNPJ] = useState(false)
+  const [buscandoCEP,  setBuscandoCEP]  = useState(false)
 
   const set = (f: keyof typeof VAZIO) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
     setForm(p => ({ ...p, [f]: e.target.value }))
@@ -92,6 +94,22 @@ export default function ClientesPage() {
       }))
     }
     setBuscandoCNPJ(false)
+  }
+
+  async function handleCEPBlur() {
+    const digits = form.cep.replace(/\D/g, '')
+    if (digits.length !== 8) return
+    setBuscandoCEP(true)
+    const dados = await buscarCEP(form.cep)
+    if (dados) {
+      setForm(p => ({
+        ...p,
+        cep:      dados.cep,
+        municipio: p.municipio || dados.municipio,
+        endereco:  p.endereco  || [dados.logradouro, dados.bairro].filter(Boolean).join(', '),
+      }))
+    }
+    setBuscandoCEP(false)
   }
 
   async function handleSalvar(e: React.FormEvent) {
@@ -247,8 +265,9 @@ export default function ClientesPage() {
             </div>
             <div>
               <label className="block text-xs font-medium text-gray-600 mb-1">CEP</label>
-              <input type="text" value={form.cep} onChange={set('cep')} placeholder="00000-000"
+              <input type="text" value={form.cep} onChange={set('cep')} onBlur={handleCEPBlur} placeholder="00000-000"
                 className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#5C0F0F]" />
+              {buscandoCEP && <p className="text-xs text-gray-400 mt-0.5">Buscando CEP…</p>}
             </div>
           </div>
 
