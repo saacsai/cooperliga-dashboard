@@ -2,26 +2,46 @@
 
 import { useEffect, useState } from 'react'
 import { getSupabase } from '@/lib/supabase'
+import { buscarCEP } from '@/lib/useCEPLookup'
 import Sidebar from '@/components/Sidebar'
+import Drawer from '@/components/Drawer'
 import type { Perfil } from '@/lib/supabase'
 
 const SIDEBAR_W = '224px'
 const PRIMARY   = '#5C0F0F'
 
-export default function DashboardLayout({ children }: { children: React.ReactNode }) {
-  const [loading,       setLoading]      = useState(true)
-  const [userId,        setUserId]       = useState('')
-  const [nome,          setNome]         = useState('')
-  const [email,         setEmail]        = useState('')
-  const [perfil,        setPerfil]       = useState<Perfil>('operador')
-  const [modalPerfil,   setModalPerfil]  = useState(false)
+interface PerfilForm {
+  nome: string
+  whatsapp: string
+  cpf: string
+  rg: string
+  data_nascimento: string
+  municipio: string
+  cep: string
+  endereco: string
+}
 
-  // form editar perfil
-  const [editNome, setEditNome] = useState('')
-  const [editWpp,  setEditWpp]  = useState('')
-  const [salvando, setSalvando] = useState(false)
-  const [erroEdit, setErroEdit] = useState('')
-  const [okEdit,   setOkEdit]   = useState(false)
+const FORM_VAZIO: PerfilForm = {
+  nome: '', whatsapp: '', cpf: '', rg: '',
+  data_nascimento: '', municipio: '', cep: '', endereco: '',
+}
+
+export default function DashboardLayout({ children }: { children: React.ReactNode }) {
+  const [loading,      setLoading]     = useState(true)
+  const [userId,       setUserId]      = useState('')
+  const [nome,         setNome]        = useState('')
+  const [email,        setEmail]       = useState('')
+  const [perfil,       setPerfil]      = useState<Perfil>('operador')
+  const [drawerPerfil, setDrawerPerfil] = useState(false)
+
+  const [form,         setForm]        = useState<PerfilForm>(FORM_VAZIO)
+  const [salvando,     setSalvando]    = useState(false)
+  const [erroEdit,     setErroEdit]    = useState('')
+  const [okEdit,       setOkEdit]      = useState(false)
+  const [buscandoCEP,  setBuscandoCEP] = useState(false)
+
+  const set = (f: keyof PerfilForm) => (e: React.ChangeEvent<HTMLInputElement>) =>
+    setForm(p => ({ ...p, [f]: e.target.value }))
 
   useEffect(() => {
     const supabase = getSupabase()
@@ -33,7 +53,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
       const { data: usuario } = await supabase
         .from('usuarios')
-        .select('nome, perfil, whatsapp')
+        .select('nome, perfil, whatsapp, cpf, rg, data_nascimento, municipio, cep, endereco')
         .eq('id', session.user.id)
         .single()
 
@@ -45,31 +65,71 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
       setNome(usuario.nome)
       setPerfil(usuario.perfil as Perfil)
-      setEditNome(usuario.nome)
-      setEditWpp(usuario.whatsapp || '')
+      setForm({
+        nome:            usuario.nome,
+        whatsapp:        usuario.whatsapp        || '',
+        cpf:             usuario.cpf             || '',
+        rg:              usuario.rg              || '',
+        data_nascimento: usuario.data_nascimento || '',
+        municipio:       usuario.municipio       || '',
+        cep:             usuario.cep             || '',
+        endereco:        usuario.endereco        || '',
+      })
       setLoading(false)
     })
   }, [])
 
-  function abrirModalPerfil() {
+  function abrirDrawerPerfil() {
     setErroEdit('')
     setOkEdit(false)
-    setModalPerfil(true)
+    setDrawerPerfil(true)
+  }
+
+  async function handleCEPBlur() {
+    const digits = form.cep.replace(/\D/g, '')
+    if (digits.length !== 8) return
+    setBuscandoCEP(true)
+    const dados = await buscarCEP(form.cep)
+    if (dados) {
+      setForm(p => ({
+        ...p,
+        cep:      dados.cep,
+        municipio: p.municipio || dados.municipio,
+        endereco:  p.endereco  || [dados.logradouro, dados.bairro].filter(Boolean).join(', '),
+      }))
+    }
+    setBuscandoCEP(false)
   }
 
   async function handleSalvarPerfil(e: React.FormEvent) {
     e.preventDefault()
     setSalvando(true)
     setErroEdit('')
-    const { error } = await getSupabase()
-      .from('usuarios')
-      .update({ nome: editNome, whatsapp: editWpp || null })
-      .eq('id', userId)
-    if (error) { setErroEdit(error.message); setSalvando(false); return }
-    setNome(editNome)
-    setOkEdit(true)
-    setSalvando(false)
-    setTimeout(() => setModalPerfil(false), 1200)
+    try {
+      const res = await fetch(`/api/admin/usuarios/${userId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          nome:            form.nome,
+          whatsapp:        form.whatsapp        || null,
+          cpf:             form.cpf             || null,
+          rg:              form.rg              || null,
+          data_nascimento: form.data_nascimento || null,
+          municipio:       form.municipio       || null,
+          cep:             form.cep             || null,
+          endereco:        form.endereco        || null,
+        }),
+      })
+      const json = await res.json()
+      if (!res.ok) { setErroEdit(json.error || 'Erro ao salvar'); setSalvando(false); return }
+      setNome(form.nome)
+      setOkEdit(true)
+      setSalvando(false)
+      setTimeout(() => setDrawerPerfil(false), 1200)
+    } catch {
+      setErroEdit('Erro de conexão. Tente novamente.')
+      setSalvando(false)
+    }
   }
 
   if (loading) return (
@@ -84,74 +144,106 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         nome={nome}
         email={email}
         perfil={perfil}
-        onEditarPerfil={abrirModalPerfil}
+        onEditarPerfil={abrirDrawerPerfil}
       />
       <main style={{ marginLeft: SIDEBAR_W, minHeight: '100vh' }} className="p-8">
         {children}
       </main>
 
-      {/* Modal editar perfil */}
-      {modalPerfil && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.4)' }}>
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-6">
-            <h2 className="text-base font-bold text-gray-900 mb-1">Editar perfil</h2>
-            <p className="text-xs text-gray-400 mb-4">{email}</p>
-
-            {okEdit ? (
-              <div className="py-6 text-center">
-                <div className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center mx-auto mb-3">
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#16a34a" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                    <polyline points="20 6 9 17 4 12"/>
-                  </svg>
-                </div>
-                <p className="text-sm text-gray-700 font-medium">Salvo com sucesso</p>
-              </div>
-            ) : (
-              <form onSubmit={handleSalvarPerfil} className="space-y-3">
-                <div>
-                  <label className="block text-xs font-medium text-gray-600 mb-1">Nome completo</label>
-                  <input
-                    type="text" value={editNome} onChange={e => setEditNome(e.target.value)}
-                    required autoFocus
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#5C0F0F]"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-gray-600 mb-1">WhatsApp</label>
-                  <input
-                    type="tel" value={editWpp} onChange={e => setEditWpp(e.target.value)}
-                    placeholder="(11) 99999-9999"
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#5C0F0F]"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-gray-600 mb-1">Senha</label>
-                  <a
-                    href={`/reset-password`}
-                    onClick={() => setModalPerfil(false)}
-                    className="text-xs hover:underline"
-                    style={{ color: PRIMARY }}
-                  >
-                    Alterar senha →
-                  </a>
-                </div>
-                {erroEdit && <p className="text-xs text-red-600 bg-red-50 border border-red-200 rounded-lg p-2">{erroEdit}</p>}
-                <div className="flex gap-2 pt-1">
-                  <button type="button" onClick={() => setModalPerfil(false)}
-                    className="flex-1 border border-gray-200 rounded-lg py-2 text-sm text-gray-600 hover:bg-gray-50">
-                    Cancelar
-                  </button>
-                  <button type="submit" disabled={salvando}
-                    className="flex-1 text-white rounded-lg py-2 text-sm font-medium disabled:opacity-50"
-                    style={{ background: PRIMARY }}>
-                    {salvando ? 'Salvando…' : 'Salvar'}
-                  </button>
-                </div>
-              </form>
-            )}
+      <Drawer open={drawerPerfil} onClose={() => setDrawerPerfil(false)} title="Editar perfil">
+        {okEdit ? (
+          <div className="py-10 text-center">
+            <div className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center mx-auto mb-3">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#16a34a" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="20 6 9 17 4 12"/>
+              </svg>
+            </div>
+            <p className="text-sm text-gray-700 font-medium">Salvo com sucesso</p>
           </div>
-        </div>
-      )}
+        ) : (
+          <form onSubmit={handleSalvarPerfil} className="space-y-4">
+            <p className="text-xs text-gray-400 -mt-1">{email}</p>
+
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1">Nome completo</label>
+              <input type="text" value={form.nome} onChange={set('nome')} required autoFocus
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#5C0F0F]" />
+            </div>
+
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1">WhatsApp</label>
+              <input type="tel" value={form.whatsapp} onChange={set('whatsapp')} placeholder="(11) 99999-9999"
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#5C0F0F]" />
+            </div>
+
+            <div className="border-t border-gray-100 pt-3">
+              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Dados pessoais</p>
+              <div className="space-y-3">
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 mb-1">CPF</label>
+                    <input type="text" value={form.cpf} onChange={set('cpf')} placeholder="000.000.000-00"
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#5C0F0F]" />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 mb-1">RG</label>
+                    <input type="text" value={form.rg} onChange={set('rg')}
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#5C0F0F]" />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">Data de nascimento</label>
+                  <input type="date" value={form.data_nascimento} onChange={set('data_nascimento')}
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#5C0F0F]" />
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 mb-1">Município</label>
+                    <input type="text" value={form.municipio} onChange={set('municipio')}
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#5C0F0F]" />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 mb-1">CEP</label>
+                    <input type="text" value={form.cep} onChange={set('cep')} onBlur={handleCEPBlur} placeholder="00000-000"
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#5C0F0F]" />
+                    {buscandoCEP && <p className="text-xs text-gray-400 mt-0.5">Buscando CEP…</p>}
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">Endereço</label>
+                  <input type="text" value={form.endereco} onChange={set('endereco')}
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#5C0F0F]" />
+                </div>
+              </div>
+            </div>
+
+            <div className="border-t border-gray-100 pt-3">
+              <label className="block text-xs font-medium text-gray-600 mb-1">Senha</label>
+              <a href="/reset-password" onClick={() => setDrawerPerfil(false)}
+                className="text-xs hover:underline" style={{ color: PRIMARY }}>
+                Alterar senha →
+              </a>
+            </div>
+
+            {erroEdit && <p className="text-xs text-red-600 bg-red-50 border border-red-200 rounded-lg p-2">{erroEdit}</p>}
+
+            <div className="flex gap-2 pt-2">
+              <button type="button" onClick={() => setDrawerPerfil(false)}
+                className="flex-1 border border-gray-200 rounded-lg py-2 text-sm text-gray-600 hover:bg-gray-50">
+                Cancelar
+              </button>
+              <button type="submit" disabled={salvando}
+                className="flex-1 text-white rounded-lg py-2 text-sm font-medium disabled:opacity-50"
+                style={{ background: PRIMARY }}>
+                {salvando ? 'Salvando…' : 'Salvar'}
+              </button>
+            </div>
+          </form>
+        )}
+      </Drawer>
     </div>
   )
 }

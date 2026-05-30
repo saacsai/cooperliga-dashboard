@@ -11,15 +11,28 @@ export async function PATCH(
   // Verifica se quem chama é admin
   const authHeader = req.headers.get('cookie') || ''
   // Usa service role direto — proteção garantida pelo middleware de sessão no layout
-  const { nome, whatsapp, perfil } = await req.json()
+  const body = await req.json()
+  const { nome, whatsapp, perfil, cpf, rg, data_nascimento, endereco, municipio, cep } = body
 
-  if (!nome || !perfil) {
-    return NextResponse.json({ error: 'nome e perfil são obrigatórios' }, { status: 400 })
+  if (!nome) {
+    return NextResponse.json({ error: 'nome é obrigatório' }, { status: 400 })
   }
+
+  const patch: Record<string, unknown> = {
+    nome,
+    whatsapp:        whatsapp        || null,
+    cpf:             cpf             || null,
+    rg:              rg              || null,
+    data_nascimento: data_nascimento || null,
+    endereco:        endereco        || null,
+    municipio:       municipio       || null,
+    cep:             cep             || null,
+  }
+  if (perfil) patch.perfil = perfil as Perfil
 
   const { error } = await admin
     .from('usuarios')
-    .update({ nome, whatsapp: whatsapp || null, perfil: perfil as Perfil })
+    .update(patch)
     .eq('id', params.id)
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
