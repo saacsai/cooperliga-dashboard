@@ -50,7 +50,7 @@ export default function ClientesPage() {
       c.nome.toLowerCase().includes(q) ||
       (c.razao_social || '').toLowerCase().includes(q) ||
       (c.municipio || '').toLowerCase().includes(q) ||
-      (c.cpf_cnpj || '').includes(q)
+      (c.cnpj || '').includes(q)
     )
   }, [clientes, busca])
 
