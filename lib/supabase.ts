@@ -31,12 +31,13 @@ export interface Usuario {
   endereco: string | null
   municipio: string | null
   cep: string | null
+  cargo: string | null
 }
 
 export interface Cliente {
   id: string
   nome: string
-  tipo: 'cooperativa' | 'contratante' | 'outro'
+  tipo: 'cooperativa' | 'associacao' | 'oscip' | 'empresa_privada' | 'orgao_publico' | 'outro'
   cnpj: string | null
   codigo: string | null
   contato_nome: string | null

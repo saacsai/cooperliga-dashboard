@@ -33,6 +33,7 @@ interface FormState {
   whatsapp: string
   perfil: Perfil
   senha: string
+  cargo: string
   cpf: string
   rg: string
   data_nascimento: string
@@ -43,7 +44,7 @@ interface FormState {
 
 const FORM_VAZIO: FormState = {
   nome: '', email: '', whatsapp: '', perfil: 'operador', senha: '',
-  cpf: '', rg: '', data_nascimento: '', endereco: '', municipio: '', cep: '',
+  cargo: '', cpf: '', rg: '', data_nascimento: '', endereco: '', municipio: '', cep: '',
 }
 
 export default function UsuariosPage() {
@@ -96,6 +97,7 @@ export default function UsuariosPage() {
       whatsapp:        u.whatsapp        || '',
       perfil:          u.perfil,
       senha:           '',
+      cargo:           (u as any).cargo  || '',
       cpf:             u.cpf             || '',
       rg:              u.rg              || '',
       data_nascimento: u.data_nascimento || '',
@@ -135,6 +137,7 @@ export default function UsuariosPage() {
         body: JSON.stringify({
           nome: form.nome, email: form.email, whatsapp: form.whatsapp,
           perfil: form.perfil, senha: form.senha,
+          cargo: form.cargo || null,
           cpf: form.cpf || null, rg: form.rg || null,
           data_nascimento: form.data_nascimento || null,
           endereco: form.endereco || null, municipio: form.municipio || null,
@@ -149,6 +152,7 @@ export default function UsuariosPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           nome: form.nome, whatsapp: form.whatsapp, perfil: form.perfil,
+          cargo: form.cargo || null,
           cpf: form.cpf || null, rg: form.rg || null,
           data_nascimento: form.data_nascimento || null,
           endereco: form.endereco || null, municipio: form.municipio || null,
@@ -286,6 +290,12 @@ export default function UsuariosPage() {
           <div>
             <label className="block text-xs font-medium text-gray-600 mb-1">WhatsApp</label>
             <input type="tel" value={form.whatsapp} onChange={set('whatsapp')} placeholder="(11) 99999-9999"
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#5C0F0F]" />
+          </div>
+
+          <div>
+            <label className="block text-xs font-medium text-gray-600 mb-1">Cargo / Função</label>
+            <input type="text" value={form.cargo} onChange={set('cargo')} placeholder="ex: Coordenador de Logística"
               className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#5C0F0F]" />
           </div>
 

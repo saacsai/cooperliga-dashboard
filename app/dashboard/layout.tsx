@@ -13,6 +13,7 @@ const PRIMARY   = '#5C0F0F'
 interface PerfilForm {
   nome: string
   whatsapp: string
+  cargo: string
   cpf: string
   rg: string
   data_nascimento: string
@@ -22,7 +23,7 @@ interface PerfilForm {
 }
 
 const FORM_VAZIO: PerfilForm = {
-  nome: '', whatsapp: '', cpf: '', rg: '',
+  nome: '', whatsapp: '', cargo: '', cpf: '', rg: '',
   data_nascimento: '', municipio: '', cep: '', endereco: '',
 }
 
@@ -53,7 +54,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
       const { data: usuario } = await supabase
         .from('usuarios')
-        .select('nome, perfil, whatsapp, cpf, rg, data_nascimento, municipio, cep, endereco')
+        .select('nome, perfil, whatsapp, cargo, cpf, rg, data_nascimento, municipio, cep, endereco')
         .eq('id', session.user.id)
         .single()
 
@@ -68,6 +69,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       setForm({
         nome:            usuario.nome,
         whatsapp:        usuario.whatsapp        || '',
+        cargo:           (usuario as any).cargo  || '',
         cpf:             usuario.cpf             || '',
         rg:              usuario.rg              || '',
         data_nascimento: usuario.data_nascimento || '',
@@ -84,13 +86,14 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     setOkEdit(false)
     const { data: usuario } = await getSupabase()
       .from('usuarios')
-      .select('nome, whatsapp, cpf, rg, data_nascimento, municipio, cep, endereco')
+      .select('nome, whatsapp, cargo, cpf, rg, data_nascimento, municipio, cep, endereco')
       .eq('id', userId)
       .single()
     if (usuario) {
       setForm({
         nome:            usuario.nome            || '',
         whatsapp:        usuario.whatsapp        || '',
+        cargo:           (usuario as any).cargo  || '',
         cpf:             usuario.cpf             || '',
         rg:              usuario.rg              || '',
         data_nascimento: usuario.data_nascimento || '',
@@ -129,6 +132,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         body: JSON.stringify({
           nome:            form.nome,
           whatsapp:        form.whatsapp        || null,
+          cargo:           form.cargo           || null,
           cpf:             form.cpf             || null,
           rg:              form.rg              || null,
           data_nascimento: form.data_nascimento || null,
@@ -190,6 +194,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             <div>
               <label className="block text-xs font-medium text-gray-600 mb-1">WhatsApp</label>
               <input type="tel" value={form.whatsapp} onChange={set('whatsapp')} placeholder="(11) 99999-9999"
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#5C0F0F]" />
+            </div>
+
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1">Cargo / Função</label>
+              <input type="text" value={form.cargo} onChange={set('cargo')} placeholder="ex: Coordenador de Logística"
                 className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#5C0F0F]" />
             </div>
 

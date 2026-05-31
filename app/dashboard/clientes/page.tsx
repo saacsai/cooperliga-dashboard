@@ -11,7 +11,7 @@ import type { Cliente } from '@/lib/supabase'
 const PRIMARY = '#5C0F0F'
 
 const VAZIO = {
-  nome: '', tipo: 'cooperativa' as 'cooperativa' | 'contratante' | 'outro',
+  nome: '', tipo: 'cooperativa' as 'cooperativa' | 'associacao' | 'oscip' | 'empresa_privada' | 'orgao_publico' | 'outro',
   cnpj: '', codigo: '', razao_social: '', endereco: '', municipio: '', cep: '',
   telefone: '', email: '', contato_nome: '', contato_whatsapp: '',
 }
@@ -73,7 +73,7 @@ export default function ClientesPage() {
     setEditId(c.id)
     setForm({
       nome:             c.nome,
-      tipo:             c.tipo || 'cooperativa',
+      tipo:             c.tipo || 'cooperativa' as any,
       cnpj:             c.cnpj             || '',
       codigo:           c.codigo           || '',
       razao_social:     c.razao_social     || '',
@@ -152,7 +152,7 @@ export default function ClientesPage() {
   async function handleImportar(rows: Record<string, string>[]) {
     const payload = rows.filter(r => r.nome).map(r => ({
       nome:             r.nome,
-      tipo:             (['cooperativa', 'contratante', 'outro'].includes(r.tipo) ? r.tipo : 'cooperativa') as 'cooperativa' | 'contratante' | 'outro',
+      tipo:             r.tipo || 'cooperativa' as any,
       cnpj:             r.cnpj             || null,
       razao_social:     r.razao_social     || null,
       codigo:           r.codigo           || null,
@@ -270,8 +270,11 @@ export default function ClientesPage() {
               <select value={form.tipo} onChange={set('tipo')}
                 className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#5C0F0F] bg-white">
                 <option value="cooperativa">Cooperativa</option>
-                <option value="contratante">Contratante</option>
-                <option value="outro">Outro</option>
+                <option value="associacao">Associação</option>
+                <option value="oscip">OSCIP</option>
+                <option value="empresa_privada">Empresa privada</option>
+                <option value="orgao_publico">Órgão Público</option>
+                <option value="outro">Outros</option>
               </select>
             </div>
           </div>

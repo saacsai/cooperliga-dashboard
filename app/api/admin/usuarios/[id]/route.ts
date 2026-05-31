@@ -12,7 +12,7 @@ export async function PATCH(
   const authHeader = req.headers.get('cookie') || ''
   // Usa service role direto — proteção garantida pelo middleware de sessão no layout
   const body = await req.json()
-  const { nome, whatsapp, perfil, cpf, rg, data_nascimento, endereco, municipio, cep } = body
+  const { nome, whatsapp, perfil, cargo, cpf, rg, data_nascimento, endereco, municipio, cep } = body
 
   if (!nome) {
     return NextResponse.json({ error: 'nome é obrigatório' }, { status: 400 })
@@ -21,6 +21,7 @@ export async function PATCH(
   const patch: Record<string, unknown> = {
     nome,
     whatsapp:        whatsapp        || null,
+    cargo:           cargo           || null,
     cpf:             cpf             || null,
     rg:              rg              || null,
     data_nascimento: data_nascimento || null,
