@@ -23,7 +23,8 @@ import { CSS } from '@dnd-kit/utilities'
 
 const PRIMARY = '#5C0F0F'
 
-type AgregadoItem = { id: string; nome: string }
+type AgregadoItem  = { id: string; nome: string }
+type ContratoItem  = { id: string; codigo: string | null; orgao: string }
 type PontoItem = {
   uid: string // local key for dnd (may differ from rota_pontos.id for new items)
   rota_ponto_id: string | null
@@ -35,6 +36,7 @@ type PontoItem = {
 }
 
 type RotaForm = {
+  contrato_id: string
   codigo: string
   nome: string
   regiao: string
@@ -126,9 +128,10 @@ export default function RotaEditPage() {
   const [dirty, setDirty] = useState(false)
 
   const [form, setForm] = useState<RotaForm>({
-    codigo: '', nome: '', regiao: '', cep_referencia: '', agregado_id: '', valor_frete: '',
+    contrato_id: '', codigo: '', nome: '', regiao: '', cep_referencia: '', agregado_id: '', valor_frete: '',
   })
   const [agregados, setAgregados] = useState<AgregadoItem[]>([])
+  const [contratos, setContratos] = useState<ContratoItem[]>([])
   const [pontos, setPontos] = useState<PontoItem[]>([])
   const [todosPontos, setTodosPontos] = useState<PontoItem[]>([])
 
@@ -147,7 +150,7 @@ export default function RotaEditPage() {
 
   useEffect(() => {
     async function carregar() {
-      const [{ data: rota }, { data: rp }, { data: ag }, { data: pde }] = await Promise.all([
+      const [{ data: rota }, { data: rp }, { data: ag }, { data: pde }, { data: co }] = await Promise.all([
         getSupabase().from('rotas').select('*').eq('id', id).single(),
         getSupabase()
           .from('rota_pontos')
@@ -156,11 +159,13 @@ export default function RotaEditPage() {
           .order('sequencia'),
         getSupabase().from('agregados').select('id, nome').eq('ativo', true).order('nome'),
         getSupabase().from('pontos_de_entrega').select('id, nome, codigo_prefeitura, codigo_estado, municipio').eq('ativo', true).order('nome'),
+        getSupabase().from('contratos').select('id, codigo, orgao').eq('ativo', true).order('orgao'),
       ])
 
       if (!rota) { router.push('/dashboard/rotas'); return }
 
       setForm({
+        contrato_id:    rota.contrato_id     || '',
         codigo:         rota.codigo,
         nome:           rota.nome,
         regiao:         rota.regiao          || '',
@@ -169,6 +174,7 @@ export default function RotaEditPage() {
         valor_frete:    rota.valor_frete?.toString() || '',
       })
       setAgregados(ag || [])
+      setContratos((co || []) as unknown as ContratoItem[])
 
       const pontosOrdenados: PontoItem[] = (rp || []).map((r: any) => ({
         uid:                  r.id,
@@ -243,6 +249,7 @@ export default function RotaEditPage() {
     try {
       // 1. Salvar metadados da rota
       const { error: errRota } = await sb.from('rotas').update({
+        contrato_id:    form.contrato_id    || null,
         codigo:         form.codigo,
         nome:           form.nome,
         regiao:         form.regiao          || null,
@@ -303,6 +310,18 @@ export default function RotaEditPage() {
         </div>
 
         <div className="bg-white rounded-xl border border-gray-200 p-4 space-y-4">
+          <div>
+            <label className="block text-xs font-medium text-gray-600 mb-1">Contrato</label>
+            <select value={form.contrato_id} onChange={setField('contrato_id')}
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#5C0F0F] bg-white">
+              <option value="">Sem contrato</option>
+              {contratos.map(c => (
+                <option key={c.id} value={c.id}>
+                  {c.codigo ? `${c.codigo} — ` : ''}{c.orgao}
+                </option>
+              ))}
+            </select>
+          </div>
           <div>
             <label className="block text-xs font-medium text-gray-600 mb-1">Código *</label>
             <input type="text" value={form.codigo} onChange={setField('codigo')}

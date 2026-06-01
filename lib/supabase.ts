@@ -57,6 +57,7 @@ export interface Contrato {
   cliente_id: string
   orgao: string
   numero: string | null
+  codigo: string | null
   tipo_gr: TipoGR | null
   descricao: string | null
   ativo: boolean
@@ -97,11 +98,13 @@ export interface Rota {
   nome: string
   regiao: string | null
   cep_referencia: string | null
+  contrato_id: string | null
   agregado_id: string | null
   valor_frete: number | null
   ativo: boolean
   created_at: string
   agregados?: { nome: string }
+  contratos?: { codigo: string | null; orgao: string }
 }
 
 export interface Agregado {

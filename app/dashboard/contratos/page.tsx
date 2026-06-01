@@ -9,7 +9,7 @@ const PRIMARY = '#5C0F0F'
 
 const ORGAOS = ['Estado SP', 'Prefeitura SP', 'Prefeitura Mauá']
 
-const VAZIO = { cliente_id: '', orgao: '', numero: '', tipo_gr: '' as '' | 'estado' | 'municipal', descricao: '' }
+const VAZIO = { cliente_id: '', orgao: '', numero: '', codigo: '', tipo_gr: '' as '' | 'estado' | 'municipal', descricao: '' }
 
 export default function ContratosPage() {
   const [contratos, setContratos] = useState<Contrato[]>([])
@@ -42,7 +42,7 @@ export default function ContratosPage() {
 
   function abrirEditar(c: Contrato) {
     setEditId(c.id)
-    setForm({ cliente_id: c.cliente_id, orgao: c.orgao, numero: c.numero || '', tipo_gr: c.tipo_gr || '', descricao: c.descricao || '' })
+    setForm({ cliente_id: c.cliente_id, orgao: c.orgao, numero: c.numero || '', codigo: c.codigo || '', tipo_gr: c.tipo_gr || '', descricao: c.descricao || '' })
     setErro(''); setDrawer(true)
   }
 
@@ -53,6 +53,7 @@ export default function ContratosPage() {
       cliente_id: form.cliente_id,
       orgao: form.orgao,
       numero: form.numero || null,
+      codigo: form.codigo || null,
       tipo_gr: form.tipo_gr || null,
       descricao: form.descricao || null,
     }
@@ -87,6 +88,7 @@ export default function ContratosPage() {
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-gray-100">
+                <th className="text-left px-4 py-3 text-xs font-medium text-gray-500">Código</th>
                 <th className="text-left px-4 py-3 text-xs font-medium text-gray-500">Cliente</th>
                 <th className="text-left px-4 py-3 text-xs font-medium text-gray-500">Órgão</th>
                 <th className="text-left px-4 py-3 text-xs font-medium text-gray-500">Nº Contrato</th>
@@ -98,6 +100,7 @@ export default function ContratosPage() {
             <tbody>
               {contratos.map(c => (
                 <tr key={c.id} className="border-b border-gray-50 last:border-0 hover:bg-gray-50/50">
+                  <td className="px-4 py-3 font-mono font-semibold text-gray-800">{c.codigo || '—'}</td>
                   <td className="px-4 py-3 font-medium text-gray-900">{c.clientes?.nome || '—'}</td>
                   <td className="px-4 py-3 text-gray-700">{c.orgao}</td>
                   <td className="px-4 py-3 text-gray-500">{c.numero || '—'}</td>
@@ -122,7 +125,7 @@ export default function ContratosPage() {
                 </tr>
               ))}
               {contratos.length === 0 && (
-                <tr><td colSpan={6} className="px-4 py-8 text-center text-sm text-gray-400">Nenhum contrato cadastrado.</td></tr>
+                <tr><td colSpan={7} className="px-4 py-8 text-center text-sm text-gray-400">Nenhum contrato cadastrado.</td></tr>
               )}
             </tbody>
           </table>
@@ -138,6 +141,12 @@ export default function ContratosPage() {
               <option value="">Selecione…</option>
               {clientes.map(c => <option key={c.id} value={c.id}>{c.nome}</option>)}
             </select>
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-gray-600 mb-1">Código do contrato</label>
+            <input type="text" value={form.codigo} onChange={set('codigo')} placeholder="ex: MUN01, EST01"
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#5C0F0F] font-mono uppercase" />
+            <p className="text-xs text-gray-400 mt-1">Usado para gerar o código das rotas (ex: MUN01-08400-R1)</p>
           </div>
           <div>
             <label className="block text-xs font-medium text-gray-600 mb-1">Órgão *</label>

@@ -7,11 +7,12 @@ import Drawer from '@/components/Drawer'
 import ImportarLote from '@/components/ImportarLote'
 import type { Rota } from '@/lib/supabase'
 
-type AgregadoDropdown = { id: string; nome: string }
+type AgregadoDropdown  = { id: string; nome: string }
+type ContratoDropdown  = { id: string; codigo: string | null; orgao: string }
 
 const PRIMARY = '#5C0F0F'
 
-const VAZIO = { codigo: '', nome: '', regiao: '', cep_referencia: '', agregado_id: '', valor_frete: '' }
+const VAZIO = { contrato_id: '', codigo: '', nome: '', regiao: '', cep_referencia: '', agregado_id: '', valor_frete: '' }
 
 const COLUNAS_IMPORT = [
   { key: 'codigo',      label: 'Código' },
@@ -22,14 +23,16 @@ const COLUNAS_IMPORT = [
 
 export default function RotasPage() {
   const router = useRouter()
-  const [rotas,    setRotas]    = useState<Rota[]>([])
+  const [rotas,     setRotas]     = useState<Rota[]>([])
   const [agregados, setAgregados] = useState<AgregadoDropdown[]>([])
-  const [loading,  setLoading]  = useState(true)
-  const [drawer,   setDrawer]   = useState(false)
-  const [salvando, setSalvando] = useState(false)
-  const [erro,     setErro]     = useState('')
-  const [form,     setForm]     = useState(VAZIO)
-  const [busca,    setBusca]    = useState('')
+  const [contratos, setContratos] = useState<ContratoDropdown[]>([])
+  const [loading,   setLoading]   = useState(true)
+  const [drawer,    setDrawer]    = useState(false)
+  const [salvando,  setSalvando]  = useState(false)
+  const [sugerindo, setSugerindo] = useState(false)
+  const [erro,      setErro]      = useState('')
+  const [form,      setForm]      = useState(VAZIO)
+  const [busca,     setBusca]     = useState('')
 
   const rotasFiltradas = useMemo(() => {
     if (!busca.trim()) return rotas
@@ -46,12 +49,14 @@ export default function RotasPage() {
     setForm(p => ({ ...p, [f]: e.target.value }))
 
   async function carregar() {
-    const [{ data: r }, { data: a }] = await Promise.all([
-      getSupabase().from('rotas').select('*, agregados(nome)').order('codigo'),
+    const [{ data: r }, { data: a }, { data: c }] = await Promise.all([
+      getSupabase().from('rotas').select('*, agregados(nome), contratos(codigo, orgao)').order('codigo'),
       getSupabase().from('agregados').select('id, nome').eq('ativo', true).order('nome'),
+      getSupabase().from('contratos').select('id, codigo, orgao').eq('ativo', true).order('orgao'),
     ])
     setRotas((r || []) as unknown as Rota[])
     setAgregados((a || []) as unknown as AgregadoDropdown[])
+    setContratos((c || []) as unknown as ContratoDropdown[])
     setLoading(false)
   }
 
@@ -61,15 +66,33 @@ export default function RotasPage() {
     setForm(VAZIO); setErro(''); setDrawer(true)
   }
 
+  async function sugerirCodigo() {
+    const contrato = contratos.find(c => c.id === form.contrato_id)
+    if (!contrato?.codigo) { setErro('Selecione um contrato com código definido'); return }
+    const cep5 = form.cep_referencia.replace(/\D/g, '').slice(0, 5)
+    if (cep5.length < 5) { setErro('Preencha os 5 dígitos do CEP de referência'); return }
+    setSugerindo(true)
+    const prefix = `${contrato.codigo}-${cep5}-R`
+    const { data } = await getSupabase().from('rotas').select('codigo').like('codigo', `${prefix}%`)
+    const seqs = (data || [])
+      .map(r => parseInt(r.codigo.replace(prefix, '')))
+      .filter(n => !isNaN(n) && n > 0)
+    const next = seqs.length > 0 ? Math.max(...seqs) + 1 : 1
+    setForm(p => ({ ...p, codigo: `${prefix}${next}` }))
+    setSugerindo(false)
+    setErro('')
+  }
+
   async function handleSalvar(e: React.FormEvent) {
     e.preventDefault()
     setSalvando(true); setErro('')
     const payload = {
+      contrato_id:    form.contrato_id    || null,
       codigo:         form.codigo,
       nome:           form.nome,
-      regiao:         form.regiao          || null,
-      cep_referencia: form.cep_referencia  || null,
-      agregado_id:    form.agregado_id     || null,
+      regiao:         form.regiao         || null,
+      cep_referencia: form.cep_referencia || null,
+      agregado_id:    form.agregado_id    || null,
       valor_frete:    form.valor_frete ? parseFloat(form.valor_frete) : null,
     }
     const { error } = await getSupabase().from('rotas').insert(payload)
@@ -184,28 +207,53 @@ export default function RotasPage() {
 
       <Drawer open={drawer} onClose={() => setDrawer(false)} title="Nova rota">
         <form onSubmit={handleSalvar} className="space-y-4">
+          {/* Contrato */}
+          <div>
+            <label className="block text-xs font-medium text-gray-600 mb-1">Contrato</label>
+            <select value={form.contrato_id} onChange={set('contrato_id')}
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#5C0F0F]">
+              <option value="">Sem contrato</option>
+              {contratos.map(c => (
+                <option key={c.id} value={c.id}>
+                  {c.codigo ? `${c.codigo} — ` : ''}{c.orgao}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* CEP + Código */}
           <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1">Código *</label>
-              <input type="text" value={form.codigo} onChange={set('codigo')} required autoFocus placeholder="ex: R01"
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#5C0F0F] font-mono" />
-            </div>
             <div>
               <label className="block text-xs font-medium text-gray-600 mb-1">CEP de referência</label>
               <input type="text" value={form.cep_referencia} onChange={set('cep_referencia')} placeholder="ex: 08400" maxLength={9}
                 className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#5C0F0F] font-mono" />
             </div>
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div className="col-span-2">
-              <label className="block text-xs font-medium text-gray-600 mb-1">Região</label>
-              <input type="text" value={form.regiao} onChange={set('regiao')} placeholder="ex: Cid. Tiradentes / Guaianazes"
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#5C0F0F]" />
+            <div>
+              <div className="flex items-center justify-between mb-1">
+                <label className="text-xs font-medium text-gray-600">Código *</label>
+                <button
+                  type="button"
+                  onClick={sugerirCodigo}
+                  disabled={sugerindo}
+                  className="text-xs font-medium disabled:opacity-50 hover:opacity-80"
+                  style={{ color: PRIMARY }}
+                >
+                  {sugerindo ? 'Gerando…' : 'Sugerir'}
+                </button>
+              </div>
+              <input type="text" value={form.codigo} onChange={set('codigo')} required placeholder="ex: MUN01-08400-R1"
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#5C0F0F] font-mono" />
             </div>
+          </div>
+
+          <div>
+            <label className="block text-xs font-medium text-gray-600 mb-1">Região</label>
+            <input type="text" value={form.regiao} onChange={set('regiao')} placeholder="ex: Cid. Tiradentes / Guaianazes"
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#5C0F0F]" />
           </div>
           <div>
             <label className="block text-xs font-medium text-gray-600 mb-1">Nome *</label>
-            <input type="text" value={form.nome} onChange={set('nome')} required placeholder="ex: Rota Santo André Norte"
+            <input type="text" value={form.nome} onChange={set('nome')} required autoFocus placeholder="ex: Rota Santo André Norte"
               className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#5C0F0F]" />
           </div>
           <div>
