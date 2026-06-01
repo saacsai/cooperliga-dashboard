@@ -95,6 +95,12 @@ export default function RotasPage() {
     carregar()
   }
 
+  async function handleExcluir(r: Rota) {
+    if (!confirm(`Excluir a rota "${r.nome}"? Esta ação não pode ser desfeita.`)) return
+    await getSupabase().from('rotas').delete().eq('id', r.id)
+    carregar()
+  }
+
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
@@ -160,6 +166,7 @@ export default function RotasPage() {
                     <div className="flex items-center justify-end gap-3">
                       <button onClick={() => router.push(`/dashboard/rotas/${r.id}`)} className="text-xs font-medium hover:opacity-80" style={{ color: PRIMARY }}>Editar</button>
                       <button onClick={() => toggleAtivo(r)} className="text-xs text-gray-400 hover:text-gray-700">{r.ativo ? 'Desativar' : 'Ativar'}</button>
+                      <button onClick={() => handleExcluir(r)} className="text-xs text-red-400 hover:text-red-600">Excluir</button>
                     </div>
                   </td>
                 </tr>
