@@ -150,7 +150,7 @@ export default function PontosDeEntregaPage() {
         .sort((a, b) => b.count! - a.count!)
     )
 
-    const regioes = [...new Set((rotasData || []).map((r: any) => r.regiao).filter(Boolean))] as string[]
+    const regioes = Array.from(new Set((rotasData || []).map((r: any) => r.regiao).filter(Boolean))) as string[]
     setOpcoesRegiao(regioes.sort().map(r => ({ value: r, label: r })))
   }
 
