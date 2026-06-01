@@ -174,6 +174,12 @@ export default function ClientesPage() {
     carregar()
   }
 
+  async function handleExcluir(c: Cliente) {
+    if (!confirm(`Excluir o cliente "${c.nome}"? Esta ação não pode ser desfeita.`)) return
+    await getSupabase().from('clientes').delete().eq('id', c.id)
+    carregar()
+  }
+
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
@@ -240,6 +246,7 @@ export default function ClientesPage() {
                     <div className="flex items-center justify-end gap-3">
                       <button onClick={() => abrirEditar(c)} className="text-xs font-medium hover:opacity-80" style={{ color: PRIMARY }}>Editar</button>
                       <button onClick={() => toggleAtivo(c)} className="text-xs text-gray-400 hover:text-gray-700">{c.ativo ? 'Desativar' : 'Ativar'}</button>
+                      <button onClick={() => handleExcluir(c)} className="text-xs text-red-400 hover:text-red-600">Excluir</button>
                     </div>
                   </td>
                 </tr>
