@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState, useMemo } from 'react'
+import { useRouter } from 'next/navigation'
 import { getSupabase } from '@/lib/supabase'
 import Drawer from '@/components/Drawer'
 import ImportarLote from '@/components/ImportarLote'
@@ -20,11 +21,11 @@ const COLUNAS_IMPORT = [
 ]
 
 export default function RotasPage() {
+  const router = useRouter()
   const [rotas,    setRotas]    = useState<Rota[]>([])
   const [agregados, setAgregados] = useState<AgregadoDropdown[]>([])
   const [loading,  setLoading]  = useState(true)
   const [drawer,   setDrawer]   = useState(false)
-  const [editId,   setEditId]   = useState<string | null>(null)
   const [salvando, setSalvando] = useState(false)
   const [erro,     setErro]     = useState('')
   const [form,     setForm]     = useState(VAZIO)
@@ -57,13 +58,7 @@ export default function RotasPage() {
   useEffect(() => { carregar() }, [])
 
   function abrirNovo() {
-    setEditId(null); setForm(VAZIO); setErro(''); setDrawer(true)
-  }
-
-  function abrirEditar(r: Rota) {
-    setEditId(r.id)
-    setForm({ codigo: r.codigo, nome: r.nome, regiao: r.regiao || '', agregado_id: r.agregado_id || '', valor_frete: r.valor_frete?.toString() || '' })
-    setErro(''); setDrawer(true)
+    setForm(VAZIO); setErro(''); setDrawer(true)
   }
 
   async function handleSalvar(e: React.FormEvent) {
@@ -76,9 +71,7 @@ export default function RotasPage() {
       agregado_id: form.agregado_id || null,
       valor_frete: form.valor_frete ? parseFloat(form.valor_frete) : null,
     }
-    const { error } = editId
-      ? await getSupabase().from('rotas').update(payload).eq('id', editId)
-      : await getSupabase().from('rotas').insert(payload)
+    const { error } = await getSupabase().from('rotas').insert(payload)
     if (error) { setErro(error.message); setSalvando(false); return }
     setDrawer(false); setSalvando(false); carregar()
   }
@@ -165,7 +158,7 @@ export default function RotasPage() {
                   </td>
                   <td className="px-4 py-3 text-right">
                     <div className="flex items-center justify-end gap-3">
-                      <button onClick={() => abrirEditar(r)} className="text-xs font-medium hover:opacity-80" style={{ color: PRIMARY }}>Editar</button>
+                      <button onClick={() => router.push(`/dashboard/rotas/${r.id}`)} className="text-xs font-medium hover:opacity-80" style={{ color: PRIMARY }}>Editar</button>
                       <button onClick={() => toggleAtivo(r)} className="text-xs text-gray-400 hover:text-gray-700">{r.ativo ? 'Desativar' : 'Ativar'}</button>
                     </div>
                   </td>
@@ -181,7 +174,7 @@ export default function RotasPage() {
         </div>
       )}
 
-      <Drawer open={drawer} onClose={() => setDrawer(false)} title={editId ? 'Editar rota' : 'Nova rota'}>
+      <Drawer open={drawer} onClose={() => setDrawer(false)} title="Nova rota">
         <form onSubmit={handleSalvar} className="space-y-4">
           <div className="grid grid-cols-2 gap-3">
             <div>
