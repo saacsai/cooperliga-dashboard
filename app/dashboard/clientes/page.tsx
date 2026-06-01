@@ -176,7 +176,8 @@ export default function ClientesPage() {
 
   async function handleExcluir(c: Cliente) {
     if (!confirm(`Excluir o cliente "${c.nome}"? Esta ação não pode ser desfeita.`)) return
-    await getSupabase().from('clientes').delete().eq('id', c.id)
+    const { error } = await getSupabase().from('clientes').delete().eq('id', c.id)
+    if (error) { alert(`Erro ao excluir: ${error.message}`); return }
     carregar()
   }
 
