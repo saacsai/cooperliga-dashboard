@@ -9,11 +9,10 @@ import type { PontoDeEntrega } from '@/lib/supabase'
 
 const PRIMARY = '#5C0F0F'
 
-type ContratoDropdown = { id: string; orgao: string; clientes: { nome: string } | null }
 type RotaItem = { id: string; nome: string }
 type RotaPonto = { rota_id: string; ponto_de_entrega_id: string }
 
-const VAZIO = { nome: '', contrato_id: '', codigo_interno: '', codigo_estado: '', codigo_prefeitura: '', endereco: '', municipio: '', cep: '', contato_nome: '' }
+const VAZIO = { nome: '', codigo_interno: '', codigo_estado: '', codigo_prefeitura: '', endereco: '', municipio: '', cep: '', contato_nome: '' }
 
 const COLUNAS_IMPORT = [
   { key: 'nome',              label: 'Nome' },
@@ -28,7 +27,6 @@ const COLUNAS_IMPORT = [
 
 export default function PontosDeEntregaPage() {
   const [pontos,     setPontos]     = useState<PontoDeEntrega[]>([])
-  const [contratos,  setContratos]  = useState<ContratoDropdown[]>([])
   const [rotas,      setRotas]      = useState<RotaItem[]>([])
   const [rotaPontos, setRotaPontos] = useState<RotaPonto[]>([])
   const [loading,    setLoading]    = useState(true)
@@ -62,14 +60,12 @@ export default function PontosDeEntregaPage() {
   }
 
   async function carregar() {
-    const [{ data: p }, { data: c }, { data: r }, { data: rp }] = await Promise.all([
-      getSupabase().from('pontos_de_entrega').select('*, contratos(orgao, clientes(nome))').order('nome'),
-      getSupabase().from('contratos').select('id, orgao, clientes(nome)').eq('ativo', true).order('orgao'),
+    const [{ data: p }, { data: r }, { data: rp }] = await Promise.all([
+      getSupabase().from('pontos_de_entrega').select('*').order('nome'),
       getSupabase().from('rotas').select('id, nome').order('nome'),
       getSupabase().from('rota_pontos').select('rota_id, ponto_de_entrega_id'),
     ])
     setPontos((p || []) as unknown as PontoDeEntrega[])
-    setContratos((c || []) as unknown as ContratoDropdown[])
     setRotas(r || [])
     setRotaPontos(rp || [])
     setLoading(false)
@@ -109,7 +105,7 @@ export default function PontosDeEntregaPage() {
   function abrirEditar(p: PontoDeEntrega) {
     setEditId(p.id)
     setForm({
-      nome: p.nome, contrato_id: p.contrato_id || '', codigo_interno: p.codigo_interno || '',
+      nome: p.nome, codigo_interno: p.codigo_interno || '',
       codigo_estado: p.codigo_estado || '', codigo_prefeitura: p.codigo_prefeitura || '',
       endereco: p.endereco || '', municipio: p.municipio || '',
       cep: p.cep || '', contato_nome: p.contato_nome || '',
@@ -122,7 +118,6 @@ export default function PontosDeEntregaPage() {
     setSalvando(true); setErro('')
     const payload = {
       nome: form.nome,
-      contrato_id: form.contrato_id || null,
       codigo_interno: form.codigo_interno || null,
       codigo_estado: form.codigo_estado || null,
       codigo_prefeitura: form.codigo_prefeitura || null,
@@ -159,11 +154,6 @@ export default function PontosDeEntregaPage() {
   async function toggleAtivo(p: PontoDeEntrega) {
     await getSupabase().from('pontos_de_entrega').update({ ativo: !p.ativo }).eq('id', p.id)
     carregar()
-  }
-
-  function labelContrato(c: ContratoDropdown) {
-    const cliente = (c as any).clientes?.nome || ''
-    return `${c.orgao}${cliente ? ` — ${cliente}` : ''}`
   }
 
   const temFiltro = busca.trim() !== '' || rotaFiltro !== ''
@@ -231,7 +221,6 @@ export default function PontosDeEntregaPage() {
             <thead>
               <tr className="border-b border-gray-100">
                 <th className="text-left px-4 py-3 text-xs font-medium text-gray-500">Nome</th>
-                <th className="text-left px-4 py-3 text-xs font-medium text-gray-500">Contrato</th>
                 <th className="text-left px-4 py-3 text-xs font-medium text-gray-500">Cód. Estado</th>
                 <th className="text-left px-4 py-3 text-xs font-medium text-gray-500">Cód. Prefeitura</th>
                 <th className="text-left px-4 py-3 text-xs font-medium text-gray-500">Município</th>
@@ -243,7 +232,6 @@ export default function PontosDeEntregaPage() {
               {pontosFiltrados.map(p => (
                 <tr key={p.id} className="border-b border-gray-50 last:border-0 hover:bg-gray-50/50">
                   <td className="px-4 py-3 font-medium text-gray-900">{p.nome}</td>
-                  <td className="px-4 py-3 text-gray-500 text-xs">{(p as any).contratos?.orgao || '—'}</td>
                   <td className="px-4 py-3 text-gray-500 font-mono text-xs">{p.codigo_estado || '—'}</td>
                   <td className="px-4 py-3 text-gray-500 font-mono text-xs">{p.codigo_prefeitura || '—'}</td>
                   <td className="px-4 py-3 text-gray-500">{p.municipio || '—'}</td>
@@ -262,7 +250,7 @@ export default function PontosDeEntregaPage() {
               ))}
               {pontosFiltrados.length === 0 && (
                 <tr>
-                  <td colSpan={7} className="px-4 py-8 text-center text-sm text-gray-400">
+                  <td colSpan={6} className="px-4 py-8 text-center text-sm text-gray-400">
                     {temFiltro ? 'Nenhum ponto encontrado para este filtro.' : 'Nenhum ponto de entrega cadastrado.'}
                   </td>
                 </tr>
@@ -278,14 +266,6 @@ export default function PontosDeEntregaPage() {
             <label className="block text-xs font-medium text-gray-600 mb-1">Nome *</label>
             <input type="text" value={form.nome} onChange={set('nome')} required autoFocus
               className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#5C0F0F]" />
-          </div>
-          <div>
-            <label className="block text-xs font-medium text-gray-600 mb-1">Contrato</label>
-            <select value={form.contrato_id} onChange={set('contrato_id')}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#5C0F0F]">
-              <option value="">Sem contrato</option>
-              {contratos.map(c => <option key={c.id} value={c.id}>{labelContrato(c)}</option>)}
-            </select>
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
