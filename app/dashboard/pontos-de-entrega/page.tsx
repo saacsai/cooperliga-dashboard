@@ -10,7 +10,7 @@ import type { PontoDeEntrega } from '@/lib/supabase'
 const PRIMARY = '#5C0F0F'
 const POR_PAGINA = 50
 
-type TotalBairro = { bairro: string; total: number }
+type Opcao = { value: string; label: string; count?: number }
 
 const VAZIO = {
   nome: '', codigo_interno: '', codigo_estado: '', codigo_prefeitura: '',
@@ -29,50 +29,158 @@ const COLUNAS_IMPORT = [
   { key: 'contato_nome',      label: 'Contato' },
 ]
 
+// ─── MultiSelect ──────────────────────────────────────────────────────────────
+
+function MultiSelect({ label, options, selected, onChange }: {
+  label: string
+  options: Opcao[]
+  selected: string[]
+  onChange: (v: string[]) => void
+}) {
+  const [open, setOpen] = useState(false)
+  const ref = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    function handler(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [])
+
+  function toggle(v: string) {
+    onChange(selected.includes(v) ? selected.filter(s => s !== v) : [...selected, v])
+  }
+
+  const label_ = selected.length > 0
+    ? `${label}: ${selected.length} selecionado${selected.length > 1 ? 's' : ''}`
+    : `${label}: Todos`
+
+  return (
+    <div ref={ref} className="relative">
+      <button
+        type="button"
+        onClick={() => setOpen(o => !o)}
+        className={`flex items-center gap-2 border rounded-lg px-3 py-2 text-sm bg-white transition-colors ${
+          selected.length > 0
+            ? 'border-[#5C0F0F] text-[#5C0F0F]'
+            : 'border-gray-300 text-gray-700 hover:border-gray-400'
+        }`}
+      >
+        {label_}
+        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+          <polyline points="6 9 12 15 18 9"/>
+        </svg>
+      </button>
+
+      {open && (
+        <div className="absolute top-full left-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-20 min-w-[220px] max-h-64 overflow-y-auto">
+          {selected.length > 0 && (
+            <button
+              type="button"
+              onClick={() => onChange([])}
+              className="w-full text-left px-3 py-2 text-xs text-gray-400 hover:text-gray-600 border-b border-gray-100"
+            >
+              Limpar seleção
+            </button>
+          )}
+          {options.length === 0 && (
+            <p className="px-3 py-3 text-xs text-gray-400">Nenhuma opção disponível</p>
+          )}
+          {options.map(opt => (
+            <label key={opt.value} className="flex items-center gap-2 px-3 py-2 hover:bg-gray-50 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={selected.includes(opt.value)}
+                onChange={() => toggle(opt.value)}
+                className="accent-[#5C0F0F]"
+              />
+              <span className="text-sm text-gray-700 flex-1">{opt.label}</span>
+              {opt.count !== undefined && (
+                <span className="text-xs text-gray-400 tabular-nums">{opt.count}</span>
+              )}
+            </label>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ─── Page ─────────────────────────────────────────────────────────────────────
+
 export default function PontosDeEntregaPage() {
-  const [pontos,       setPontos]       = useState<PontoDeEntrega[]>([])
-  const [total,        setTotal]        = useState(0)
-  const [pagina,       setPagina]       = useState(0)
-  const [totaisBairro, setTotaisBairro] = useState<TotalBairro[]>([])
-  const [loading,      setLoading]      = useState(true)
-  const [drawer,       setDrawer]       = useState(false)
-  const [editId,       setEditId]       = useState<string | null>(null)
-  const [salvando,     setSalvando]     = useState(false)
-  const [erro,         setErro]         = useState('')
-  const [form,         setForm]         = useState(VAZIO)
-  const [busca,        setBusca]        = useState('')
-  const [bairroFiltro, setBairroFiltro] = useState('')
-  const [buscandoCEP,  setBuscandoCEP]  = useState(false)
+  const [pontos,        setPontos]        = useState<PontoDeEntrega[]>([])
+  const [total,         setTotal]         = useState(0)
+  const [pagina,        setPagina]        = useState(0)
+  const [opcoesBairro,  setOpcoesBairro]  = useState<Opcao[]>([])
+  const [opcoesRegiao,  setOpcoesRegiao]  = useState<Opcao[]>([])
+  const [loading,       setLoading]       = useState(true)
+  const [drawer,        setDrawer]        = useState(false)
+  const [editId,        setEditId]        = useState<string | null>(null)
+  const [salvando,      setSalvando]      = useState(false)
+  const [erro,          setErro]          = useState('')
+  const [form,          setForm]          = useState(VAZIO)
+  const [busca,         setBusca]         = useState('')
+  const [bairrosFiltro, setBairrosFiltro] = useState<string[]>([])
+  const [regioesFiltro, setRegioesFiltro] = useState<string[]>([])
+  const [buscandoCEP,   setBuscandoCEP]   = useState(false)
   const buscaTimer = useRef<ReturnType<typeof setTimeout>>()
 
   const totalPaginas = Math.ceil(total / POR_PAGINA)
+  const temFiltro = busca.trim() !== '' || bairrosFiltro.length > 0 || regioesFiltro.length > 0
 
   const set = (f: keyof typeof VAZIO) => (e: React.ChangeEvent<HTMLInputElement>) =>
     setForm(p => ({ ...p, [f]: e.target.value }))
 
-  async function carregarTotais() {
-    const { data } = await getSupabase()
-      .from('pontos_de_entrega')
-      .select('bairro')
-      .not('bairro', 'is', null)
-      .neq('bairro', '')
-      .eq('ativo', true)
-    const contagem: Record<string, number> = {}
-    for (const row of (data || [])) {
-      if (row.bairro) contagem[row.bairro] = (contagem[row.bairro] || 0) + 1
+  // ── Carregar opções de filtro (bairros + regiões) ───────────────────────────
+  async function carregarOpcoes() {
+    const [{ data: bairrosData }, { data: rotasData }] = await Promise.all([
+      getSupabase().from('pontos_de_entrega').select('bairro').not('bairro', 'is', null).neq('bairro', '').eq('ativo', true),
+      getSupabase().from('rotas').select('regiao').not('regiao', 'is', null).neq('regiao', '').eq('ativo', true),
+    ])
+
+    const contagemBairro: Record<string, number> = {}
+    for (const row of (bairrosData || [])) {
+      if (row.bairro) contagemBairro[row.bairro] = (contagemBairro[row.bairro] || 0) + 1
     }
-    setTotaisBairro(
-      Object.entries(contagem)
-        .map(([bairro, total]) => ({ bairro, total }))
-        .sort((a, b) => b.total - a.total)
+    setOpcoesBairro(
+      Object.entries(contagemBairro)
+        .map(([b, c]) => ({ value: b, label: b, count: c }))
+        .sort((a, b) => b.count! - a.count!)
     )
+
+    const regioes = [...new Set((rotasData || []).map((r: any) => r.regiao).filter(Boolean))] as string[]
+    setOpcoesRegiao(regioes.sort().map(r => ({ value: r, label: r })))
   }
 
-  const carregar = useCallback(async (pag: number, q: string, bairro: string) => {
+  // ── Carregar pontos (paginado + filtros server-side) ────────────────────────
+  const carregar = useCallback(async (
+    pag: number, q: string, bairros: string[], regioes: string[]
+  ) => {
     setLoading(true)
+
+    // Resolver IDs de PDEs a partir das regiões selecionadas
+    let pdeIdsRegiao: string[] | null = null
+    if (regioes.length > 0) {
+      const { data: rotasData } = await getSupabase()
+        .from('rotas').select('id').in('regiao', regioes)
+      const rotaIds = (rotasData || []).map((r: any) => r.id)
+      if (rotaIds.length > 0) {
+        const { data: rpData } = await getSupabase()
+          .from('rota_pontos').select('ponto_de_entrega_id').in('rota_id', rotaIds)
+        pdeIdsRegiao = [...new Set((rpData || []).map((r: any) => r.ponto_de_entrega_id as string))]
+      } else {
+        pdeIdsRegiao = []
+      }
+    }
+
+    if (pdeIdsRegiao !== null && pdeIdsRegiao.length === 0) {
+      setPontos([]); setTotal(0); setLoading(false); return
+    }
+
     const from = pag * POR_PAGINA
     const to   = from + POR_PAGINA - 1
-
     let query = getSupabase()
       .from('pontos_de_entrega')
       .select('*', { count: 'exact' })
@@ -85,7 +193,8 @@ export default function PontosDeEntregaPage() {
         `nome.ilike.%${term}%,codigo_estado.ilike.%${term}%,codigo_prefeitura.ilike.%${term}%,municipio.ilike.%${term}%,bairro.ilike.%${term}%`
       )
     }
-    if (bairro) query = query.ilike('bairro', `%${bairro}%`)
+    if (bairros.length > 0)       query = query.in('bairro', bairros)
+    if (pdeIdsRegiao !== null)     query = query.in('id', pdeIdsRegiao)
 
     const { data, count } = await query
     setPontos((data || []) as unknown as PontoDeEntrega[])
@@ -94,30 +203,35 @@ export default function PontosDeEntregaPage() {
   }, [])
 
   useEffect(() => {
-    carregar(0, '', '')
-    carregarTotais()
+    carregar(0, '', [], [])
+    carregarOpcoes()
   }, [carregar])
 
   function handleBuscaChange(e: React.ChangeEvent<HTMLInputElement>) {
     const q = e.target.value
-    setBusca(q)
-    setPagina(0)
+    setBusca(q); setPagina(0)
     clearTimeout(buscaTimer.current)
-    buscaTimer.current = setTimeout(() => carregar(0, q, bairroFiltro), 400)
+    buscaTimer.current = setTimeout(() => carregar(0, q, bairrosFiltro, regioesFiltro), 400)
   }
 
-  function handleBairroFiltro(b: string) {
-    const novo = bairroFiltro === b ? '' : b
-    setBairroFiltro(novo)
-    setPagina(0)
-    carregar(0, busca, novo)
+  function handleBairros(v: string[]) {
+    setBairrosFiltro(v); setPagina(0); carregar(0, busca, v, regioesFiltro)
+  }
+
+  function handleRegioes(v: string[]) {
+    setRegioesFiltro(v); setPagina(0); carregar(0, busca, bairrosFiltro, v)
   }
 
   function handlePagina(nova: number) {
-    setPagina(nova)
-    carregar(nova, busca, bairroFiltro)
+    setPagina(nova); carregar(nova, busca, bairrosFiltro, regioesFiltro)
   }
 
+  function limparFiltros() {
+    setBusca(''); setBairrosFiltro([]); setRegioesFiltro([]); setPagina(0)
+    carregar(0, '', [], [])
+  }
+
+  // ── CEP lookup ──────────────────────────────────────────────────────────────
   async function handleCEPBlur() {
     const digits = form.cep.replace(/\D/g, '')
     if (digits.length !== 8) return
@@ -135,6 +249,7 @@ export default function PontosDeEntregaPage() {
     setBuscandoCEP(false)
   }
 
+  // ── CRUD ────────────────────────────────────────────────────────────────────
   function abrirNovo() {
     setEditId(null); setForm(VAZIO); setErro(''); setDrawer(true)
   }
@@ -174,8 +289,8 @@ export default function PontosDeEntregaPage() {
       : await getSupabase().from('pontos_de_entrega').insert(payload)
     if (error) { setErro(error.message); setSalvando(false); return }
     setDrawer(false); setSalvando(false)
-    carregar(pagina, busca, bairroFiltro)
-    carregarTotais()
+    carregar(pagina, busca, bairrosFiltro, regioesFiltro)
+    carregarOpcoes()
   }
 
   async function handleImportar(rows: Record<string, string>[]) {
@@ -194,17 +309,16 @@ export default function PontosDeEntregaPage() {
       .from('pontos_de_entrega')
       .upsert(payload, { onConflict: 'codigo_prefeitura' })
     if (error) throw new Error(error.message)
-    carregar(0, busca, bairroFiltro)
-    carregarTotais()
+    carregar(0, busca, bairrosFiltro, regioesFiltro)
+    carregarOpcoes()
   }
 
   async function toggleAtivo(p: PontoDeEntrega) {
     await getSupabase().from('pontos_de_entrega').update({ ativo: !p.ativo }).eq('id', p.id)
-    carregar(pagina, busca, bairroFiltro)
+    carregar(pagina, busca, bairrosFiltro, regioesFiltro)
   }
 
-  const temFiltro = busca.trim() !== '' || bairroFiltro !== ''
-
+  // ── Render ──────────────────────────────────────────────────────────────────
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
@@ -220,29 +334,9 @@ export default function PontosDeEntregaPage() {
         </div>
       </div>
 
-      {/* Totalizadores por bairro */}
-      {totaisBairro.length > 0 && (
-        <div className="flex flex-wrap gap-2 mb-4">
-          {totaisBairro.map(t => (
-            <button
-              key={t.bairro}
-              onClick={() => handleBairroFiltro(t.bairro)}
-              className={`text-xs px-3 py-1.5 rounded-full border transition-colors ${
-                bairroFiltro === t.bairro
-                  ? 'text-white border-transparent'
-                  : 'bg-white border-gray-200 text-gray-600 hover:border-gray-400'
-              }`}
-              style={bairroFiltro === t.bairro ? { background: PRIMARY } : {}}
-            >
-              {t.bairro} <span className="font-semibold ml-1">{t.total}</span>
-            </button>
-          ))}
-        </div>
-      )}
-
-      {/* Barra de busca */}
-      <div className="flex items-center gap-3 mb-4">
-        <div className="relative flex-1 max-w-sm">
+      {/* Filtros */}
+      <div className="flex flex-wrap items-center gap-3 mb-4">
+        <div className="relative">
           <svg className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
           </svg>
@@ -250,18 +344,20 @@ export default function PontosDeEntregaPage() {
             type="text"
             value={busca}
             onChange={handleBuscaChange}
-            placeholder="Buscar por nome, código, bairro ou município…"
-            className="w-full border border-gray-300 rounded-lg pl-8 pr-3 py-2 text-sm outline-none focus:border-[#5C0F0F]"
+            placeholder="Buscar por nome, código, bairro…"
+            className="border border-gray-300 rounded-lg pl-8 pr-3 py-2 text-sm outline-none focus:border-[#5C0F0F] w-64"
           />
         </div>
+
+        <MultiSelect label="Bairro"  options={opcoesBairro} selected={bairrosFiltro} onChange={handleBairros} />
+        <MultiSelect label="Região"  options={opcoesRegiao} selected={regioesFiltro} onChange={handleRegioes} />
+
         {temFiltro && (
-          <button
-            onClick={() => { setBusca(''); setBairroFiltro(''); setPagina(0); carregar(0, '', '') }}
-            className="text-xs text-gray-400 hover:text-gray-700 transition-colors"
-          >
-            Limpar
+          <button onClick={limparFiltros} className="text-xs text-gray-400 hover:text-gray-700 transition-colors">
+            Limpar filtros
           </button>
         )}
+
         <span className="text-xs text-gray-400 ml-auto">
           {!loading && (temFiltro ? `${total} encontrados` : `${total} pontos`)}
         </span>
