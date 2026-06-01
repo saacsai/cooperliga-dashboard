@@ -4,6 +4,7 @@ import { useEffect, useState, useMemo } from 'react'
 import { getSupabase } from '@/lib/supabase'
 import Drawer from '@/components/Drawer'
 import ImportarLote from '@/components/ImportarLote'
+import { buscarCEP } from '@/lib/useCEPLookup'
 import type { PontoDeEntrega } from '@/lib/supabase'
 
 const PRIMARY = '#5C0F0F'
@@ -12,13 +13,14 @@ type ContratoDropdown = { id: string; orgao: string; clientes: { nome: string } 
 type RotaItem = { id: string; nome: string }
 type RotaPonto = { rota_id: string; ponto_de_entrega_id: string }
 
-const VAZIO = { nome: '', contrato_id: '', codigo_interno: '', codigo_estado: '', codigo_prefeitura: '', endereco: '', municipio: '', contato_nome: '' }
+const VAZIO = { nome: '', contrato_id: '', codigo_interno: '', codigo_estado: '', codigo_prefeitura: '', endereco: '', municipio: '', cep: '', contato_nome: '' }
 
 const COLUNAS_IMPORT = [
   { key: 'nome',              label: 'Nome' },
   { key: 'codigo_prefeitura', label: 'Cód. Prefeitura' },
   { key: 'codigo_estado',     label: 'Cód. Estado' },
   { key: 'codigo_interno',    label: 'Cód. Interno' },
+  { key: 'cep',               label: 'CEP' },
   { key: 'municipio',         label: 'Município' },
   { key: 'endereco',          label: 'Endereço' },
   { key: 'contato_nome',      label: 'Contato' },
@@ -38,9 +40,26 @@ export default function PontosDeEntregaPage() {
 
   const [busca,      setBusca]      = useState('')
   const [rotaFiltro, setRotaFiltro] = useState('')
+  const [buscandoCEP, setBuscandoCEP] = useState(false)
 
   const set = (f: keyof typeof VAZIO) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
     setForm(p => ({ ...p, [f]: e.target.value }))
+
+  async function handleCEPBlur() {
+    const digits = form.cep.replace(/\D/g, '')
+    if (digits.length !== 8) return
+    setBuscandoCEP(true)
+    const dados = await buscarCEP(digits)
+    if (dados) {
+      setForm(p => ({
+        ...p,
+        cep: dados.cep,
+        endereco: p.endereco || `${dados.logradouro}${dados.bairro ? ', ' + dados.bairro : ''}`.trim(),
+        municipio: p.municipio || `${dados.municipio} - ${dados.uf}`,
+      }))
+    }
+    setBuscandoCEP(false)
+  }
 
   async function carregar() {
     const [{ data: p }, { data: c }, { data: r }, { data: rp }] = await Promise.all([
@@ -92,7 +111,8 @@ export default function PontosDeEntregaPage() {
     setForm({
       nome: p.nome, contrato_id: p.contrato_id || '', codigo_interno: p.codigo_interno || '',
       codigo_estado: p.codigo_estado || '', codigo_prefeitura: p.codigo_prefeitura || '',
-      endereco: p.endereco || '', municipio: p.municipio || '', contato_nome: p.contato_nome || '',
+      endereco: p.endereco || '', municipio: p.municipio || '',
+      cep: p.cep || '', contato_nome: p.contato_nome || '',
     })
     setErro(''); setDrawer(true)
   }
@@ -108,6 +128,7 @@ export default function PontosDeEntregaPage() {
       codigo_prefeitura: form.codigo_prefeitura || null,
       endereco: form.endereco || null,
       municipio: form.municipio || null,
+      cep: form.cep || null,
       contato_nome: form.contato_nome || null,
     }
     const { error } = editId
@@ -123,6 +144,7 @@ export default function PontosDeEntregaPage() {
       codigo_prefeitura: r.codigo_prefeitura || null,
       codigo_estado:     r.codigo_estado     || null,
       codigo_interno:    r.codigo_interno    || null,
+      cep:               r.cep               || null,
       municipio:         r.municipio         || null,
       endereco:          r.endereco          || null,
       contato_nome:      r.contato_nome      || null,
@@ -284,10 +306,21 @@ export default function PontosDeEntregaPage() {
                 className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#5C0F0F]" />
             </div>
             <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1">
+                CEP {buscandoCEP && <span className="text-gray-400 font-normal">buscando…</span>}
+              </label>
+              <input type="text" value={form.cep} onChange={set('cep')} onBlur={handleCEPBlur}
+                placeholder="00000-000"
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#5C0F0F] font-mono" />
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
               <label className="block text-xs font-medium text-gray-600 mb-1">Município</label>
               <input type="text" value={form.municipio} onChange={set('municipio')}
                 className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#5C0F0F]" />
             </div>
+            <div className="col-span-1" />
           </div>
           <div>
             <label className="block text-xs font-medium text-gray-600 mb-1">Endereço</label>

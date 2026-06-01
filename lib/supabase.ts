@@ -73,6 +73,7 @@ export interface PontoDeEntrega {
   codigo_prefeitura: string | null
   endereco: string | null
   municipio: string | null
+  cep: string | null
   contato_nome: string | null
   ativo: boolean
   created_at: string
@@ -94,6 +95,7 @@ export interface Rota {
   codigo: string
   nome: string
   regiao: string | null
+  cep_referencia: string | null
   agregado_id: string | null
   valor_frete: number | null
   ativo: boolean

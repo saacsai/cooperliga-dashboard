@@ -38,6 +38,7 @@ type RotaForm = {
   codigo: string
   nome: string
   regiao: string
+  cep_referencia: string
   agregado_id: string
   valor_frete: string
 }
@@ -125,7 +126,7 @@ export default function RotaEditPage() {
   const [dirty, setDirty] = useState(false)
 
   const [form, setForm] = useState<RotaForm>({
-    codigo: '', nome: '', regiao: '', agregado_id: '', valor_frete: '',
+    codigo: '', nome: '', regiao: '', cep_referencia: '', agregado_id: '', valor_frete: '',
   })
   const [agregados, setAgregados] = useState<AgregadoItem[]>([])
   const [pontos, setPontos] = useState<PontoItem[]>([])
@@ -160,11 +161,12 @@ export default function RotaEditPage() {
       if (!rota) { router.push('/dashboard/rotas'); return }
 
       setForm({
-        codigo:      rota.codigo,
-        nome:        rota.nome,
-        regiao:      rota.regiao      || '',
-        agregado_id: rota.agregado_id || '',
-        valor_frete: rota.valor_frete?.toString() || '',
+        codigo:         rota.codigo,
+        nome:           rota.nome,
+        regiao:         rota.regiao          || '',
+        cep_referencia: rota.cep_referencia  || '',
+        agregado_id:    rota.agregado_id     || '',
+        valor_frete:    rota.valor_frete?.toString() || '',
       })
       setAgregados(ag || [])
 
@@ -241,11 +243,12 @@ export default function RotaEditPage() {
     try {
       // 1. Salvar metadados da rota
       const { error: errRota } = await sb.from('rotas').update({
-        codigo:      form.codigo,
-        nome:        form.nome,
-        regiao:      form.regiao      || null,
-        agregado_id: form.agregado_id || null,
-        valor_frete: form.valor_frete ? parseFloat(form.valor_frete) : null,
+        codigo:         form.codigo,
+        nome:           form.nome,
+        regiao:         form.regiao          || null,
+        cep_referencia: form.cep_referencia  || null,
+        agregado_id:    form.agregado_id     || null,
+        valor_frete:    form.valor_frete ? parseFloat(form.valor_frete) : null,
       }).eq('id', id)
       if (errRota) throw new Error(errRota.message)
 
@@ -314,6 +317,12 @@ export default function RotaEditPage() {
             <label className="block text-xs font-medium text-gray-600 mb-1">Região</label>
             <input type="text" value={form.regiao} onChange={setField('regiao')}
               className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#5C0F0F]" />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-gray-600 mb-1">CEP de referência</label>
+            <input type="text" value={form.cep_referencia} onChange={setField('cep_referencia')}
+              placeholder="ex: 08400" maxLength={9}
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#5C0F0F] font-mono" />
           </div>
           <div>
             <label className="block text-xs font-medium text-gray-600 mb-1">Agregado</label>

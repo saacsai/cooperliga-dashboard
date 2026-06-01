@@ -11,7 +11,7 @@ type AgregadoDropdown = { id: string; nome: string }
 
 const PRIMARY = '#5C0F0F'
 
-const VAZIO = { codigo: '', nome: '', regiao: '', agregado_id: '', valor_frete: '' }
+const VAZIO = { codigo: '', nome: '', regiao: '', cep_referencia: '', agregado_id: '', valor_frete: '' }
 
 const COLUNAS_IMPORT = [
   { key: 'codigo',      label: 'Código' },
@@ -65,11 +65,12 @@ export default function RotasPage() {
     e.preventDefault()
     setSalvando(true); setErro('')
     const payload = {
-      codigo: form.codigo,
-      nome: form.nome,
-      regiao: form.regiao || null,
-      agregado_id: form.agregado_id || null,
-      valor_frete: form.valor_frete ? parseFloat(form.valor_frete) : null,
+      codigo:         form.codigo,
+      nome:           form.nome,
+      regiao:         form.regiao          || null,
+      cep_referencia: form.cep_referencia  || null,
+      agregado_id:    form.agregado_id     || null,
+      valor_frete:    form.valor_frete ? parseFloat(form.valor_frete) : null,
     }
     const { error } = await getSupabase().from('rotas').insert(payload)
     if (error) { setErro(error.message); setSalvando(false); return }
@@ -190,8 +191,15 @@ export default function RotasPage() {
                 className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#5C0F0F] font-mono" />
             </div>
             <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1">CEP de referência</label>
+              <input type="text" value={form.cep_referencia} onChange={set('cep_referencia')} placeholder="ex: 08400" maxLength={9}
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#5C0F0F] font-mono" />
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="col-span-2">
               <label className="block text-xs font-medium text-gray-600 mb-1">Região</label>
-              <input type="text" value={form.regiao} onChange={set('regiao')} placeholder="ex: Santo André"
+              <input type="text" value={form.regiao} onChange={set('regiao')} placeholder="ex: Cid. Tiradentes / Guaianazes"
                 className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#5C0F0F]" />
             </div>
           </div>
