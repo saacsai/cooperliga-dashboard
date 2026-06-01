@@ -6,3 +6,6 @@ ALTER TABLE pontos_de_entrega
 
 ALTER TABLE rotas
   ADD COLUMN IF NOT EXISTS cep_referencia text;
+
+ALTER TABLE pontos_de_entrega
+  ADD COLUMN IF NOT EXISTS bairro text;

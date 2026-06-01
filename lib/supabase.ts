@@ -73,6 +73,7 @@ export interface PontoDeEntrega {
   codigo_prefeitura: string | null
   endereco: string | null
   municipio: string | null
+  bairro: string | null
   cep: string | null
   contato_nome: string | null
   ativo: boolean
