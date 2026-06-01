@@ -1,13 +1,13 @@
 'use client'
 
-import { useRef, useState, useCallback } from 'react'
+import { useRef, useState, useCallback, useEffect } from 'react'
+import { getSupabase } from '@/lib/supabase'
 
 const PRIMARY  = '#5C0F0F'
-const ACCENT   = '#D4A0A0'
 const WORKER   = 'https://guias.cooperliga.saacs.com.br'
 
-// ── tipos ────────────────────────────────────────────────────
 type Tab = 'estado' | 'municipal'
+type ContratoOpt = { id: string; codigo: string | null; orgao: string }
 
 interface CampoArquivo {
   name: string
@@ -19,23 +19,19 @@ interface CampoArquivo {
 }
 
 const CAMPOS_ESTADO: CampoArquivo[] = [
-  { fieldName: 'zip_grs',      name: 'zip_grs',      label: 'ZIP com todas as GRs do ciclo',          hint: 'Um único .zip com todos os PDFs das guias de remessa da SEE-SP',                                    accept: '.zip',       multiple: false },
-  { fieldName: 'folhas_rosto', name: 'folhas_rosto',  label: 'Folhas de rosto (PDF)',                   hint: 'Selecione todos os PDFs de rota de uma vez. Ex: ROTA 1 - SANTO ANDRE.pdf...',                       accept: '.pdf',       multiple: true  },
+  { fieldName: 'zip_grs',      name: 'zip_grs',      label: 'ZIP com todas as GRs do ciclo',         hint: 'Um único .zip com todos os PDFs das guias de remessa da SEE-SP',                                   accept: '.zip',       multiple: false },
+  { fieldName: 'folhas_rosto', name: 'folhas_rosto',  label: 'Folhas de rosto (PDF)',                  hint: 'Selecione todos os PDFs de rota de uma vez. Ex: ROTA 1 - SANTO ANDRE.pdf...',                      accept: '.pdf',       multiple: true  },
 ]
 
 const CAMPOS_MUNICIPAL: CampoArquivo[] = [
-  { fieldName: 'pdf_grs',      name: 'pdf_grs',       label: 'PDFs de GRs (Prefeitura)',               hint: 'Um ou mais PDFs enviados pela Prefeitura com as guias de remessa do ciclo',                         accept: '.pdf',       multiple: true  },
-  { fieldName: 'xls_grs',      name: 'xls_grs',       label: 'XLS de GRs (solicitação)',               hint: 'Planilha(s) com CODIGO_UNIDADE e Nº_GUIA_REMESSA — uma por alimento/solicitação',                   accept: '.xlsx,.xls', multiple: true  },
-  { fieldName: 'xls_rota',     name: 'xls_rota',      label: 'XLS de rota (ordem de entrega)',          hint: 'Uma ou mais planilhas de rota. O nome deve ser igual ao PDF de capa correspondente',                accept: '.xlsx,.xls', multiple: true  },
-  { fieldName: 'folhas_rosto', name: 'folhas_rosto',  label: 'Folhas de rosto das rotas (PDF)',         hint: 'PDFs convertidos do XLS de rota — nome deve coincidir. Ex: "ROTA 1.xlsx" → "ROTA 1.pdf"',           accept: '.pdf',       multiple: true  },
+  { fieldName: 'pdf_grs',      name: 'pdf_grs',       label: 'PDFs de GRs (Prefeitura)',              hint: 'Um ou mais PDFs enviados pela Prefeitura com as guias de remessa do ciclo',                        accept: '.pdf',       multiple: true  },
+  { fieldName: 'xls_grs',      name: 'xls_grs',       label: 'XLS de GRs (solicitação)',              hint: 'Planilha(s) com CODIGO_UNIDADE e Nº_GUIA_REMESSA — uma por alimento/solicitação',                  accept: '.xlsx,.xls', multiple: true  },
+  { fieldName: 'xls_rota',     name: 'xls_rota',      label: 'XLS de rota (ordem de entrega)',         hint: 'Uma ou mais planilhas de rota. O nome deve ser igual ao PDF de capa correspondente',               accept: '.xlsx,.xls', multiple: true  },
+  { fieldName: 'folhas_rosto', name: 'folhas_rosto',  label: 'Folhas de rosto das rotas (PDF)',        hint: 'PDFs convertidos do XLS de rota — nome deve coincidir. Ex: "ROTA 1.xlsx" → "ROTA 1.pdf"',          accept: '.pdf',       multiple: true  },
 ]
 
-// ── componente de campo de arquivo ──────────────────────────
 function CampoUpload({
-  campo,
-  acumulados,
-  onChange,
-  onRemover,
+  campo, acumulados, onChange, onRemover,
 }: {
   campo: CampoArquivo
   acumulados: File[]
@@ -43,7 +39,6 @@ function CampoUpload({
   onRemover: (fieldName: string, idx: number) => void
 }) {
   const ref = useRef<HTMLInputElement>(null)
-
   return (
     <div className="mb-5">
       <label className="block text-sm font-semibold text-gray-800 mb-0.5">{campo.label}</label>
@@ -62,11 +57,8 @@ function CampoUpload({
           {acumulados.map((f, i) => (
             <div key={i} className="flex items-center gap-2 px-3 py-1.5 bg-gray-50 text-xs">
               <span className="flex-1 truncate text-gray-700">{f.name}</span>
-              <button
-                type="button"
-                onClick={() => onRemover(campo.fieldName, i)}
-                className="text-red-400 hover:text-red-600 font-bold text-base leading-none px-1"
-              >×</button>
+              <button type="button" onClick={() => onRemover(campo.fieldName, i)}
+                className="text-red-400 hover:text-red-600 font-bold text-base leading-none px-1">×</button>
             </div>
           ))}
         </div>
@@ -75,16 +67,25 @@ function CampoUpload({
   )
 }
 
-// ── página principal ─────────────────────────────────────────
 export default function GuiasPage() {
-  const [tab, setTab]             = useState<Tab>('estado')
-  const [status, setStatus]       = useState<'idle' | 'loading' | 'error'>('idle')
-  const [erro, setErro]           = useState('')
-  const [processando, setProc]    = useState<Tab | null>(null)
+  const [tab, setTab]           = useState<Tab>('estado')
+  const [status, setStatus]     = useState<'idle' | 'loading' | 'error'>('idle')
+  const [erro, setErro]         = useState('')
+  const [processando, setProc]  = useState<Tab | null>(null)
+  const [contratos, setContratos] = useState<ContratoOpt[]>([])
+  const [contratoId, setContratoId] = useState('')
 
-  // acumulados por aba e por fieldName
-  const [filesEstado, setFilesEstado]       = useState<Record<string, File[]>>({})
+  const [filesEstado,   setFilesEstado]   = useState<Record<string, File[]>>({})
   const [filesMunicipal, setFilesMunicipal] = useState<Record<string, File[]>>({})
+
+  useEffect(() => {
+    getSupabase()
+      .from('contratos')
+      .select('id, codigo, orgao')
+      .eq('ativo', true)
+      .order('orgao')
+      .then(({ data }) => setContratos((data || []) as ContratoOpt[]))
+  }, [])
 
   const getFiles = (t: Tab) => t === 'estado' ? filesEstado : filesMunicipal
   const setFiles = (t: Tab, v: Record<string, File[]>) =>
@@ -109,11 +110,10 @@ export default function GuiasPage() {
   }, [])
 
   async function handleSubmit(t: Tab) {
-    const campos  = t === 'estado' ? CAMPOS_ESTADO : CAMPOS_MUNICIPAL
-    const files   = getFiles(t)
+    const campos   = t === 'estado' ? CAMPOS_ESTADO : CAMPOS_MUNICIPAL
+    const files    = getFiles(t)
     const endpoint = t === 'estado' ? `${WORKER}/processar` : `${WORKER}/processar/municipal`
 
-    // Validação
     for (const c of campos) {
       if ((files[c.fieldName] || []).length === 0) {
         setErro(`Campo obrigatório: ${c.label}`)
@@ -128,9 +128,7 @@ export default function GuiasPage() {
       return
     }
 
-    setStatus('loading')
-    setErro('')
-    setProc(t)
+    setStatus('loading'); setErro(''); setProc(t)
 
     try {
       const fd = new FormData()
@@ -138,6 +136,7 @@ export default function GuiasPage() {
         for (const f of files[c.fieldName] || []) fd.append(c.fieldName, f)
       }
       fd.append('data_ciclo', dataCiclo)
+      if (t === 'municipal' && contratoId) fd.append('contrato_id', contratoId)
 
       const res = await fetch(endpoint, { method: 'POST', body: fd })
       if (!res.ok) throw new Error(await res.text())
@@ -159,21 +158,18 @@ export default function GuiasPage() {
     }
   }
 
-  const campos   = tab === 'estado' ? CAMPOS_ESTADO : CAMPOS_MUNICIPAL
-  const files    = getFiles(tab)
-  const loading  = processando === tab
+  const campos  = tab === 'estado' ? CAMPOS_ESTADO : CAMPOS_MUNICIPAL
+  const files   = getFiles(tab)
+  const loading = processando === tab
 
   return (
     <div className="max-w-2xl">
       <h1 className="text-xl font-bold text-gray-900 mb-1">Guias de Remessa</h1>
       <p className="text-sm text-gray-500 mb-6">Organiza as GRs por rota para impressão e entrega</p>
 
-      {/* Tabs */}
       <div className="flex mb-0">
         {(['estado', 'municipal'] as Tab[]).map(t => (
-          <button
-            key={t}
-            onClick={() => { setTab(t); setStatus('idle'); setErro('') }}
+          <button key={t} onClick={() => { setTab(t); setStatus('idle'); setErro('') }}
             className="flex-1 py-2.5 text-sm font-semibold transition-colors border"
             style={{
               background:   tab === t ? PRIMARY : '#FAF5F5',
@@ -181,16 +177,13 @@ export default function GuiasPage() {
               borderColor:  tab === t ? PRIMARY : '#e5e7eb',
               borderBottom: tab === t ? `2px solid ${PRIMARY}` : '1px solid #e5e7eb',
               borderRadius: t === 'estado' ? '8px 0 0 0' : '0 8px 0 0',
-            }}
-          >
+            }}>
             {t === 'estado' ? 'Estado (SEE-SP)' : 'Prefeitura (Municipal)'}
           </button>
         ))}
       </div>
 
       <div className="bg-white border border-gray-200 rounded-b-xl rounded-tr-xl p-6">
-
-        {/* Instruções */}
         <div className="mb-5 space-y-2">
           {tab === 'estado' ? (
             <>
@@ -209,7 +202,23 @@ export default function GuiasPage() {
 
         <div className="border-t border-gray-100 my-5" />
 
-        {/* Campos de arquivo */}
+        {/* Contrato — apenas Municipal */}
+        {tab === 'municipal' && (
+          <div className="mb-5">
+            <label className="block text-sm font-semibold text-gray-800 mb-0.5">Contrato</label>
+            <p className="text-xs text-gray-400 mb-2">Vincula este ciclo ao contrato para gerar o manifesto corretamente</p>
+            <select value={contratoId} onChange={e => setContratoId(e.target.value)}
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#5C0F0F] bg-white">
+              <option value="">Sem contrato</option>
+              {contratos.map(c => (
+                <option key={c.id} value={c.id}>
+                  {c.codigo ? `${c.codigo} — ` : ''}{c.orgao}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
+
         {campos.map(c => (
           <CampoUpload
             key={`${tab}-${c.fieldName}`}
@@ -220,7 +229,6 @@ export default function GuiasPage() {
           />
         ))}
 
-        {/* Data do ciclo */}
         <div className="mb-6">
           <label className="block text-sm font-semibold text-gray-800 mb-0.5">Data do ciclo</label>
           <p className="text-xs text-gray-400 mb-2">
@@ -236,7 +244,6 @@ export default function GuiasPage() {
           />
         </div>
 
-        {/* Status */}
         {status === 'loading' && (
           <div className="mb-4 px-4 py-3 rounded-lg text-sm" style={{ background: '#FEF9C3', color: '#854D0E', border: '1px solid #FDE68A' }}>
             ⏳ Processando as GRs e gerando o PDF…
@@ -248,13 +255,9 @@ export default function GuiasPage() {
           </div>
         )}
 
-        {/* Botão */}
-        <button
-          onClick={() => handleSubmit(tab)}
-          disabled={loading}
+        <button onClick={() => handleSubmit(tab)} disabled={loading}
           className="w-full py-3 text-white text-sm font-bold rounded-xl disabled:opacity-50 transition-opacity hover:opacity-90"
-          style={{ background: PRIMARY }}
-        >
+          style={{ background: PRIMARY }}>
           {loading ? 'Processando… aguarde' : tab === 'estado' ? 'Gerar Rotas →' : 'Gerar PDF Municipal →'}
         </button>
       </div>
@@ -265,12 +268,8 @@ export default function GuiasPage() {
 function Step({ n, children }: { n: number; children: React.ReactNode }) {
   return (
     <div className="flex items-start gap-2.5 text-sm text-gray-500">
-      <span
-        className="flex-shrink-0 w-5 h-5 rounded-full flex items-center justify-center text-[11px] font-bold mt-0.5"
-        style={{ background: '#F5EFEF', color: PRIMARY }}
-      >
-        {n}
-      </span>
+      <span className="flex-shrink-0 w-5 h-5 rounded-full flex items-center justify-center text-[11px] font-bold mt-0.5"
+        style={{ background: '#F5EFEF', color: PRIMARY }}>{n}</span>
       <span>{children}</span>
     </div>
   )
