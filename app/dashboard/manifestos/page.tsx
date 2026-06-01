@@ -10,8 +10,11 @@ type Ciclo = {
   numero_pedido: string
   data_entrega: string
   data_receber: string | null
+  contrato_id: string | null
   contratos: { orgao: string; codigo: string | null } | null
 }
+
+type ContratoOpt = { id: string; codigo: string | null; orgao: string }
 
 type RotaCiclo = {
   id: string
@@ -225,14 +228,31 @@ export default function ManifestosPage() {
   const [rotas,      setRotas]      = useState<RotaCiclo[]>([])
   const [loadRotas,  setLoadRotas]  = useState(false)
   const [rotaSel,    setRotaSel]    = useState<RotaCiclo | null>(null)
+  const [contratos,  setContratos]  = useState<ContratoOpt[]>([])
+  const [vinculando, setVinculando] = useState<string | null>(null)
 
   useEffect(() => {
-    getSupabase()
-      .from('ciclos')
-      .select('id, numero_pedido, data_entrega, data_receber, contratos(orgao, codigo)')
-      .order('data_entrega', { ascending: false })
-      .then(({ data }) => { setCiclos((data || []) as unknown as Ciclo[]); setLoading(false) })
+    const sb = getSupabase()
+    Promise.all([
+      sb.from('ciclos').select('id, numero_pedido, data_entrega, data_receber, contrato_id, contratos(orgao, codigo)').order('data_entrega', { ascending: false }),
+      sb.from('contratos').select('id, codigo, orgao').eq('ativo', true).order('orgao'),
+    ]).then(([{ data: c }, { data: co }]) => {
+      setCiclos((c || []) as unknown as Ciclo[])
+      setContratos((co || []) as unknown as ContratoOpt[])
+      setLoading(false)
+    })
   }, [])
+
+  async function vincularContrato(cicloId: string, contratoId: string) {
+    setVinculando(cicloId)
+    await getSupabase().from('ciclos').update({ contrato_id: contratoId || null }).eq('id', cicloId)
+    const contrato = contratos.find(c => c.id === contratoId) || null
+    setCiclos(prev => prev.map(c => c.id === cicloId
+      ? { ...c, contrato_id: contratoId || null, contratos: contrato ? { orgao: contrato.orgao, codigo: contrato.codigo } : null }
+      : c
+    ))
+    setVinculando(null)
+  }
 
   async function selecionarCiclo(ciclo: Ciclo) {
     setCicloSel(ciclo)
@@ -363,26 +383,34 @@ export default function ManifestosPage() {
                 <th className="text-left px-4 py-3 text-xs font-medium text-gray-500">Pedido</th>
                 <th className="text-left px-4 py-3 text-xs font-medium text-gray-500">Contrato</th>
                 <th className="text-left px-4 py-3 text-xs font-medium text-gray-500">Data entrega</th>
-                <th className="text-left px-4 py-3 text-xs font-medium text-gray-500">Data recebimento</th>
+                <th className="text-left px-4 py-3 text-xs font-medium text-gray-500">Recebimento</th>
                 <th className="px-4 py-3" />
               </tr>
             </thead>
             <tbody>
               {ciclos.map(c => (
-                <tr key={c.id} className="border-b border-gray-50 last:border-0 hover:bg-gray-50/50 cursor-pointer"
-                  onClick={() => selecionarCiclo(c)}>
-                  <td className="px-4 py-3 font-mono font-semibold text-gray-800">#{c.numero_pedido}</td>
-                  <td className="px-4 py-3 text-gray-600">
-                    {c.contratos ? (
-                      <span>
-                        {c.contratos.codigo && <span className="font-mono text-xs font-semibold mr-1.5">{c.contratos.codigo}</span>}
-                        {c.contratos.orgao}
-                      </span>
-                    ) : '—'}
+                <tr key={c.id} className="border-b border-gray-50 last:border-0 hover:bg-gray-50/30">
+                  <td className="px-4 py-3 font-mono font-semibold text-gray-800 cursor-pointer" onClick={() => selecionarCiclo(c)}>
+                    #{c.numero_pedido}
                   </td>
-                  <td className="px-4 py-3 text-gray-600">{fmtDate(c.data_entrega)}</td>
-                  <td className="px-4 py-3 text-gray-500">{c.data_receber ? fmtDate(c.data_receber) : '—'}</td>
-                  <td className="px-4 py-3 text-right">
+                  <td className="px-4 py-2" onClick={e => e.stopPropagation()}>
+                    <select
+                      value={c.contrato_id || ''}
+                      disabled={vinculando === c.id}
+                      onChange={e => vincularContrato(c.id, e.target.value)}
+                      className="border border-gray-200 rounded-lg px-2 py-1 text-xs outline-none focus:border-[#5C0F0F] bg-white text-gray-700 w-full max-w-[200px]"
+                    >
+                      <option value="">— vincular contrato —</option>
+                      {contratos.map(co => (
+                        <option key={co.id} value={co.id}>
+                          {co.codigo ? `${co.codigo} — ` : ''}{co.orgao}
+                        </option>
+                      ))}
+                    </select>
+                  </td>
+                  <td className="px-4 py-3 text-gray-600 cursor-pointer" onClick={() => selecionarCiclo(c)}>{fmtDate(c.data_entrega)}</td>
+                  <td className="px-4 py-3 text-gray-500 cursor-pointer" onClick={() => selecionarCiclo(c)}>{c.data_receber ? fmtDate(c.data_receber) : '—'}</td>
+                  <td className="px-4 py-3 text-right cursor-pointer" onClick={() => selecionarCiclo(c)}>
                     <span className="text-xs font-medium hover:opacity-80" style={{ color: PRIMARY }}>Ver rotas →</span>
                   </td>
                 </tr>
