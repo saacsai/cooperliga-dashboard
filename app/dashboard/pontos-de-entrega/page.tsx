@@ -169,7 +169,7 @@ export default function PontosDeEntregaPage() {
       if (rotaIds.length > 0) {
         const { data: rpData } = await getSupabase()
           .from('rota_pontos').select('ponto_de_entrega_id').in('rota_id', rotaIds)
-        pdeIdsRegiao = [...new Set((rpData || []).map((r: any) => r.ponto_de_entrega_id as string))]
+        pdeIdsRegiao = Array.from(new Set((rpData || []).map((r: any) => r.ponto_de_entrega_id as string)))
       } else {
         pdeIdsRegiao = []
       }
