@@ -14,12 +14,14 @@ CREATE TABLE ciclo_manifestos (
 
 -- Backfill pares já existentes em ciclo_entregas (preserva ordem por ciclo criado)
 INSERT INTO ciclo_manifestos (ciclo_id, rota_id)
-SELECT DISTINCT ce.ciclo_id, ce.rota_id
-FROM ciclo_entregas ce
-JOIN ciclos c  ON c.id = ce.ciclo_id
-JOIN rotas  r  ON r.id = ce.rota_id
-WHERE ce.rota_id IS NOT NULL
-ORDER BY c.created_at, r.codigo
+SELECT ciclo_id, rota_id FROM (
+  SELECT DISTINCT ce.ciclo_id, ce.rota_id, c.created_at, r.codigo
+  FROM ciclo_entregas ce
+  JOIN ciclos c ON c.id = ce.ciclo_id
+  JOIN rotas  r ON r.id = ce.rota_id
+  WHERE ce.rota_id IS NOT NULL
+) sub
+ORDER BY sub.created_at, sub.codigo
 ON CONFLICT (ciclo_id, rota_id) DO NOTHING;
 
 -- RLS
