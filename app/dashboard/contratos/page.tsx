@@ -64,6 +64,18 @@ export default function ContratosPage() {
     setDrawer(false); setSalvando(false); carregar()
   }
 
+  async function handleExcluir(c: Contrato) {
+    if (!confirm(`Excluir o contrato "${c.orgao}"? Esta ação não pode ser desfeita.`)) return
+    const { error } = await getSupabase().from('contratos').delete().eq('id', c.id)
+    if (error) {
+      alert(error.message.includes('foreign key')
+        ? `Não é possível excluir "${c.orgao}" pois existem ciclos ou rotas vinculados.`
+        : `Erro ao excluir: ${error.message}`)
+      return
+    }
+    setContratos(prev => prev.filter(x => x.id !== c.id))
+  }
+
   async function toggleAtivo(c: Contrato) {
     await getSupabase().from('contratos').update({ ativo: !c.ativo }).eq('id', c.id)
     carregar()
@@ -120,6 +132,7 @@ export default function ContratosPage() {
                     <div className="flex items-center justify-end gap-3">
                       <button onClick={() => abrirEditar(c)} className="text-xs font-medium hover:opacity-80" style={{ color: PRIMARY }}>Editar</button>
                       <button onClick={() => toggleAtivo(c)} className="text-xs text-gray-400 hover:text-gray-700">{c.ativo ? 'Desativar' : 'Ativar'}</button>
+                      <button onClick={() => handleExcluir(c)} className="text-xs text-red-400 hover:text-red-600">Excluir</button>
                     </div>
                   </td>
                 </tr>

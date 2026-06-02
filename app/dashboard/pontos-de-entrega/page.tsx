@@ -293,6 +293,18 @@ export default function PontosDeEntregaPage() {
     carregarOpcoes()
   }
 
+  async function handleExcluir(p: PontoDeEntrega) {
+    if (!confirm(`Excluir "${p.nome}"? Esta ação não pode ser desfeita.`)) return
+    const { error } = await getSupabase().from('pontos_de_entrega').delete().eq('id', p.id)
+    if (error) {
+      alert(error.message.includes('foreign key')
+        ? `Não é possível excluir "${p.nome}" pois existem rotas ou entregas vinculadas.`
+        : `Erro ao excluir: ${error.message}`)
+      return
+    }
+    setPontos(prev => prev.filter(x => x.id !== p.id))
+  }
+
   async function handleImportar(rows: Record<string, string>[]) {
     const payload = rows.filter(r => r.nome).map(r => ({
       nome:              r.nome,
@@ -394,6 +406,7 @@ export default function PontosDeEntregaPage() {
                     <td className="px-4 py-3 text-right">
                       <div className="flex items-center justify-end gap-3">
                         <button onClick={() => abrirEditar(p)} className="text-xs font-medium hover:opacity-80" style={{ color: PRIMARY }}>Editar</button>
+                        <button onClick={() => handleExcluir(p)} className="text-xs text-red-400 hover:text-red-600">Excluir</button>
                         <button onClick={() => toggleAtivo(p)} className="text-xs text-gray-400 hover:text-gray-700">{p.ativo ? 'Desativar' : 'Ativar'}</button>
                       </div>
                     </td>

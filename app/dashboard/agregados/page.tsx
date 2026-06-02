@@ -161,6 +161,18 @@ export default function AgregadosPage() {
     carregar()
   }
 
+  async function handleExcluir(a: Agregado) {
+    if (!confirm(`Excluir o agregado "${a.nome}"? Esta ação não pode ser desfeita.`)) return
+    const { error } = await getSupabase().from('agregados').delete().eq('id', a.id)
+    if (error) {
+      alert(error.message.includes('foreign key')
+        ? `Não é possível excluir "${a.nome}" pois existem rotas vinculadas.`
+        : `Erro ao excluir: ${error.message}`)
+      return
+    }
+    setAgregados(prev => prev.filter(x => x.id !== a.id))
+  }
+
   async function toggleAtivo(a: Agregado) {
     await getSupabase().from('agregados').update({ ativo: !a.ativo }).eq('id', a.id)
     carregar()
@@ -234,6 +246,7 @@ export default function AgregadosPage() {
                     <div className="flex items-center justify-end gap-3">
                       <button onClick={() => abrirEditar(a)} className="text-xs font-medium hover:opacity-80" style={{ color: PRIMARY }}>Editar</button>
                       <button onClick={() => toggleAtivo(a)} className="text-xs text-gray-400 hover:text-gray-700">{a.ativo ? 'Desativar' : 'Ativar'}</button>
+                      <button onClick={() => handleExcluir(a)} className="text-xs text-red-400 hover:text-red-600">Excluir</button>
                     </div>
                   </td>
                 </tr>

@@ -73,6 +73,18 @@ export default function ProdutosPage() {
     carregar()
   }
 
+  async function handleExcluir(p: Produto) {
+    if (!confirm(`Excluir o produto "${p.nome}"? Esta ação não pode ser desfeita.`)) return
+    const { error } = await getSupabase().from('produtos').delete().eq('id', p.id)
+    if (error) {
+      alert(error.message.includes('foreign key')
+        ? `Não é possível excluir "${p.nome}" pois existem entregas vinculadas.`
+        : `Erro ao excluir: ${error.message}`)
+      return
+    }
+    setProdutos(prev => prev.filter(x => x.id !== p.id))
+  }
+
   async function toggleAtivo(p: Produto) {
     await getSupabase().from('produtos').update({ ativo: !p.ativo }).eq('id', p.id)
     carregar()
@@ -124,6 +136,7 @@ export default function ProdutosPage() {
                     <div className="flex items-center justify-end gap-3">
                       <button onClick={() => abrirEditar(p)} className="text-xs font-medium hover:opacity-80" style={{ color: PRIMARY }}>Editar</button>
                       <button onClick={() => toggleAtivo(p)} className="text-xs text-gray-400 hover:text-gray-700">{p.ativo ? 'Desativar' : 'Ativar'}</button>
+                      <button onClick={() => handleExcluir(p)} className="text-xs text-red-400 hover:text-red-600">Excluir</button>
                     </div>
                   </td>
                 </tr>
