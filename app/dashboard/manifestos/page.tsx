@@ -64,7 +64,8 @@ function Manifesto({
           .order('sequencia'),
         sb.from('ciclo_entregas')
           .select('ponto_de_entrega_id, qtde_inteira, qtde_fracionada, produtos(nome), pontos_de_entrega(nome, codigo_prefeitura, endereco)')
-          .eq('ciclo_id', ciclo.id),
+          .eq('ciclo_id', ciclo.id)
+          .eq('rota_id', rota.id),
       ])
 
       const seqMap: Record<string, number> = {}

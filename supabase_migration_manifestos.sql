@@ -27,3 +27,13 @@ CREATE TABLE IF NOT EXISTS ciclo_entregas (
   created_at           timestamptz DEFAULT now(),
   UNIQUE (ciclo_id, ponto_de_entrega_id, produto_id)
 );
+
+-- RLS: leitura/escrita pública (mesma política das outras tabelas)
+ALTER TABLE ciclos        ENABLE ROW LEVEL SECURITY;
+ALTER TABLE ciclo_entregas ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "ciclos_all"         ON ciclos;
+DROP POLICY IF EXISTS "ciclo_entregas_all" ON ciclo_entregas;
+
+CREATE POLICY "ciclos_all"         ON ciclos        FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "ciclo_entregas_all" ON ciclo_entregas FOR ALL USING (true) WITH CHECK (true);
