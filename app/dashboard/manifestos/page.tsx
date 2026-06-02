@@ -270,60 +270,27 @@ export default function ManifestosPage() {
     async function carregar() {
       const sb = getSupabase()
 
-      // Pares únicos (ciclo_id, rota_id)
-      const { data: pairs } = await sb
-        .from('ciclo_entregas')
-        .select('ciclo_id, rota_id')
-        .not('rota_id', 'is', null)
+      const { data: mData } = await sb
+        .from('manifestos')
+        .select('numero, ciclo_id, rota_id, ciclos(id, numero, numero_pedido, data_entrega, data_receber, contrato_id, contratos(orgao, codigo)), rotas(id, codigo, nome, agregados(nome))')
+        .order('numero', { ascending: false })
 
-      if (!pairs?.length) { setLoading(false); return }
+      if (!mData?.length) { setLoading(false); return }
 
-      const pairMap = new Map<string, { ciclo_id: string; rota_id: string }>()
-      for (const p of pairs) {
-        const key = `${p.ciclo_id}:${p.rota_id}`
-        if (!pairMap.has(key)) pairMap.set(key, p)
-      }
-      const uniquePairs = Array.from(pairMap.values())
-
-      const cicloIds = Array.from(new Set(uniquePairs.map(p => p.ciclo_id)))
-      const rotaIds  = Array.from(new Set(uniquePairs.map(p => p.rota_id)))
-
-      const [{ data: ciclosData }, { data: rotasData }, { data: rpData }] = await Promise.all([
-        sb.from('ciclos')
-          .select('id, numero, numero_pedido, data_entrega, data_receber, contrato_id, contratos(orgao, codigo)')
-          .in('id', cicloIds),
-        sb.from('rotas')
-          .select('id, codigo, nome, agregados(nome)')
-          .in('id', rotaIds),
-        sb.from('rota_pontos')
-          .select('rota_id')
-          .in('rota_id', rotaIds),
-      ])
-
-      const cicloMap = new Map((ciclosData || []).map((c: any) => [c.id, c as Ciclo]))
-      const rotaMap  = new Map((rotasData  || []).map((r: any) => [r.id, r]))
+      const rotaIds = Array.from(new Set(mData.map((m: any) => m.rota_id as string)))
+      const { data: rpData } = await sb
+        .from('rota_pontos')
+        .select('rota_id')
+        .in('rota_id', rotaIds)
 
       const contagemPontos: Record<string, number> = {}
       for (const p of rpData || []) contagemPontos[p.rota_id] = (contagemPontos[p.rota_id] || 0) + 1
 
-      const rows: ManifestoRow[] = uniquePairs
-        .map(p => {
-          const ciclo = cicloMap.get(p.ciclo_id)
-          const rota  = rotaMap.get(p.rota_id)
-          if (!ciclo || !rota) return null
-          return {
-            numero: 0,
-            ciclo,
-            rota: { ...rota, agregados: (rota as any).agregados, pontos: contagemPontos[rota.id] || 0 },
-          } as ManifestoRow
-        })
-        .filter((r): r is ManifestoRow => r !== null)
-        .sort((a, b) => {
-          const d = b.ciclo.data_entrega.localeCompare(a.ciclo.data_entrega)
-          if (d !== 0) return d
-          return a.rota.codigo.localeCompare(b.rota.codigo)
-        })
-        .map((r, i) => ({ ...r, numero: i + 1 }))
+      const rows: ManifestoRow[] = (mData as any[]).map(m => ({
+        numero: m.numero as number,
+        ciclo:  m.ciclos as Ciclo,
+        rota:   { ...(m.rotas as any), pontos: contagemPontos[m.rota_id] || 0 } as Rota,
+      }))
 
       setManifests(rows)
       setLoading(false)
