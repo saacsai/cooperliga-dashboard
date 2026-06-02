@@ -271,7 +271,7 @@ export default function ManifestosPage() {
       const sb = getSupabase()
 
       const { data: mData } = await sb
-        .from('manifestos')
+        .from('ciclo_manifestos')
         .select('numero, ciclo_id, rota_id, ciclos(id, numero, numero_pedido, data_entrega, data_receber, contrato_id, contratos(orgao, codigo)), rotas(id, codigo, nome, agregados(nome))')
         .order('numero', { ascending: false })
 
