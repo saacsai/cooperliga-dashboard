@@ -161,16 +161,19 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   return (
     <div className="min-h-screen" style={{ background: '#F5EFEF' }}>
-      <Sidebar
-        nome={nome}
-        email={email}
-        perfil={perfil}
-        onEditarPerfil={abrirDrawerPerfil}
-      />
-      <main style={{ marginLeft: SIDEBAR_W, minHeight: '100vh' }} className="p-8">
+      <div className="print:hidden">
+        <Sidebar
+          nome={nome}
+          email={email}
+          perfil={perfil}
+          onEditarPerfil={abrirDrawerPerfil}
+        />
+      </div>
+      <main className="p-8 ml-[224px] print:ml-0 print:p-4" style={{ minHeight: '100vh' }}>
         {children}
       </main>
 
+      <div className="print:hidden">
       <Drawer open={drawerPerfil} onClose={() => setDrawerPerfil(false)} title="Editar perfil">
         {okEdit ? (
           <div className="py-10 text-center">
@@ -271,6 +274,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           </form>
         )}
       </Drawer>
+      </div>
     </div>
   )
 }

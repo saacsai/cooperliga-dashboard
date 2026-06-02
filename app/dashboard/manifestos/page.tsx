@@ -5,16 +5,28 @@ import { getSupabase } from '@/lib/supabase'
 
 const PRIMARY = '#5C0F0F'
 
+const AVISO_MOTORISTA = `SR. MOTORISTA: SE HOUVER QUALQUER IMPREVISTO NA ENTREGA COMO:
+*RECUSA DE BANANA POR ESTAR MUITO MADURA, VERDE OU QUALQUER OUTRO PROBLEMA.
+*SE NÃO CONSEGUIR CHEGAR A ESCOLA ATÉ AS 16:00 HORAS.
+FAVOR ENTRAR EM CONTATO COM UM DOS CONTATOS ABAIXO.
+
+OBSERVAÇÕES:
+*TOMAR MUITO CUIDADO COM OS ROMANEIOS, ATRAVÉS DELES QUE IREMOS RECEBER (NO CASO DE PERDA SERÁ DESCONTADO R$ 50,00)
+*CASO NÃO RETORNE AS CAIXAS SERÁ DESCONTADO R$ 20,00 POR UNIDADE.
+*TODOS OS VEÍCULOS DEVERÃO RETORNAR NO MESMO DIA PARA A DEVOLUÇÃO DAS CAIXAS E ROMANEIOS ATÉ AS 20:00 HORAS.
+*SE OS ROMANEIOS NÃO RETORNAREM NO DIA HAVERÁ ATRASO DE PAGAMENTO TANTO PARA A COOPERATIVA QUANTO PARA O MOTORISTA.
+*QUALQUER PROBLEMA PODE LIGAR A COBRAR, PARA QUE POSSAMOS RESOLVER AINDA NO LOCAL.
+CENTRAL: (11) 4996-3311  CELULAR: (11) 97475-7456`
+
 type Ciclo = {
   id: string
+  numero: number | null
   numero_pedido: string
   data_entrega: string
   data_receber: string | null
   contrato_id: string | null
   contratos: { orgao: string; codigo: string | null } | null
 }
-
-type ContratoOpt = { id: string; codigo: string | null; orgao: string }
 
 type RotaCiclo = {
   id: string
@@ -38,6 +50,10 @@ function fmtDate(iso: string) {
   return `${d}/${m}/${y}`
 }
 
+function numManifesto(ciclo: Ciclo) {
+  return ciclo.numero != null ? String(ciclo.numero).padStart(4, '0') : ciclo.numero_pedido
+}
+
 // ── Manifesto imprimível ────────────────────────────────────────────────────
 
 function Manifesto({
@@ -49,9 +65,9 @@ function Manifesto({
   rota: RotaCiclo
   onVoltar: () => void
 }) {
-  const [rows, setRows]       = useState<EntregaRow[]>([])
+  const [rows, setRows]         = useState<EntregaRow[]>([])
   const [produtos, setProdutos] = useState<string[]>([])
-  const [loading, setLoading] = useState(true)
+  const [loading, setLoading]   = useState(true)
 
   useEffect(() => {
     async function carregar() {
@@ -82,12 +98,12 @@ function Manifesto({
         prodSet.add(prod)
         if (!pdeMap[pdeId]) {
           pdeMap[pdeId] = {
-            pde_id:           pdeId,
-            sequencia:        seqMap[pdeId] ?? null,
+            pde_id:            pdeId,
+            sequencia:         seqMap[pdeId] ?? null,
             codigo_prefeitura: pde.codigo_prefeitura,
-            pde_nome:         pde.nome,
-            endereco:         pde.endereco,
-            qtdes:            {},
+            pde_nome:          pde.nome,
+            endereco:          pde.endereco,
+            qtdes:             {},
           }
         }
         pdeMap[pdeId].qtdes[prod] = {
@@ -120,9 +136,11 @@ function Manifesto({
     }
   }
 
+  const totalCaixas = Object.values(totais).reduce((sum, t) => sum + t.inteira, 0)
+
   return (
     <div>
-      {/* Ações */}
+      {/* Ações — ocultas na impressão */}
       <div className="flex items-center justify-between mb-4 print:hidden">
         <button onClick={onVoltar}
           className="flex items-center gap-1.5 text-xs text-gray-400 hover:text-gray-700 transition-colors">
@@ -146,7 +164,7 @@ function Manifesto({
             <p className="text-xs text-gray-500 mt-0.5">{ciclo.contratos?.orgao || '—'}</p>
           </div>
           <span className="text-xs font-mono font-semibold bg-gray-100 text-gray-700 px-2 py-1 rounded">
-            Pedido #{ciclo.numero_pedido}
+            Manifesto Nº {numManifesto(ciclo)}
           </span>
         </div>
         <div className="mt-3 flex flex-wrap gap-6 text-xs text-gray-600">
@@ -154,11 +172,21 @@ function Manifesto({
           {ciclo.data_receber && <span><span className="font-medium">Recebimento:</span> {fmtDate(ciclo.data_receber)}</span>}
           {rota.agregados && <span><span className="font-medium">Motorista:</span> {rota.agregados.nome}</span>}
           <span><span className="font-medium">Paradas:</span> {rows.length}</span>
+          {!loading && totalCaixas > 0 && (
+            <span className="font-semibold text-gray-800">
+              <span className="font-medium">Caixas plásticas:</span> {totalCaixas} (devolver ao final)
+            </span>
+          )}
+        </div>
+        {/* Campo para conferente preencher na hora do carregamento — apenas impressão */}
+        <div className="hidden print:block mt-3 pt-3 border-t border-gray-200 text-xs text-gray-700">
+          <span className="font-medium">Cooperativa:</span>{' '}
+          <span className="inline-block w-48 border-b border-gray-400 ml-1">&nbsp;</span>
         </div>
       </div>
 
       {loading ? <p className="text-sm text-gray-400">Carregando manifesto…</p> : (
-        <div className="bg-white rounded-xl border border-gray-200 overflow-x-auto print:rounded-none print:border-0">
+        <div className="bg-white rounded-xl border border-gray-200 overflow-x-auto print:rounded-none print:border-0 print:overflow-visible">
           <table className="w-full text-xs">
             <thead>
               <tr className="border-b border-gray-100 bg-gray-50">
@@ -176,8 +204,8 @@ function Manifesto({
                 <tr key={row.pde_id} className={`border-b border-gray-50 last:border-0 ${i % 2 === 0 ? '' : 'bg-gray-50/40'}`}>
                   <td className="px-3 py-2 font-mono text-gray-400 text-center">{row.sequencia ?? '—'}</td>
                   <td className="px-3 py-2 font-mono text-gray-600">{row.codigo_prefeitura || '—'}</td>
-                  <td className="px-3 py-2 font-medium text-gray-900 max-w-[200px] truncate">{row.pde_nome}</td>
-                  <td className="px-3 py-2 text-gray-500 max-w-[200px] truncate">{row.endereco || '—'}</td>
+                  <td className="px-3 py-2 font-medium text-gray-900 max-w-[200px] truncate print:max-w-none print:whitespace-normal">{row.pde_nome}</td>
+                  <td className="px-3 py-2 text-gray-500 max-w-[200px] truncate print:max-w-none print:whitespace-normal">{row.endereco || '—'}</td>
                   {produtos.map(p => {
                     const q = row.qtdes[p]
                     if (!q || (q.inteira === 0 && q.fracionada === 0)) {
@@ -216,6 +244,11 @@ function Manifesto({
           </table>
         </div>
       )}
+
+      {/* Aviso ao motorista — apenas impressão */}
+      <div className="hidden print:block mt-6 border border-gray-300 rounded p-3 text-[10px] text-gray-700 leading-relaxed whitespace-pre-line">
+        {AVISO_MOTORISTA}
+      </div>
     </div>
   )
 }
@@ -223,37 +256,23 @@ function Manifesto({
 // ── Página principal ────────────────────────────────────────────────────────
 
 export default function ManifestosPage() {
-  const [ciclos,     setCiclos]     = useState<Ciclo[]>([])
-  const [loading,    setLoading]    = useState(true)
-  const [cicloSel,   setCicloSel]   = useState<Ciclo | null>(null)
-  const [rotas,      setRotas]      = useState<RotaCiclo[]>([])
-  const [loadRotas,  setLoadRotas]  = useState(false)
-  const [rotaSel,    setRotaSel]    = useState<RotaCiclo | null>(null)
-  const [contratos,  setContratos]  = useState<ContratoOpt[]>([])
-  const [vinculando, setVinculando] = useState<string | null>(null)
+  const [ciclos,    setCiclos]    = useState<Ciclo[]>([])
+  const [loading,   setLoading]   = useState(true)
+  const [cicloSel,  setCicloSel]  = useState<Ciclo | null>(null)
+  const [rotas,     setRotas]     = useState<RotaCiclo[]>([])
+  const [loadRotas, setLoadRotas] = useState(false)
+  const [rotaSel,   setRotaSel]   = useState<RotaCiclo | null>(null)
 
   useEffect(() => {
-    const sb = getSupabase()
-    Promise.all([
-      sb.from('ciclos').select('id, numero_pedido, data_entrega, data_receber, contrato_id, contratos(orgao, codigo)').order('data_entrega', { ascending: false }),
-      sb.from('contratos').select('id, codigo, orgao').eq('ativo', true).order('orgao'),
-    ]).then(([{ data: c }, { data: co }]) => {
-      setCiclos((c || []) as unknown as Ciclo[])
-      setContratos((co || []) as unknown as ContratoOpt[])
-      setLoading(false)
-    })
+    getSupabase()
+      .from('ciclos')
+      .select('id, numero, numero_pedido, data_entrega, data_receber, contrato_id, contratos(orgao, codigo)')
+      .order('data_entrega', { ascending: false })
+      .then(({ data: c }) => {
+        setCiclos((c || []) as unknown as Ciclo[])
+        setLoading(false)
+      })
   }, [])
-
-  async function vincularContrato(cicloId: string, contratoId: string) {
-    setVinculando(cicloId)
-    await getSupabase().from('ciclos').update({ contrato_id: contratoId || null }).eq('id', cicloId)
-    const contrato = contratos.find(c => c.id === contratoId) || null
-    setCiclos(prev => prev.map(c => c.id === cicloId
-      ? { ...c, contrato_id: contratoId || null, contratos: contrato ? { orgao: contrato.orgao, codigo: contrato.codigo } : null }
-      : c
-    ))
-    setVinculando(null)
-  }
 
   async function selecionarCiclo(ciclo: Ciclo) {
     setCicloSel(ciclo)
@@ -285,11 +304,11 @@ export default function ManifestosPage() {
     for (const p of rp || []) contagemPontos[p.rota_id] = (contagemPontos[p.rota_id] || 0) + 1
 
     setRotas((r || []).map((rota: any) => ({
-      id:       rota.id,
-      codigo:   rota.codigo,
-      nome:     rota.nome,
+      id:        rota.id,
+      codigo:    rota.codigo,
+      nome:      rota.nome,
       agregados: rota.agregados,
-      pontos:   contagemPontos[rota.id] || 0,
+      pontos:    contagemPontos[rota.id] || 0,
     })))
     setLoadRotas(false)
   }
@@ -319,9 +338,9 @@ export default function ManifestosPage() {
 
         <div className="flex items-start justify-between mb-5">
           <div>
-            <h1 className="text-xl font-bold text-gray-900">Pedido #{cicloSel.numero_pedido}</h1>
+            <h1 className="text-xl font-bold text-gray-900">Manifesto Nº {numManifesto(cicloSel)}</h1>
             <p className="text-sm text-gray-500 mt-0.5">
-              {cicloSel.contratos?.orgao || 'Sem contrato'} · Entrega {fmtDate(cicloSel.data_entrega)}
+              {cicloSel.contratos?.orgao || '—'} · Entrega {fmtDate(cicloSel.data_entrega)}
               {cicloSel.data_receber && ` · Recebimento ${fmtDate(cicloSel.data_receber)}`}
             </p>
           </div>
@@ -381,8 +400,7 @@ export default function ManifestosPage() {
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-gray-100">
-                <th className="text-left px-4 py-3 text-xs font-medium text-gray-500">Pedido</th>
-                <th className="text-left px-4 py-3 text-xs font-medium text-gray-500">Contrato</th>
+                <th className="text-left px-4 py-3 text-xs font-medium text-gray-500">Nº</th>
                 <th className="text-left px-4 py-3 text-xs font-medium text-gray-500">Data entrega</th>
                 <th className="text-left px-4 py-3 text-xs font-medium text-gray-500">Recebimento</th>
                 <th className="px-4 py-3" />
@@ -390,34 +408,20 @@ export default function ManifestosPage() {
             </thead>
             <tbody>
               {ciclos.map(c => (
-                <tr key={c.id} className="border-b border-gray-50 last:border-0 hover:bg-gray-50/30">
-                  <td className="px-4 py-3 font-mono font-semibold text-gray-800 cursor-pointer" onClick={() => selecionarCiclo(c)}>
-                    #{c.numero_pedido}
+                <tr key={c.id} className="border-b border-gray-50 last:border-0 hover:bg-gray-50/30 cursor-pointer"
+                  onClick={() => selecionarCiclo(c)}>
+                  <td className="px-4 py-3 font-mono font-semibold text-gray-800">
+                    {numManifesto(c)}
                   </td>
-                  <td className="px-4 py-2" onClick={e => e.stopPropagation()}>
-                    <select
-                      value={c.contrato_id || ''}
-                      disabled={vinculando === c.id}
-                      onChange={e => vincularContrato(c.id, e.target.value)}
-                      className="border border-gray-200 rounded-lg px-2 py-1 text-xs outline-none focus:border-[#5C0F0F] bg-white text-gray-700 w-full max-w-[200px]"
-                    >
-                      <option value="">— vincular contrato —</option>
-                      {contratos.map(co => (
-                        <option key={co.id} value={co.id}>
-                          {co.codigo ? `${co.codigo} — ` : ''}{co.orgao}
-                        </option>
-                      ))}
-                    </select>
-                  </td>
-                  <td className="px-4 py-3 text-gray-600 cursor-pointer" onClick={() => selecionarCiclo(c)}>{fmtDate(c.data_entrega)}</td>
-                  <td className="px-4 py-3 text-gray-500 cursor-pointer" onClick={() => selecionarCiclo(c)}>{c.data_receber ? fmtDate(c.data_receber) : '—'}</td>
-                  <td className="px-4 py-3 text-right cursor-pointer" onClick={() => selecionarCiclo(c)}>
+                  <td className="px-4 py-3 text-gray-600">{fmtDate(c.data_entrega)}</td>
+                  <td className="px-4 py-3 text-gray-500">{c.data_receber ? fmtDate(c.data_receber) : '—'}</td>
+                  <td className="px-4 py-3 text-right">
                     <span className="text-xs font-medium hover:opacity-80" style={{ color: PRIMARY }}>Ver rotas →</span>
                   </td>
                 </tr>
               ))}
               {ciclos.length === 0 && (
-                <tr><td colSpan={5} className="px-4 py-8 text-center text-sm text-gray-400">
+                <tr><td colSpan={4} className="px-4 py-8 text-center text-sm text-gray-400">
                   Nenhum ciclo encontrado. Faça um upload na aba Guias de Remessa para gerar o primeiro ciclo.
                 </td></tr>
               )}
