@@ -28,12 +28,18 @@ type Ciclo = {
   contratos: { orgao: string; codigo: string | null } | null
 }
 
-type RotaCiclo = {
+type Rota = {
   id: string
   codigo: string
   nome: string
   agregados: { nome: string } | null
   pontos: number
+}
+
+type ManifestoRow = {
+  numero: number
+  ciclo: Ciclo
+  rota: Rota
 }
 
 type EntregaRow = {
@@ -50,19 +56,21 @@ function fmtDate(iso: string) {
   return `${d}/${m}/${y}`
 }
 
-function numManifesto(ciclo: Ciclo) {
-  return ciclo.numero != null ? String(ciclo.numero).padStart(4, '0') : ciclo.numero_pedido
+function padNum(n: number) {
+  return String(n).padStart(4, '0')
 }
 
 // ── Manifesto imprimível ────────────────────────────────────────────────────
 
 function Manifesto({
+  numero,
   ciclo,
   rota,
   onVoltar,
 }: {
+  numero: number
   ciclo: Ciclo
-  rota: RotaCiclo
+  rota: Rota
   onVoltar: () => void
 }) {
   const [rows, setRows]         = useState<EntregaRow[]>([])
@@ -91,9 +99,9 @@ function Manifesto({
       const prodSet = new Set<string>()
 
       for (const e of ce || []) {
-        const pdeId  = e.ponto_de_entrega_id
-        const prod   = (e as any).produtos?.nome as string
-        const pde    = (e as any).pontos_de_entrega
+        const pdeId = e.ponto_de_entrega_id
+        const prod  = (e as any).produtos?.nome as string
+        const pde   = (e as any).pontos_de_entrega
         if (!prod || !pde) continue
         prodSet.add(prod)
         if (!pdeMap[pdeId]) {
@@ -112,16 +120,13 @@ function Manifesto({
         }
       }
 
-      const sortedProdos = Array.from(prodSet).sort()
-      const sortedRows = Object.values(pdeMap).sort((a, b) => {
+      setProdutos(Array.from(prodSet).sort())
+      setRows(Object.values(pdeMap).sort((a, b) => {
         if (a.sequencia == null && b.sequencia == null) return 0
         if (a.sequencia == null) return 1
         if (b.sequencia == null) return -1
         return a.sequencia - b.sequencia
-      })
-
-      setProdutos(sortedProdos)
-      setRows(sortedRows)
+      }))
       setLoading(false)
     }
     carregar()
@@ -157,7 +162,7 @@ function Manifesto({
         </button>
       </div>
 
-      {/* Cabeçalho do manifesto */}
+      {/* Cabeçalho */}
       <div className="bg-white rounded-xl border border-gray-200 p-5 mb-4 print:rounded-none print:border-0 print:p-0 print:mb-2">
         <div className="flex items-start justify-between">
           <div>
@@ -165,7 +170,7 @@ function Manifesto({
             <p className="text-xs text-gray-500 mt-0.5">{ciclo.contratos?.orgao || '—'}</p>
           </div>
           <span className="text-xs font-mono font-semibold bg-gray-100 text-gray-700 px-2 py-1 rounded">
-            Manifesto Nº {numManifesto(ciclo)}
+            Manifesto Nº {padNum(numero)}
           </span>
         </div>
         <div className="mt-3 flex flex-wrap gap-6 text-xs text-gray-600">
@@ -179,7 +184,7 @@ function Manifesto({
             </span>
           )}
         </div>
-        {/* Campo para conferente preencher na hora do carregamento — apenas impressão */}
+        {/* Campo cooperativa — apenas impressão */}
         <div className="hidden print:block mt-3 pt-3 border-t border-gray-200 text-xs text-gray-700">
           <span className="font-medium">Cooperativa:</span>{' '}
           <span className="inline-block w-48 border-b border-gray-400 ml-1">&nbsp;</span>
@@ -257,143 +262,93 @@ function Manifesto({
 // ── Página principal ────────────────────────────────────────────────────────
 
 export default function ManifestosPage() {
-  const [ciclos,    setCiclos]    = useState<Ciclo[]>([])
+  const [manifests, setManifests] = useState<ManifestoRow[]>([])
   const [loading,   setLoading]   = useState(true)
-  const [cicloSel,  setCicloSel]  = useState<Ciclo | null>(null)
-  const [rotas,     setRotas]     = useState<RotaCiclo[]>([])
-  const [loadRotas, setLoadRotas] = useState(false)
-  const [rotaSel,   setRotaSel]   = useState<RotaCiclo | null>(null)
+  const [sel,       setSel]       = useState<ManifestoRow | null>(null)
 
   useEffect(() => {
-    getSupabase()
-      .from('ciclos')
-      .select('id, numero, numero_pedido, data_entrega, data_receber, contrato_id, contratos(orgao, codigo)')
-      .order('data_entrega', { ascending: false })
-      .then(({ data: c }) => {
-        setCiclos((c || []) as unknown as Ciclo[])
-        setLoading(false)
-      })
+    async function carregar() {
+      const sb = getSupabase()
+
+      // Pares únicos (ciclo_id, rota_id)
+      const { data: pairs } = await sb
+        .from('ciclo_entregas')
+        .select('ciclo_id, rota_id')
+        .not('rota_id', 'is', null)
+
+      if (!pairs?.length) { setLoading(false); return }
+
+      const pairMap = new Map<string, { ciclo_id: string; rota_id: string }>()
+      for (const p of pairs) {
+        const key = `${p.ciclo_id}:${p.rota_id}`
+        if (!pairMap.has(key)) pairMap.set(key, p)
+      }
+      const uniquePairs = Array.from(pairMap.values())
+
+      const cicloIds = Array.from(new Set(uniquePairs.map(p => p.ciclo_id)))
+      const rotaIds  = Array.from(new Set(uniquePairs.map(p => p.rota_id)))
+
+      const [{ data: ciclosData }, { data: rotasData }, { data: rpData }] = await Promise.all([
+        sb.from('ciclos')
+          .select('id, numero, numero_pedido, data_entrega, data_receber, contrato_id, contratos(orgao, codigo)')
+          .in('id', cicloIds),
+        sb.from('rotas')
+          .select('id, codigo, nome, agregados(nome)')
+          .in('id', rotaIds),
+        sb.from('rota_pontos')
+          .select('rota_id')
+          .in('rota_id', rotaIds),
+      ])
+
+      const cicloMap = new Map((ciclosData || []).map((c: any) => [c.id, c as Ciclo]))
+      const rotaMap  = new Map((rotasData  || []).map((r: any) => [r.id, r]))
+
+      const contagemPontos: Record<string, number> = {}
+      for (const p of rpData || []) contagemPontos[p.rota_id] = (contagemPontos[p.rota_id] || 0) + 1
+
+      const rows: ManifestoRow[] = uniquePairs
+        .map(p => {
+          const ciclo = cicloMap.get(p.ciclo_id)
+          const rota  = rotaMap.get(p.rota_id)
+          if (!ciclo || !rota) return null
+          return {
+            numero: 0,
+            ciclo,
+            rota: { ...rota, agregados: (rota as any).agregados, pontos: contagemPontos[rota.id] || 0 },
+          } as ManifestoRow
+        })
+        .filter((r): r is ManifestoRow => r !== null)
+        .sort((a, b) => {
+          const d = b.ciclo.data_entrega.localeCompare(a.ciclo.data_entrega)
+          if (d !== 0) return d
+          return a.rota.codigo.localeCompare(b.rota.codigo)
+        })
+        .map((r, i) => ({ ...r, numero: i + 1 }))
+
+      setManifests(rows)
+      setLoading(false)
+    }
+    carregar()
   }, [])
 
-  async function selecionarCiclo(ciclo: Ciclo) {
-    setCicloSel(ciclo)
-    setRotaSel(null)
-    setLoadRotas(true)
-
-    const { data: ce } = await getSupabase()
-      .from('ciclo_entregas')
-      .select('rota_id')
-      .eq('ciclo_id', ciclo.id)
-      .not('rota_id', 'is', null)
-
-    const rotaIds = Array.from(new Set((ce || []).map((r: any) => r.rota_id as string)))
-
-    if (rotaIds.length === 0) { setRotas([]); setLoadRotas(false); return }
-
-    const { data: r } = await getSupabase()
-      .from('rotas')
-      .select('id, codigo, nome, agregados(nome)')
-      .in('id', rotaIds)
-      .order('codigo')
-
-    const { data: rp } = await getSupabase()
-      .from('rota_pontos')
-      .select('rota_id')
-      .in('rota_id', rotaIds)
-
-    const contagemPontos: Record<string, number> = {}
-    for (const p of rp || []) contagemPontos[p.rota_id] = (contagemPontos[p.rota_id] || 0) + 1
-
-    setRotas((r || []).map((rota: any) => ({
-      id:        rota.id,
-      codigo:    rota.codigo,
-      nome:      rota.nome,
-      agregados: rota.agregados,
-      pontos:    contagemPontos[rota.id] || 0,
-    })))
-    setLoadRotas(false)
-  }
-
-  // ── Manifesto view ──────────────────────────────────────────────────────
-  if (cicloSel && rotaSel) {
+  // ── Manifesto aberto ────────────────────────────────────────────────────
+  if (sel) {
     return (
       <Manifesto
-        ciclo={cicloSel}
-        rota={rotaSel}
-        onVoltar={() => setRotaSel(null)}
+        numero={sel.numero}
+        ciclo={sel.ciclo}
+        rota={sel.rota}
+        onVoltar={() => setSel(null)}
       />
     )
   }
 
-  // ── Rotas do ciclo ──────────────────────────────────────────────────────
-  if (cicloSel) {
-    return (
-      <div>
-        <button onClick={() => { setCicloSel(null); setRotas([]) }}
-          className="flex items-center gap-1.5 text-xs text-gray-400 hover:text-gray-700 transition-colors mb-4">
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-            <polyline points="15 18 9 12 15 6"/>
-          </svg>
-          Todos os ciclos
-        </button>
-
-        <div className="flex items-start justify-between mb-5">
-          <div>
-            <h1 className="text-xl font-bold text-gray-900">Manifesto Nº {numManifesto(cicloSel)}</h1>
-            <p className="text-sm text-gray-500 mt-0.5">
-              {cicloSel.contratos?.orgao || '—'} · Entrega {fmtDate(cicloSel.data_entrega)}
-              {cicloSel.data_receber && ` · Recebimento ${fmtDate(cicloSel.data_receber)}`}
-            </p>
-          </div>
-        </div>
-
-        {loadRotas ? <p className="text-sm text-gray-400">Carregando rotas…</p> : (
-          <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-gray-100">
-                  <th className="text-left px-4 py-3 text-xs font-medium text-gray-500">Rota</th>
-                  <th className="text-left px-4 py-3 text-xs font-medium text-gray-500">Motorista</th>
-                  <th className="text-left px-4 py-3 text-xs font-medium text-gray-500">Paradas</th>
-                  <th className="px-4 py-3" />
-                </tr>
-              </thead>
-              <tbody>
-                {rotas.map(r => (
-                  <tr key={r.id} className="border-b border-gray-50 last:border-0 hover:bg-gray-50/50">
-                    <td className="px-4 py-3">
-                      <span className="font-mono font-semibold text-gray-800 text-xs">{r.codigo}</span>
-                      <span className="ml-2 text-gray-700">{r.nome}</span>
-                    </td>
-                    <td className="px-4 py-3 text-gray-500">{r.agregados?.nome || '—'}</td>
-                    <td className="px-4 py-3 text-gray-500">{r.pontos}</td>
-                    <td className="px-4 py-3 text-right">
-                      <button onClick={() => setRotaSel(r)}
-                        className="text-xs font-medium hover:opacity-80" style={{ color: PRIMARY }}>
-                        Ver manifesto
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-                {rotas.length === 0 && (
-                  <tr><td colSpan={4} className="px-4 py-8 text-center text-sm text-gray-400">
-                    Nenhuma rota encontrada para este ciclo.
-                  </td></tr>
-                )}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
-    )
-  }
-
-  // ── Lista de ciclos ─────────────────────────────────────────────────────
+  // ── Lista de manifestos ─────────────────────────────────────────────────
   return (
     <div>
       <div className="mb-6">
         <h1 className="text-xl font-bold text-gray-900">Manifestos</h1>
-        <p className="text-sm text-gray-500 mt-0.5">Ciclos de entrega — clique para ver as rotas e gerar manifesto</p>
+        <p className="text-sm text-gray-500 mt-0.5">Um manifesto por rota — clique para abrir e imprimir</p>
       </div>
 
       {loading ? <p className="text-sm text-gray-400">Carregando…</p> : (
@@ -401,29 +356,35 @@ export default function ManifestosPage() {
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-gray-100">
-                <th className="text-left px-4 py-3 text-xs font-medium text-gray-500">Nº</th>
-                <th className="text-left px-4 py-3 text-xs font-medium text-gray-500">Data entrega</th>
-                <th className="text-left px-4 py-3 text-xs font-medium text-gray-500">Recebimento</th>
+                <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 w-16">Nº</th>
+                <th className="text-left px-4 py-3 text-xs font-medium text-gray-500">Rota</th>
+                <th className="text-left px-4 py-3 text-xs font-medium text-gray-500">Motorista</th>
+                <th className="text-left px-4 py-3 text-xs font-medium text-gray-500">Entrega</th>
+                <th className="text-left px-4 py-3 text-xs font-medium text-gray-500">Paradas</th>
                 <th className="px-4 py-3" />
               </tr>
             </thead>
             <tbody>
-              {ciclos.map(c => (
-                <tr key={c.id} className="border-b border-gray-50 last:border-0 hover:bg-gray-50/30 cursor-pointer"
-                  onClick={() => selecionarCiclo(c)}>
-                  <td className="px-4 py-3 font-mono font-semibold text-gray-800">
-                    {numManifesto(c)}
+              {manifests.map(m => (
+                <tr key={`${m.ciclo.id}:${m.rota.id}`}
+                  className="border-b border-gray-50 last:border-0 hover:bg-gray-50/30 cursor-pointer"
+                  onClick={() => setSel(m)}>
+                  <td className="px-4 py-3 font-mono font-semibold text-gray-800">{padNum(m.numero)}</td>
+                  <td className="px-4 py-3">
+                    <span className="font-mono text-xs text-gray-500 mr-2">{m.rota.codigo}</span>
+                    <span className="text-gray-800">{m.rota.nome}</span>
                   </td>
-                  <td className="px-4 py-3 text-gray-600">{fmtDate(c.data_entrega)}</td>
-                  <td className="px-4 py-3 text-gray-500">{c.data_receber ? fmtDate(c.data_receber) : '—'}</td>
+                  <td className="px-4 py-3 text-gray-500">{m.rota.agregados?.nome || '—'}</td>
+                  <td className="px-4 py-3 text-gray-600">{fmtDate(m.ciclo.data_entrega)}</td>
+                  <td className="px-4 py-3 text-gray-500">{m.rota.pontos}</td>
                   <td className="px-4 py-3 text-right">
-                    <span className="text-xs font-medium hover:opacity-80" style={{ color: PRIMARY }}>Ver rotas →</span>
+                    <span className="text-xs font-medium" style={{ color: PRIMARY }}>Abrir →</span>
                   </td>
                 </tr>
               ))}
-              {ciclos.length === 0 && (
-                <tr><td colSpan={4} className="px-4 py-8 text-center text-sm text-gray-400">
-                  Nenhum ciclo encontrado. Faça um upload na aba Guias de Remessa para gerar o primeiro ciclo.
+              {manifests.length === 0 && (
+                <tr><td colSpan={6} className="px-4 py-8 text-center text-sm text-gray-400">
+                  Nenhum manifesto encontrado. Faça um upload na aba Guias de Remessa para gerar o primeiro ciclo.
                 </td></tr>
               )}
             </tbody>
