@@ -7,11 +7,11 @@ function getResend() {
   return new Resend(process.env.RESEND_API_KEY)
 }
 
-export async function enviarBoasVindas(opts: { nome: string; email: string; senha: string }) {
+export async function enviarBoasVindas(opts: { nome: string; email: string; link: string }) {
   return getResend().emails.send({
     from: FROM,
     to:   opts.email,
-    subject: 'Bem-vindo ao CooperLiga — seu acesso está pronto',
+    subject: 'Bem-vindo ao CooperLiga — defina sua senha',
     html: `
 <!DOCTYPE html>
 <html lang="pt-BR">
@@ -29,34 +29,18 @@ export async function enviarBoasVindas(opts: { nome: string; email: string; senh
         <tr><td style="padding:32px;">
           <p style="margin:0 0 8px;font-size:18px;font-weight:700;color:#111827;">Olá, ${opts.nome.split(' ')[0]}!</p>
           <p style="margin:0 0 24px;font-size:14px;color:#6b7280;line-height:1.6;">
-            Seu acesso ao sistema CooperLiga foi criado. Use as credenciais abaixo para entrar pela primeira vez e depois altere sua senha.
+            Seu acesso ao sistema CooperLiga foi criado. Clique no botão abaixo para definir sua senha e começar a usar.
           </p>
-          <!-- Credentials box -->
-          <table width="100%" cellpadding="0" cellspacing="0" style="background:#F9FAFB;border:1px solid #e5e7eb;border-radius:10px;margin:0 0 24px;">
-            <tr><td style="padding:20px 24px;">
-              <p style="margin:0 0 12px;font-size:11px;font-weight:600;color:#9ca3af;text-transform:uppercase;letter-spacing:1px;">Seus dados de acesso</p>
-              <table cellpadding="0" cellspacing="0">
-                <tr>
-                  <td style="padding:3px 0;font-size:13px;color:#6b7280;width:60px;">Email</td>
-                  <td style="padding:3px 0;font-size:13px;color:#111827;font-weight:600;">${opts.email}</td>
-                </tr>
-                <tr>
-                  <td style="padding:3px 0;font-size:13px;color:#6b7280;">Senha</td>
-                  <td style="padding:3px 0;font-size:13px;color:#111827;font-weight:600;font-family:monospace;">${opts.senha}</td>
-                </tr>
-              </table>
-            </td></tr>
-          </table>
           <!-- CTA -->
           <table width="100%" cellpadding="0" cellspacing="0">
             <tr><td align="center" style="padding-bottom:24px;">
-              <a href="${URL_BASE}/login" style="display:inline-block;background:#5C0F0F;color:#fff;font-size:14px;font-weight:600;text-decoration:none;padding:12px 32px;border-radius:10px;">
-                Acessar o sistema →
+              <a href="${opts.link}" style="display:inline-block;background:#5C0F0F;color:#fff;font-size:14px;font-weight:600;text-decoration:none;padding:14px 36px;border-radius:10px;">
+                Definir minha senha →
               </a>
             </td></tr>
           </table>
           <p style="margin:0;font-size:12px;color:#9ca3af;line-height:1.6;">
-            Por segurança, recomendamos que você altere sua senha no primeiro acesso em <strong>Perfil → Alterar senha</strong>.
+            Este link expira em <strong>1 hora</strong>. Se você não esperava este email, entre em contato com o administrador do sistema.
           </p>
         </td></tr>
         <!-- Footer -->

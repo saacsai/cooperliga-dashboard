@@ -32,7 +32,6 @@ interface FormState {
   email: string
   whatsapp: string
   perfil: Perfil
-  senha: string
   cargo: string
   cpf: string
   rg: string
@@ -43,7 +42,7 @@ interface FormState {
 }
 
 const FORM_VAZIO: FormState = {
-  nome: '', email: '', whatsapp: '', perfil: 'operador', senha: '',
+  nome: '', email: '', whatsapp: '', perfil: 'operador',
   cargo: '', cpf: '', rg: '', data_nascimento: '', endereco: '', municipio: '', cep: '',
 }
 
@@ -97,7 +96,6 @@ export default function UsuariosPage() {
       email:           u.email,
       whatsapp:        u.whatsapp        || '',
       perfil:          u.perfil,
-      senha:           '',
       cargo:           (u as any).cargo  || '',
       cpf:             u.cpf             || '',
       rg:              u.rg              || '',
@@ -141,7 +139,7 @@ export default function UsuariosPage() {
         },
         body: JSON.stringify({
           nome: form.nome, email: form.email, whatsapp: form.whatsapp,
-          perfil: form.perfil, senha: form.senha,
+          perfil: form.perfil,
           cargo: form.cargo || null,
           cpf: form.cpf || null, rg: form.rg || null,
           data_nascimento: form.data_nascimento || null,
@@ -337,11 +335,9 @@ export default function UsuariosPage() {
           </div>
 
           {modo === 'criar' && (
-            <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1">Senha inicial</label>
-              <input type="password" value={form.senha} onChange={set('senha')} required minLength={6}
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#5C0F0F]" />
-            </div>
+            <p className="text-xs text-gray-400 bg-gray-50 border border-gray-100 rounded-lg px-3 py-2">
+              Um email será enviado ao usuário com um link para ele definir a própria senha.
+            </p>
           )}
 
           <div className="border-t border-gray-100 pt-3">

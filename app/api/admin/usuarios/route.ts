@@ -14,20 +14,23 @@ export async function POST(req: NextRequest) {
   const { data: caller } = await admin.from('usuarios').select('perfil').eq('id', user.id).single()
   if (caller?.perfil !== 'admin') return NextResponse.json({ error: 'Acesso negado' }, { status: 403 })
 
-  const { nome, email, whatsapp, perfil, senha } = await req.json()
-  if (!nome || !email || !perfil || !senha) {
-    return NextResponse.json({ error: 'Campos obrigatórios: nome, email, perfil, senha' }, { status: 400 })
+  const { nome, email, whatsapp, perfil } = await req.json()
+  if (!nome || !email || !perfil) {
+    return NextResponse.json({ error: 'Campos obrigatórios: nome, email, perfil' }, { status: 400 })
   }
 
-  // Cria usuário no Supabase Auth
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://cooperliga.saacs.com.br'
+
+  // Senha aleatória — nunca enviada, o usuário vai definir a própria via link
+  const senhaTemp = crypto.randomUUID()
+
   const { data: created, error: createErr } = await admin.auth.admin.createUser({
     email,
-    password: senha,
+    password: senhaTemp,
     email_confirm: true,
   })
   if (createErr) return NextResponse.json({ error: createErr.message }, { status: 400 })
 
-  // Insere na tabela usuarios
   const { error: insertErr } = await admin.from('usuarios').insert({
     id: created.user.id,
     nome,
@@ -41,9 +44,19 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: insertErr.message }, { status: 500 })
   }
 
-  // Envia email de boas-vindas
-  const emailResult = await enviarBoasVindas({ nome, email, senha })
+  // Gera link de definição de senha e envia email de boas-vindas
+  const { data: linkData } = await admin.auth.admin.generateLink({
+    type: 'recovery',
+    email,
+    options: { redirectTo: `${appUrl}/reset-password` },
+  })
+
+  const emailResult = await enviarBoasVindas({
+    nome,
+    email,
+    link: linkData?.properties?.action_link || `${appUrl}/login`,
+  })
   console.log('[criar-usuario] resend result:', JSON.stringify(emailResult))
 
-  return NextResponse.json({ id: created.user.id, emailDebug: (emailResult as any)?.error || null })
+  return NextResponse.json({ id: created.user.id })
 }
