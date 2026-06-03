@@ -1,11 +1,14 @@
 import { Resend } from 'resend'
 
-const resend = new Resend(process.env.RESEND_API_KEY)
-const FROM   = 'CooperLiga <sistema@cooperliga.saacs.com.br>'
+const FROM     = 'CooperLiga <sistema@cooperliga.saacs.com.br>'
 const URL_BASE = process.env.NEXT_PUBLIC_APP_URL || 'https://cooperliga.saacs.com.br'
 
+function getResend() {
+  return new Resend(process.env.RESEND_API_KEY)
+}
+
 export async function enviarBoasVindas(opts: { nome: string; email: string; senha: string }) {
-  return resend.emails.send({
+  return getResend().emails.send({
     from: FROM,
     to:   opts.email,
     subject: 'Bem-vindo ao CooperLiga — seu acesso está pronto',
@@ -69,7 +72,7 @@ export async function enviarBoasVindas(opts: { nome: string; email: string; senh
 }
 
 export async function enviarRecuperacaoSenha(opts: { nome: string; email: string; link: string }) {
-  return resend.emails.send({
+  return getResend().emails.send({
     from: FROM,
     to:   opts.email,
     subject: 'Redefinir senha — CooperLiga',
