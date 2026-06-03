@@ -41,8 +41,9 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: insertErr.message }, { status: 500 })
   }
 
-  // Envia email de boas-vindas (não-fatal: falha silenciosa)
-  enviarBoasVindas({ nome, email, senha }).catch(() => {})
+  // Envia email de boas-vindas
+  const emailResult = await enviarBoasVindas({ nome, email, senha })
+  console.log('[criar-usuario] resend result:', JSON.stringify(emailResult))
 
-  return NextResponse.json({ id: created.user.id })
+  return NextResponse.json({ id: created.user.id, emailDebug: (emailResult as any)?.error || null })
 }
