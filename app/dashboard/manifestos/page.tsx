@@ -18,16 +18,6 @@ OBSERVAÇÕES:
 *QUALQUER PROBLEMA PODE LIGAR A COBRAR, PARA QUE POSSAMOS RESOLVER AINDA NO LOCAL.
 CENTRAL: (11) 4996-3311  CELULAR: (11) 97475-7456`
 
-type Ciclo = {
-  id: string
-  numero: number | null
-  numero_pedido: string
-  data_entrega: string
-  data_receber: string | null
-  contrato_id: string | null
-  contratos: { orgao: string; codigo: string | null } | null
-}
-
 type Rota = {
   id: string
   codigo: string
@@ -38,7 +28,7 @@ type Rota = {
 
 type ManifestoRow = {
   numero: number
-  ciclo: Ciclo
+  data_entrega: string
   rota: Rota
 }
 
@@ -64,32 +54,44 @@ function padNum(n: number) {
 
 function Manifesto({
   numero,
-  ciclo,
+  data_entrega,
   rota,
   onVoltar,
 }: {
   numero: number
-  ciclo: Ciclo
+  data_entrega: string
   rota: Rota
   onVoltar: () => void
 }) {
-  const [rows, setRows]         = useState<EntregaRow[]>([])
-  const [produtos, setProdutos] = useState<string[]>([])
-  const [loading, setLoading]   = useState(true)
+  const [rows, setRows]           = useState<EntregaRow[]>([])
+  const [produtos, setProdutos]   = useState<string[]>([])
+  const [dataReceber, setReceber] = useState<string | null>(null)
+  const [loading, setLoading]     = useState(true)
 
   useEffect(() => {
     async function carregar() {
       const sb = getSupabase()
+
+      // Todos os ciclos desta data de entrega
+      const { data: ciclosData } = await sb
+        .from('ciclos')
+        .select('id, data_receber')
+        .eq('data_entrega', data_entrega)
+
+      const cicloIds = (ciclosData || []).map((c: any) => c.id as string)
+      setReceber((ciclosData || []).find((c: any) => c.data_receber)?.data_receber || null)
 
       const [{ data: rp }, { data: ce }] = await Promise.all([
         sb.from('rota_pontos')
           .select('ponto_de_entrega_id, sequencia')
           .eq('rota_id', rota.id)
           .order('sequencia'),
-        sb.from('ciclo_entregas')
-          .select('ponto_de_entrega_id, qtde_inteira, qtde_fracionada, produtos(nome), pontos_de_entrega(nome, codigo_prefeitura, endereco)')
-          .eq('ciclo_id', ciclo.id)
-          .eq('rota_id', rota.id),
+        cicloIds.length
+          ? sb.from('ciclo_entregas')
+              .select('ponto_de_entrega_id, qtde_inteira, qtde_fracionada, produtos(nome), pontos_de_entrega(nome, codigo_prefeitura, endereco)')
+              .in('ciclo_id', cicloIds)
+              .eq('rota_id', rota.id)
+          : Promise.resolve({ data: [] }),
       ])
 
       const seqMap: Record<string, number> = {}
@@ -97,12 +99,17 @@ function Manifesto({
 
       const pdeMap: Record<string, EntregaRow> = {}
       const prodSet = new Set<string>()
+      const seen = new Set<string>()
 
       for (const e of ce || []) {
         const pdeId = e.ponto_de_entrega_id
         const prod  = (e as any).produtos?.nome as string
         const pde   = (e as any).pontos_de_entrega
         if (!prod || !pde) continue
+        // dedup: mesma escola+produto pode aparecer em múltiplos ciclos da mesma data
+        const key = `${pdeId}:${prod}`
+        if (seen.has(key)) continue
+        seen.add(key)
         prodSet.add(prod)
         if (!pdeMap[pdeId]) {
           pdeMap[pdeId] = {
@@ -130,7 +137,7 @@ function Manifesto({
       setLoading(false)
     }
     carregar()
-  }, [ciclo.id, rota.id])
+  }, [data_entrega, rota.id])
 
   const totais: Record<string, { inteira: number; fracionada: number }> = {}
   for (const prod of produtos) {
@@ -167,15 +174,15 @@ function Manifesto({
         <div className="flex items-start justify-between">
           <div>
             <h2 className="text-base font-bold text-gray-900">{rota.nome}</h2>
-            <p className="text-xs text-gray-500 mt-0.5">{ciclo.contratos?.orgao || '—'}</p>
+            <p className="text-xs text-gray-500 mt-0.5">{rota.codigo}</p>
           </div>
           <span className="text-xs font-mono font-semibold bg-gray-100 text-gray-700 px-2 py-1 rounded">
             Manifesto Nº {padNum(numero)}
           </span>
         </div>
         <div className="mt-3 flex flex-wrap gap-6 text-xs text-gray-600">
-          <span><span className="font-medium">Entrega:</span> {fmtDate(ciclo.data_entrega)}</span>
-          {ciclo.data_receber && <span><span className="font-medium">Recebimento:</span> {fmtDate(ciclo.data_receber)}</span>}
+          <span><span className="font-medium">Entrega:</span> {fmtDate(data_entrega)}</span>
+          {dataReceber && <span><span className="font-medium">Recebimento:</span> {fmtDate(dataReceber)}</span>}
           {rota.agregados && <span><span className="font-medium">Motorista:</span> {rota.agregados.nome}</span>}
           <span><span className="font-medium">Paradas:</span> {rows.length}</span>
           {!loading && totalCaixas > 0 && (
@@ -229,7 +236,7 @@ function Manifesto({
               ))}
               {rows.length === 0 && (
                 <tr><td colSpan={4 + produtos.length} className="px-3 py-8 text-center text-gray-400">
-                  Nenhuma entrega encontrada para esta rota neste ciclo.
+                  Nenhuma entrega encontrada para esta rota nesta data.
                 </td></tr>
               )}
             </tbody>
@@ -272,7 +279,7 @@ export default function ManifestosPage() {
 
       const { data: mData } = await sb
         .from('ciclo_manifestos')
-        .select('numero, ciclo_id, rota_id, ciclos(id, numero, numero_pedido, data_entrega, data_receber, contrato_id, contratos(orgao, codigo)), rotas(id, codigo, nome, agregados(nome))')
+        .select('numero, data_entrega, rota_id, rotas(id, codigo, nome, agregados(nome))')
         .order('numero', { ascending: false })
 
       if (!mData?.length) { setLoading(false); return }
@@ -286,31 +293,30 @@ export default function ManifestosPage() {
       const contagemPontos: Record<string, number> = {}
       for (const p of rpData || []) contagemPontos[p.rota_id] = (contagemPontos[p.rota_id] || 0) + 1
 
-      const rows: ManifestoRow[] = (mData as any[]).map(m => ({
-        numero: m.numero as number,
-        ciclo:  m.ciclos as Ciclo,
-        rota:   { ...(m.rotas as any), pontos: contagemPontos[m.rota_id] || 0 } as Rota,
-      }))
-
-      setManifests(rows)
+      setManifests((mData as any[]).map(m => ({
+        numero:       m.numero as number,
+        data_entrega: m.data_entrega as string,
+        rota: {
+          ...(m.rotas as any),
+          pontos: contagemPontos[m.rota_id] || 0,
+        } as Rota,
+      })))
       setLoading(false)
     }
     carregar()
   }, [])
 
-  // ── Manifesto aberto ────────────────────────────────────────────────────
   if (sel) {
     return (
       <Manifesto
         numero={sel.numero}
-        ciclo={sel.ciclo}
+        data_entrega={sel.data_entrega}
         rota={sel.rota}
         onVoltar={() => setSel(null)}
       />
     )
   }
 
-  // ── Lista de manifestos ─────────────────────────────────────────────────
   return (
     <div>
       <div className="mb-6">
@@ -333,7 +339,7 @@ export default function ManifestosPage() {
             </thead>
             <tbody>
               {manifests.map(m => (
-                <tr key={`${m.ciclo.id}:${m.rota.id}`}
+                <tr key={`${m.data_entrega}:${m.rota.id}`}
                   className="border-b border-gray-50 last:border-0 hover:bg-gray-50/30 cursor-pointer"
                   onClick={() => setSel(m)}>
                   <td className="px-4 py-3 font-mono font-semibold text-gray-800">{padNum(m.numero)}</td>
@@ -342,7 +348,7 @@ export default function ManifestosPage() {
                     <span className="text-gray-800">{m.rota.nome}</span>
                   </td>
                   <td className="px-4 py-3 text-gray-500">{m.rota.agregados?.nome || '—'}</td>
-                  <td className="px-4 py-3 text-gray-600">{fmtDate(m.ciclo.data_entrega)}</td>
+                  <td className="px-4 py-3 text-gray-600">{fmtDate(m.data_entrega)}</td>
                   <td className="px-4 py-3 text-gray-500">{m.rota.pontos}</td>
                   <td className="px-4 py-3 text-right">
                     <span className="text-xs font-medium" style={{ color: PRIMARY }}>Abrir →</span>
