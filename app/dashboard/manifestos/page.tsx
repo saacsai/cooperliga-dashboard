@@ -83,41 +83,40 @@ function Manifesto({
 
       const [{ data: rp }, { data: ce }] = await Promise.all([
         sb.from('rota_pontos')
-          .select('ponto_de_entrega_id, sequencia, pontos_de_entrega(id, nome, codigo_prefeitura, endereco)')
+          .select('ponto_de_entrega_id, sequencia')
           .eq('rota_id', rota.id)
           .order('sequencia'),
         sb.from('ciclo_entregas')
-          .select('ponto_de_entrega_id, qtde_inteira, qtde_fracionada, produtos(nome)')
+          .select('ponto_de_entrega_id, qtde_inteira, qtde_fracionada, produtos(nome), pontos_de_entrega(nome, codigo_prefeitura, endereco)')
           .eq('ciclo_id', ciclo.id)
           .eq('rota_id', rota.id),
       ])
 
-      // Mapa de quantidades por (pde_id, produto)
-      const qtdeMap: Record<string, Record<string, { inteira: number; fracionada: number }>> = {}
+      const seqMap: Record<string, number> = {}
+      for (const r of rp || []) seqMap[r.ponto_de_entrega_id] = r.sequencia
+
+      const pdeMap: Record<string, EntregaRow> = {}
       const prodSet = new Set<string>()
+
       for (const e of ce || []) {
-        const prod = (e as any).produtos?.nome as string
-        if (!prod) continue
+        const pdeId = e.ponto_de_entrega_id
+        const prod  = (e as any).produtos?.nome as string
+        const pde   = (e as any).pontos_de_entrega
+        if (!prod || !pde) continue
         prodSet.add(prod)
-        if (!qtdeMap[e.ponto_de_entrega_id]) qtdeMap[e.ponto_de_entrega_id] = {}
-        qtdeMap[e.ponto_de_entrega_id][prod] = {
+        if (!pdeMap[pdeId]) {
+          pdeMap[pdeId] = {
+            pde_id:            pdeId,
+            sequencia:         seqMap[pdeId] ?? null,
+            codigo_prefeitura: pde.codigo_prefeitura,
+            pde_nome:          pde.nome,
+            endereco:          pde.endereco,
+            qtdes:             {},
+          }
+        }
+        pdeMap[pdeId].qtdes[prod] = {
           inteira:    e.qtde_inteira ?? 0,
           fracionada: e.qtde_fracionada ?? 0,
-        }
-      }
-
-      // Todos os pontos da rota como base — com ou sem entrega neste ciclo
-      const pdeMap: Record<string, EntregaRow> = {}
-      for (const r of rp || []) {
-        const pde = (r as any).pontos_de_entrega
-        if (!pde) continue
-        pdeMap[r.ponto_de_entrega_id] = {
-          pde_id:            r.ponto_de_entrega_id,
-          sequencia:         r.sequencia ?? null,
-          codigo_prefeitura: pde.codigo_prefeitura,
-          pde_nome:          pde.nome,
-          endereco:          pde.endereco,
-          qtdes:             qtdeMap[r.ponto_de_entrega_id] ?? {},
         }
       }
 
