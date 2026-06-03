@@ -142,7 +142,7 @@ function Manifesto({
   }
 
   const totalPacotes = Object.values(totais).reduce((sum, t) => sum + t.fracionada, 0)
-  const totalCaixas  = Object.values(totais).reduce((sum, t) => sum + t.inteira, 0) + Math.floor(totalPacotes / 12)
+  const totalCaixas  = Object.values(totais).reduce((sum, t) => sum + t.inteira, 0) + Math.ceil(totalPacotes / 12)
 
   return (
     <div>
