@@ -4,26 +4,14 @@ import { enviarBoasVindas } from '@/lib/email'
 import type { Perfil } from '@/lib/supabase'
 
 export async function POST(req: NextRequest) {
-  // Verifica se quem está chamando é admin
-  const authHeader = req.headers.get('authorization') || ''
-  const token = authHeader.replace('Bearer ', '')
+  const token = (req.headers.get('authorization') || '').replace('Bearer ', '')
+  if (!token) return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
 
-  const supabase = getSupabase()
-  const { data: { user }, error: authErr } = token
-    ? await supabase.auth.getUser(token)
-    : { data: { user: null }, error: null }
-
-  // Fallback: verifica sessão via cookie (chamada do browser)
-  let adminId = user?.id
-  if (!adminId) {
-    const { data: { session } } = await supabase.auth.getSession()
-    adminId = session?.user?.id
-  }
-
-  if (!adminId) return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
+  const { data: { user } } = await getSupabase().auth.getUser(token)
+  if (!user) return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
 
   const admin = getSupabaseAdmin()
-  const { data: caller } = await admin.from('usuarios').select('perfil').eq('id', adminId).single()
+  const { data: caller } = await admin.from('usuarios').select('perfil').eq('id', user.id).single()
   if (caller?.perfil !== 'admin') return NextResponse.json({ error: 'Acesso negado' }, { status: 403 })
 
   const { nome, email, whatsapp, perfil, senha } = await req.json()

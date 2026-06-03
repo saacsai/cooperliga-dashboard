@@ -131,9 +131,13 @@ export default function UsuariosPage() {
     setErro('')
 
     if (modo === 'criar') {
+      const { data: { session } } = await getSupabase().auth.getSession()
       const res = await fetch('/api/admin/usuarios', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...(session?.access_token && { Authorization: `Bearer ${session.access_token}` }),
+        },
         body: JSON.stringify({
           nome: form.nome, email: form.email, whatsapp: form.whatsapp,
           perfil: form.perfil, senha: form.senha,
