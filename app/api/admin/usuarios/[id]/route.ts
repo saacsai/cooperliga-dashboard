@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getSupabaseAdmin } from '@/lib/supabase'
+import { getSupabase, getSupabaseAdmin } from '@/lib/supabase'
 import type { Perfil } from '@/lib/supabase'
 
 export async function PATCH(
@@ -37,6 +37,28 @@ export async function PATCH(
     .eq('id', params.id)
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+  return NextResponse.json({ ok: true })
+}
+
+export async function DELETE(
+  req: NextRequest,
+  { params }: { params: { id: string } }
+) {
+  const token = (req.headers.get('authorization') || '').replace('Bearer ', '')
+  if (!token) return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
+
+  const { data: { user } } = await getSupabase().auth.getUser(token)
+  if (!user) return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
+
+  const admin = getSupabaseAdmin()
+  const { data: caller } = await admin.from('usuarios').select('perfil').eq('id', user.id).single()
+  if (caller?.perfil !== 'admin') return NextResponse.json({ error: 'Acesso negado' }, { status: 403 })
+
+  if (params.id === user.id) return NextResponse.json({ error: 'Não é possível excluir sua própria conta' }, { status: 400 })
+
+  await admin.from('usuarios').delete().eq('id', params.id)
+  await admin.auth.admin.deleteUser(params.id)
 
   return NextResponse.json({ ok: true })
 }

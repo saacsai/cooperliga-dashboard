@@ -58,6 +58,7 @@ export default function UsuariosPage() {
   const [form,        setForm]        = useState<FormState>(FORM_VAZIO)
   const [buscandoCEP, setBuscandoCEP] = useState(false)
   const [busca,       setBusca]       = useState('')
+  const [excluindoId, setExcluindoId] = useState<string | null>(null)
 
   const usuariosFiltrados = useMemo(() => {
     if (!busca.trim()) return usuarios
@@ -177,6 +178,18 @@ export default function UsuariosPage() {
     carregar()
   }
 
+  async function handleExcluir(u: Usuario) {
+    const { data: { session } } = await getSupabase().auth.getSession()
+    const res = await fetch(`/api/admin/usuarios/${u.id}`, {
+      method: 'DELETE',
+      headers: { ...(session?.access_token && { Authorization: `Bearer ${session.access_token}` }) },
+    })
+    const json = await res.json()
+    if (!res.ok) { alert(json.error || 'Erro ao excluir'); return }
+    setExcluindoId(null)
+    carregar()
+  }
+
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
@@ -242,21 +255,31 @@ export default function UsuariosPage() {
                     </span>
                   </td>
                   <td className="px-4 py-3 text-right">
-                    <div className="flex items-center justify-end gap-3">
-                      <button
-                        onClick={() => abrirEditar(u)}
-                        className="text-xs font-medium transition-colors hover:opacity-80"
-                        style={{ color: PRIMARY }}
-                      >
-                        Editar
-                      </button>
-                      <button
-                        onClick={() => toggleAtivo(u)}
-                        className="text-xs text-gray-400 hover:text-gray-700 transition-colors"
-                      >
-                        {u.ativo ? 'Desativar' : 'Ativar'}
-                      </button>
-                    </div>
+                    {excluindoId === u.id ? (
+                      <div className="flex items-center justify-end gap-2">
+                        <span className="text-xs text-gray-500">Confirmar exclusão?</span>
+                        <button onClick={() => handleExcluir(u)}
+                          className="text-xs font-semibold text-red-600 hover:text-red-800">Excluir</button>
+                        <button onClick={() => setExcluindoId(null)}
+                          className="text-xs text-gray-400 hover:text-gray-700">Cancelar</button>
+                      </div>
+                    ) : (
+                      <div className="flex items-center justify-end gap-3">
+                        <button onClick={() => abrirEditar(u)}
+                          className="text-xs font-medium transition-colors hover:opacity-80"
+                          style={{ color: PRIMARY }}>
+                          Editar
+                        </button>
+                        <button onClick={() => toggleAtivo(u)}
+                          className="text-xs text-gray-400 hover:text-gray-700 transition-colors">
+                          {u.ativo ? 'Desativar' : 'Ativar'}
+                        </button>
+                        <button onClick={() => setExcluindoId(u.id)}
+                          className="text-xs text-red-400 hover:text-red-600 transition-colors">
+                          Excluir
+                        </button>
+                      </div>
+                    )}
                   </td>
                 </tr>
               ))}
