@@ -1,7 +1,6 @@
 import { Resend } from 'resend'
 
-// TODO: trocar para sistema@cooperliga.saacs.com.br após verificar domínio no Resend
-const FROM     = 'CooperLiga <onboarding@resend.dev>'
+const FROM     = 'CooperLiga <sistema@cooperliga.saacs.com.br>'
 const URL_BASE = process.env.NEXT_PUBLIC_APP_URL || 'https://cooperliga.saacs.com.br'
 
 function getResend() {
