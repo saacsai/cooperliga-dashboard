@@ -7,7 +7,6 @@ const PRIMARY  = '#5C0F0F'
 const WORKER   = 'https://guias.cooperliga.saacs.com.br'
 
 type Tab = 'estado' | 'municipal'
-type ContratoOpt = { id: string; codigo: string | null; orgao: string }
 
 interface CampoArquivo {
   name: string
@@ -72,20 +71,8 @@ export default function GuiasPage() {
   const [status, setStatus]     = useState<'idle' | 'loading' | 'error'>('idle')
   const [erro, setErro]         = useState('')
   const [processando, setProc]  = useState<Tab | null>(null)
-  const [contratos, setContratos] = useState<ContratoOpt[]>([])
-  const [contratoId, setContratoId] = useState('')
-
   const [filesEstado,   setFilesEstado]   = useState<Record<string, File[]>>({})
   const [filesMunicipal, setFilesMunicipal] = useState<Record<string, File[]>>({})
-
-  useEffect(() => {
-    getSupabase()
-      .from('contratos')
-      .select('id, codigo, orgao')
-      .eq('ativo', true)
-      .order('orgao')
-      .then(({ data }) => setContratos((data || []) as ContratoOpt[]))
-  }, [])
 
   const getFiles = (t: Tab) => t === 'estado' ? filesEstado : filesMunicipal
   const setFiles = (t: Tab, v: Record<string, File[]>) =>
@@ -136,7 +123,6 @@ export default function GuiasPage() {
         for (const f of files[c.fieldName] || []) fd.append(c.fieldName, f)
       }
       fd.append('data_ciclo', dataCiclo)
-      if (t === 'municipal' && contratoId) fd.append('contrato_id', contratoId)
 
       const res = await fetch(endpoint, { method: 'POST', body: fd })
       if (!res.ok) throw new Error(await res.text())
@@ -201,23 +187,6 @@ export default function GuiasPage() {
         </div>
 
         <div className="border-t border-gray-100 my-5" />
-
-        {/* Contrato — apenas Municipal */}
-        {tab === 'municipal' && (
-          <div className="mb-5">
-            <label className="block text-sm font-semibold text-gray-800 mb-0.5">Contrato</label>
-            <p className="text-xs text-gray-400 mb-2">Vincula este ciclo ao contrato para gerar o manifesto corretamente</p>
-            <select value={contratoId} onChange={e => setContratoId(e.target.value)}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#5C0F0F] bg-white">
-              <option value="">Sem contrato</option>
-              {contratos.map(c => (
-                <option key={c.id} value={c.id}>
-                  {c.codigo ? `${c.codigo} — ` : ''}{c.orgao}
-                </option>
-              ))}
-            </select>
-          </div>
-        )}
 
         {campos.map(c => (
           <CampoUpload
