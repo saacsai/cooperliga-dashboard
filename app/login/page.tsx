@@ -32,11 +32,14 @@ export default function LoginPage() {
     e.preventDefault()
     setLoading(true)
     setErro('')
-    const { error } = await getSupabase().auth.resetPasswordForEmail(email, {
-      redirectTo: `${window.location.origin}/reset-password`,
-    })
-    if (error) { setErro(error.message); setLoading(false); return }
-    setMensagem('Link de recuperação enviado para o seu email.')
+    try {
+      await fetch('/api/auth/recuperar-senha', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email }),
+      })
+    } catch { /* silencioso */ }
+    setMensagem('Se este email estiver cadastrado, você receberá o link em instantes.')
     setLoading(false)
   }
 

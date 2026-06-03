@@ -34,6 +34,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const [email,        setEmail]       = useState('')
   const [perfil,       setPerfil]      = useState<Perfil>('operador')
   const [drawerPerfil, setDrawerPerfil] = useState(false)
+  const [menuMobile,   setMenuMobile]  = useState(false)
 
   const [form,         setForm]        = useState<PerfilForm>(FORM_VAZIO)
   const [salvando,     setSalvando]    = useState(false)
@@ -161,15 +162,32 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   return (
     <div className="min-h-screen" style={{ background: '#F5EFEF' }}>
+      {/* Header mobile */}
+      <div className="lg:hidden print:hidden fixed top-0 left-0 right-0 z-20 h-14 flex items-center px-4 gap-3"
+        style={{ background: PRIMARY }}>
+        <button
+          onClick={() => setMenuMobile(true)}
+          className="flex flex-col gap-1.5 p-1"
+          aria-label="Abrir menu"
+        >
+          <span className="block w-5 h-0.5 bg-white/80 rounded" />
+          <span className="block w-5 h-0.5 bg-white/80 rounded" />
+          <span className="block w-5 h-0.5 bg-white/80 rounded" />
+        </button>
+        <span className="text-white font-bold text-sm tracking-wide">CooperLiga</span>
+      </div>
+
       <div className="print:hidden">
         <Sidebar
           nome={nome}
           email={email}
           perfil={perfil}
           onEditarPerfil={abrirDrawerPerfil}
+          mobileAberto={menuMobile}
+          onMobileFechar={() => setMenuMobile(false)}
         />
       </div>
-      <main className="p-8 ml-[224px] print:ml-0 print:p-4" style={{ minHeight: '100vh' }}>
+      <main className="p-4 lg:p-8 pt-[72px] lg:pt-0 ml-0 lg:ml-[224px] print:ml-0 print:p-4" style={{ minHeight: '100vh' }}>
         {children}
       </main>
 

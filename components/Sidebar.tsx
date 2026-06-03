@@ -86,13 +86,15 @@ interface Props {
   email: string
   perfil: Perfil
   onEditarPerfil: () => void
+  mobileAberto?: boolean
+  onMobileFechar?: () => void
 }
 
 function iniciais(nome: string) {
   return nome.split(' ').filter(Boolean).slice(0, 2).map(p => p[0].toUpperCase()).join('')
 }
 
-export default function Sidebar({ nome, email, perfil, onEditarPerfil }: Props) {
+export default function Sidebar({ nome, email, perfil, onEditarPerfil, mobileAberto = false, onMobileFechar }: Props) {
   const pathname = usePathname()
   const router   = useRouter()
 
@@ -103,10 +105,19 @@ export default function Sidebar({ nome, email, perfil, onEditarPerfil }: Props) 
   }
 
   return (
-    <aside
-      style={{ width: SIDEBAR_W, minWidth: SIDEBAR_W, background: PRIMARY }}
-      className="fixed left-0 top-0 h-screen flex flex-col z-10"
-    >
+    <>
+      {/* Backdrop mobile */}
+      {mobileAberto && (
+        <div
+          className="fixed inset-0 bg-black/50 z-20 lg:hidden"
+          onClick={onMobileFechar}
+        />
+      )}
+      <aside
+        style={{ width: SIDEBAR_W, minWidth: SIDEBAR_W, background: PRIMARY }}
+        className={`fixed left-0 top-0 h-screen flex flex-col z-30 transition-transform duration-200 ease-in-out
+          ${mobileAberto ? 'translate-x-0' : '-translate-x-full'} lg:translate-x-0`}
+      >
       {/* Logo */}
       <div className="px-4 pt-5 pb-4">
         <div className="rounded-lg overflow-hidden flex items-center justify-center" style={{ background: PRIMARY, height: 54 }}>
@@ -187,5 +198,6 @@ export default function Sidebar({ nome, email, perfil, onEditarPerfil }: Props) 
         <Image src="/logo_saacs_sem_slogan.png" alt="SAACS" width={83} height={22} className="object-contain opacity-50" />
       </div>
     </aside>
+    </>
   )
 }

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getSupabase, getSupabaseAdmin } from '@/lib/supabase'
+import { enviarBoasVindas } from '@/lib/email'
 import type { Perfil } from '@/lib/supabase'
 
 export async function POST(req: NextRequest) {
@@ -48,10 +49,12 @@ export async function POST(req: NextRequest) {
     ativo: true,
   })
   if (insertErr) {
-    // Reverte o usuário criado no auth
     await admin.auth.admin.deleteUser(created.user.id)
     return NextResponse.json({ error: insertErr.message }, { status: 500 })
   }
+
+  // Envia email de boas-vindas (não-fatal: falha silenciosa)
+  enviarBoasVindas({ nome, email, senha }).catch(() => {})
 
   return NextResponse.json({ id: created.user.id })
 }
