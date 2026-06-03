@@ -32,13 +32,17 @@ export default function LoginPage() {
     e.preventDefault()
     setLoading(true)
     setErro('')
-    try {
-      await fetch('/api/auth/recuperar-senha', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email }),
-      })
-    } catch { /* silencioso */ }
+    const res = await fetch('/api/auth/recuperar-senha', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email }),
+    })
+    const json = await res.json()
+    if (!res.ok) {
+      setErro(`Erro ao enviar email: ${JSON.stringify(json.debug || json.error)}`)
+      setLoading(false)
+      return
+    }
     setMensagem('Se este email estiver cadastrado, você receberá o link em instantes.')
     setLoading(false)
   }

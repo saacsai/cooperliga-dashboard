@@ -28,11 +28,17 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Erro ao gerar link' }, { status: 500 })
   }
 
-  await enviarRecuperacaoSenha({
+  const emailResult = await enviarRecuperacaoSenha({
     nome:  usuario.nome,
     email,
     link:  data.properties.action_link,
   })
+
+  console.log('[recuperar-senha] resend result:', JSON.stringify(emailResult))
+
+  if ((emailResult as any)?.error) {
+    return NextResponse.json({ ok: false, debug: (emailResult as any).error }, { status: 500 })
+  }
 
   return NextResponse.json({ ok: true })
 }
