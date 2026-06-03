@@ -6,6 +6,7 @@ import { getSupabase } from '@/lib/supabase'
 const PRIMARY = '#5C0F0F'
 
 export default function ResetPasswordPage() {
+  const [pronto, setPronto]       = useState(false)
   const [senha, setSenha]         = useState('')
   const [confirma, setConfirma]   = useState('')
   const [loading, setLoading]     = useState(false)
@@ -13,10 +14,13 @@ export default function ResetPasswordPage() {
   const [ok, setOk]               = useState(false)
 
   useEffect(() => {
-    const hash = window.location.hash
-    if (hash) {
-      getSupabase().auth.getSession()
-    }
+    const supabase = getSupabase()
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
+      if (event === 'PASSWORD_RECOVERY' || event === 'SIGNED_IN') {
+        setPronto(true)
+      }
+    })
+    return () => subscription.unsubscribe()
   }, [])
 
   async function handleSubmit(e: React.FormEvent) {
@@ -34,13 +38,15 @@ export default function ResetPasswordPage() {
   return (
     <div className="min-h-screen flex items-center justify-center p-4" style={{ background: '#F5EFEF' }}>
       <div className="bg-white rounded-2xl shadow-sm border border-gray-200 w-full max-w-sm p-8">
-        <h1 className="text-lg font-bold text-gray-900 mb-1">Nova senha</h1>
-        <p className="text-sm text-gray-500 mb-6">Defina sua nova senha de acesso.</p>
+        <h1 className="text-lg font-bold text-gray-900 mb-1">Definir senha</h1>
+        <p className="text-sm text-gray-500 mb-6">Crie uma senha para acessar o sistema.</p>
 
         {ok ? (
           <p className="text-sm text-green-700 bg-green-50 border border-green-200 rounded-lg p-3">
-            Senha atualizada! Redirecionando…
+            Senha definida! Redirecionando…
           </p>
+        ) : !pronto ? (
+          <p className="text-sm text-gray-400">Verificando link…</p>
         ) : (
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
@@ -65,7 +71,7 @@ export default function ResetPasswordPage() {
               className="w-full text-white text-sm font-semibold rounded-xl py-2.5 disabled:opacity-50"
               style={{ backgroundColor: PRIMARY }}
             >
-              {loading ? 'Salvando…' : 'Salvar nova senha'}
+              {loading ? 'Salvando…' : 'Salvar senha'}
             </button>
           </form>
         )}
