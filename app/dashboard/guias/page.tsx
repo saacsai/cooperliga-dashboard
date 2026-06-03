@@ -1,7 +1,6 @@
 'use client'
 
-import { useRef, useState, useCallback, useEffect } from 'react'
-import { getSupabase } from '@/lib/supabase'
+import { useRef, useState, useCallback } from 'react'
 
 const PRIMARY  = '#5C0F0F'
 const WORKER   = 'https://guias.cooperliga.saacs.com.br'
@@ -75,8 +74,6 @@ export default function GuiasPage() {
   const [filesMunicipal, setFilesMunicipal] = useState<Record<string, File[]>>({})
 
   const getFiles = (t: Tab) => t === 'estado' ? filesEstado : filesMunicipal
-  const setFiles = (t: Tab, v: Record<string, File[]>) =>
-    t === 'estado' ? setFilesEstado(v) : setFilesMunicipal(v)
 
   const handleChange = useCallback((t: Tab) => (fieldName: string, incoming: FileList) => {
     const setter = t === 'estado' ? setFilesEstado : setFilesMunicipal
