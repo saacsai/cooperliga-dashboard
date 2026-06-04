@@ -8,7 +8,7 @@ import type { EstoqueMovimento, TipoMovimento } from '@/lib/supabase'
 const PRIMARY = '#5C0F0F'
 
 type DropItem = { id: string; nome: string }
-type ManifestoItem = { id: string; numero: number; variante: string | null; data_entrega: string; rotas: { codigo: string } | null }
+type ManifestoItem = { id: string; numero: number; variante: string | null; data_entrega: string }
 
 const TIPO_CONFIG: Record<TipoMovimento, { label: string; badge: string; direcao: 'entrada' | 'saida' | 'ambos' }> = {
   recebimento: { label: 'Recebimento',   badge: 'bg-green-100 text-green-700',   direcao: 'entrada' },
@@ -57,7 +57,7 @@ export default function EstoquePage() {
       getSupabase().from('clientes').select('id, nome').eq('ativo', true).order('nome'),
       getSupabase().from('agregados').select('id, nome').eq('ativo', true).order('nome'),
       getSupabase().from('ciclo_manifestos')
-        .select('id, numero, variante, data_entrega, rotas(codigo)')
+        .select('id, numero, variante, data_entrega')
         .order('data_entrega', { ascending: false })
         .limit(120),
     ])
@@ -327,7 +327,7 @@ export default function EstoquePage() {
                 <option value="">Sem vínculo</option>
                 {manifestos.map(m => (
                   <option key={m.id} value={m.id}>
-                    #{m.numero}{m.variante || 'A'} — {m.rotas?.codigo ?? '?'} — {new Date(m.data_entrega + 'T12:00:00').toLocaleDateString('pt-BR')}
+                    #{m.numero}{m.variante || 'A'} — {new Date(m.data_entrega + 'T12:00:00').toLocaleDateString('pt-BR')}
                   </option>
                 ))}
               </select>
