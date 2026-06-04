@@ -165,9 +165,9 @@ function EstoqueInner() {
       .select('qtde_inteira, qtde_fracionada')
       .eq('manifesto_id', mRow.id)
 
-    const totalCaixas = (pedidos || []).reduce((acc: number, p: any) => {
-      return acc + (p.qtde_inteira ?? 0) + Math.ceil((p.qtde_fracionada ?? 0) / 12)
-    }, 0)
+    const totalInteiras = (pedidos || []).reduce((acc: number, p: any) => acc + (p.qtde_inteira ?? 0), 0)
+    const totalPacotes  = (pedidos || []).reduce((acc: number, p: any) => acc + (p.qtde_fracionada ?? 0), 0)
+    const totalCaixas   = totalInteiras + Math.floor(totalPacotes / 12 + 0.6)
 
     // 3. Verifica se já tem distribuição
     const { data: dist } = await sb
@@ -205,7 +205,23 @@ function EstoqueInner() {
     }
 
     setSalvando(true)
-    const { data: { session } } = await getSupabase().auth.getSession()
+    const sb = getSupabase()
+
+    // Valida saldo por cliente antes de salvar
+    for (const l of linhasValidas) {
+      const { data: movs } = await sb
+        .from('estoque_movimentos')
+        .select('entrada, saida')
+        .eq('cliente_id', l.cliente_id)
+      const saldo = (movs || []).reduce((a: number, m: any) => a + m.entrada - m.saida, 0)
+      if (l.quantidade > saldo) {
+        const nome = clientes.find(c => c.id === l.cliente_id)?.nome ?? 'cliente'
+        setErroSaida(`Saldo insuficiente: ${nome} tem ${saldo} cx disponíveis.`)
+        setSalvando(false); return
+      }
+    }
+
+    const { data: { session } } = await sb.auth.getSession()
     const rows = linhasValidas.map(l => ({
       data:         HOJE,
       tipo:         'distribuicao',
@@ -215,7 +231,7 @@ function EstoqueInner() {
       entrada:      0,
       created_by:   session?.user.id || null,
     }))
-    const { error } = await getSupabase().from('estoque_movimentos').insert(rows)
+    const { error } = await sb.from('estoque_movimentos').insert(rows)
     setSalvando(false)
     if (error) { setErroSaida(error.message); return }
     setSucesso(true)

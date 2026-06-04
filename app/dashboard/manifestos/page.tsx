@@ -446,7 +446,7 @@ function Manifesto({ manifesto, onVoltar, onDuplicado }: {
     : []
 
   const totalPacotes = Object.values(totais).reduce((s, t) => s + t.fracionada, 0)
-  const totalCaixas  = Object.values(totais).reduce((s, t) => s + t.inteira, 0) + Math.ceil(totalPacotes / 12)
+  const totalCaixas  = Object.values(totais).reduce((s, t) => s + t.inteira, 0) + Math.floor(totalPacotes / 12 + 0.6)
   const sinal = totalCaixas === 0 ? null
     : totalCaixas < 36 ? { cor: '#FEE2E2', txt: '#991B1B', label: `${totalCaixas} cx — abaixo do ideal` }
     : totalCaixas < 60 ? { cor: '#FEF9C3', txt: '#854D0E', label: `${totalCaixas} cx — atenção` }
@@ -512,12 +512,17 @@ function Manifesto({ manifesto, onVoltar, onDuplicado }: {
           {rota.agregados && <span><span className="font-medium">Motorista:</span> {rota.agregados.nome}</span>}
           <span><span className="font-medium">Paradas:</span> {pontos.length}</span>
         </div>
-        <div className="hidden print:flex mt-3 pt-3 border-t border-gray-200 items-center gap-3">
+        <div className="hidden print:flex mt-3 pt-3 border-t border-gray-200 items-center gap-4">
           <QRCode
             value={`${typeof window !== 'undefined' ? window.location.origin : ''}/mobile/estoque?manifesto=${numero_base}${letra}`}
             size={96}
           />
-          <span className="text-[9px] text-gray-400 font-mono">#{numDisplay(numero_base, letra)}</span>
+          <div className="flex flex-col gap-1">
+            <span className="text-[9px] text-gray-400 font-mono">#{numDisplay(numero_base, letra)}</span>
+            {totalCaixas > 0 && (
+              <span className="text-xs font-bold text-gray-800">{totalCaixas} caixas</span>
+            )}
+          </div>
         </div>
       </div>
 
