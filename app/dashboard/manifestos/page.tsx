@@ -283,64 +283,43 @@ function Manifesto({ manifesto, onVoltar, onDuplicado }: {
     const sb = getSupabase()
     const emAtual = new Set(pontos.map(p => p.pde_id))
 
-    // Busca outras variantes desta rota
     const { data: varianteIds } = await sb
       .from('ciclo_manifestos').select('id').eq('rota_id', rota.id)
     const outrosIds = (varianteIds || []).map((m: any) => m.id as string).filter(mid => mid !== id)
 
-    // Sem variantes: fallback para rota_pontos (comportamento original)
-    if (!outrosIds.length) {
-      const { data: rotaPts } = await sb
-        .from('rota_pontos')
-        .select('ponto_de_entrega_id, pontos_de_entrega(id, nome, codigo_prefeitura)')
-        .eq('rota_id', rota.id)
-        .order('sequencia' as any)
-      setPontosDisp(
-        (rotaPts || [])
-          .filter((r: any) => !emAtual.has(r.ponto_de_entrega_id))
-          .map((r: any) => ({
-            id:                r.ponto_de_entrega_id,
-            nome:              (r.pontos_de_entrega as any)?.nome ?? '?',
-            codigo_prefeitura: (r.pontos_de_entrega as any)?.codigo_prefeitura ?? null,
-          }))
-      )
-      setDuplicados(new Set())
-      return
-    }
-
-    // Com variantes: pool vem das variantes (fonte primária)
-    // rota_pontos só entra como fallback para pontos que nenhuma variante tem
-    const [{ data: outrosPontos }, { data: rotaPts }] = await Promise.all([
-      sb.from('manifesto_pontos')
+    // Carrega em paralelo: pontos das outras variantes + todos os rota_pontos
+    let outrosPontos: any[] = []
+    if (outrosIds.length) {
+      const { data } = await sb
+        .from('manifesto_pontos')
         .select('pde_id, pontos_de_entrega(id, nome, codigo_prefeitura)')
-        .in('manifesto_id', outrosIds),
-      sb.from('rota_pontos')
-        .select('ponto_de_entrega_id, pontos_de_entrega(id, nome, codigo_prefeitura)')
-        .eq('rota_id', rota.id)
-        .order('sequencia' as any),
-    ])
+        .in('manifesto_id', outrosIds)
+      outrosPontos = data || []
+    }
+    const { data: rotaPtsData } = await sb
+      .from('rota_pontos')
+      .select('ponto_de_entrega_id, pontos_de_entrega(id, nome, codigo_prefeitura)')
+      .eq('rota_id', rota.id)
+      .order('sequencia' as any)
+    const rotaPts = rotaPtsData || []
 
-    // Duplicatas = em atual E em alguma variante
-    const noOutros = new Set((outrosPontos || []).map((p: any) => p.pde_id as string))
+    // Duplicatas: quais pontos do manifesto atual também estão em outras variantes
+    const noOutros = new Set(outrosPontos.map((p: any) => p.pde_id as string))
     setDuplicados(new Set(Array.from(emAtual).filter(pdeId => noOutros.has(pdeId))))
 
-    // 1ª prioridade: pontos das variantes não no atual
+    // Pool = TODOS os pontos (variantes + rota_pontos), SEM filtrar emAtual aqui
+    // sugestoes filtra em tempo de render o que já está no manifesto
     const pool = new Map<string, PontoDisp>()
-    for (const p of (outrosPontos || [])) {
-      if (emAtual.has(p.pde_id) || pool.has(p.pde_id)) continue
+    for (const p of outrosPontos) {
+      if (pool.has(p.pde_id)) continue
       const pde = (p as any).pontos_de_entrega
       pool.set(p.pde_id, { id: p.pde_id, nome: pde?.nome ?? '?', codigo_prefeitura: pde?.codigo_prefeitura ?? null })
     }
-
-    // 2ª prioridade: rota_pontos que nenhuma variante tem (e não está no atual)
-    for (const p of (rotaPts || [])) {
-      if (emAtual.has(p.ponto_de_entrega_id) || pool.has(p.ponto_de_entrega_id)) continue
+    for (const p of rotaPts) {
+      if (pool.has(p.ponto_de_entrega_id)) continue
       const pde = (p as any).pontos_de_entrega
-      pool.set(p.ponto_de_entrega_id, {
-        id: p.ponto_de_entrega_id, nome: pde?.nome ?? '?', codigo_prefeitura: pde?.codigo_prefeitura ?? null,
-      })
+      pool.set(p.ponto_de_entrega_id, { id: p.ponto_de_entrega_id, nome: pde?.nome ?? '?', codigo_prefeitura: pde?.codigo_prefeitura ?? null })
     }
-
     setPontosDisp(Array.from(pool.values()))
   }
 
@@ -375,19 +354,12 @@ function Manifesto({ manifesto, onVoltar, onDuplicado }: {
   }
 
   async function remover(mp_id: string) {
-    const sb    = getSupabase()
-    const ponto = pontos.find(p => p.mp_id === mp_id)
+    const sb = getSupabase()
     await sb.from('manifesto_pontos').delete().eq('id', mp_id)
     const novo = pontos
       .filter(p => p.mp_id !== mp_id)
       .map((p, i) => ({ ...p, sequencia: i + 1 }))
     setPontos(novo)
-    if (ponto) {
-      setPontosDisp(prev => [
-        ...prev,
-        { id: ponto.pde_id, nome: ponto.pde_nome, codigo_prefeitura: ponto.codigo_prefeitura },
-      ])
-    }
     await Promise.all(novo.map(p =>
       sb.from('manifesto_pontos').update({ sequencia: p.sequencia }).eq('id', p.mp_id)
     ))
@@ -423,7 +395,6 @@ function Manifesto({ manifesto, onVoltar, onDuplicado }: {
         atualizarDuplicados(updated.map(p => p.pde_id))
         return updated
       })
-      setPontosDisp(prev => prev.filter(p => p.id !== pde.id))
     }
     setAdicionando(false)
   }
@@ -463,8 +434,10 @@ function Manifesto({ manifesto, onVoltar, onDuplicado }: {
     setDuplicando(false)
   }
 
+  const emAtualIds = new Set(pontos.map(p => p.pde_id))
   const sugestoes = busca.trim().length >= 1
     ? pontosDisp.filter(p => {
+        if (emAtualIds.has(p.id)) return false
         const q = busca.toLowerCase()
         return p.nome.toLowerCase().includes(q) || (p.codigo_prefeitura || '').includes(q)
       }).slice(0, 8)
