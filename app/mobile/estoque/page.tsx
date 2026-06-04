@@ -71,10 +71,12 @@ function EstoqueInner() {
   const [sucesso,     setSucesso]     = useState(false)
 
   // Retorno
-  const [distExist,   setDistExist]   = useState<DistribuicaoExistente[]>([])
-  const [qtdesRetorno, setQtdesRetorno] = useState<Record<string, number>>({})
-  const [salvandoRet,  setSalvandoRet] = useState(false)
-  const [sucessoRet,   setSucessoRet]  = useState(false)
+  const [distExist,      setDistExist]      = useState<DistribuicaoExistente[]>([])
+  const [qtdesRetorno,   setQtdesRetorno]   = useState<Record<string, number>>({})
+  const [justificativas, setJustificativas] = useState<Record<string, string>>({})
+  const [salvandoRet,    setSalvandoRet]    = useState(false)
+  const [erroRetorno,    setErroRetorno]    = useState('')
+  const [sucessoRet,     setSucessoRet]     = useState(false)
 
   // ── Auth check ────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -239,22 +241,44 @@ function EstoqueInner() {
 
   // ── Salvar retorno ────────────────────────────────────────────────────────
   async function handleSalvarRetorno() {
+    setErroRetorno('')
+
+    // Valida justificativas obrigatórias para caixas não retornadas
+    for (const d of distExist) {
+      const qtd = qtdesRetorno[d.id] ?? d.saida
+      if (qtd < d.saida) {
+        const falta = d.saida - qtd
+        const just = justificativas[d.id]?.trim()
+        if (!just) {
+          const nome = d.clientes?.nome ?? 'cooperativa'
+          setErroRetorno(`Justificativa obrigatória: ${nome} tem ${falta} cx sem retorno.`)
+          return
+        }
+      }
+    }
+
     setSalvandoRet(true)
     const { data: { session } } = await getSupabase().auth.getSession()
     const rows = distExist
-      .filter(d => (qtdesRetorno[d.id] ?? 0) > 0)
-      .map(d => ({
-        data:         HOJE,
-        tipo:         'retorno',
-        cliente_id:   d.cliente_id,
-        manifesto_id: manifesto!.id,
-        entrada:      qtdesRetorno[d.id],
-        saida:        0,
-        created_by:   session?.user.id || null,
-      }))
+      .filter(d => (qtdesRetorno[d.id] ?? d.saida) > 0)
+      .map(d => {
+        const qtd   = qtdesRetorno[d.id] ?? d.saida
+        const falta = d.saida - qtd
+        const obs   = falta > 0 ? `${falta} cx não retornaram: ${justificativas[d.id]}` : null
+        return {
+          data:         HOJE,
+          tipo:         'retorno',
+          cliente_id:   d.cliente_id,
+          manifesto_id: manifesto!.id,
+          entrada:      qtd,
+          saida:        0,
+          observacao:   obs,
+          created_by:   session?.user.id || null,
+        }
+      })
     const { error } = await getSupabase().from('estoque_movimentos').insert(rows)
     setSalvandoRet(false)
-    if (error) { setErroSaida(error.message); return }
+    if (error) { setErroRetorno(error.message); return }
     setSucessoRet(true)
   }
 
@@ -488,28 +512,41 @@ function EstoqueInner() {
             </div>
 
             <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5 space-y-4">
-              {distExist.map(d => (
-                <div key={d.id} className="space-y-1">
-                  <div className="flex items-center justify-between">
-                    <p className="text-sm font-medium text-gray-800">{d.clientes?.nome ?? '—'}</p>
-                    <p className="text-xs text-gray-400">saiu {d.saida} cx</p>
+              {distExist.map(d => {
+                const qtd   = qtdesRetorno[d.id] ?? d.saida
+                const falta = d.saida - qtd
+                return (
+                  <div key={d.id} className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <p className="text-sm font-medium text-gray-800">{d.clientes?.nome ?? '—'}</p>
+                      <p className="text-xs text-gray-400">saiu {d.saida} cx</p>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <input
+                        type="number" min="0" max={d.saida}
+                        value={qtd}
+                        onChange={e => setQtdesRetorno(prev => ({ ...prev, [d.id]: parseInt(e.target.value) || 0 }))}
+                        className="flex-1 border border-gray-200 rounded-xl px-3 py-3 text-sm outline-none focus:border-[#5C0F0F]"
+                      />
+                      <span className="text-xs text-gray-400">cx retornando</span>
+                    </div>
+                    {falta > 0 && (
+                      <div className="space-y-1">
+                        <p className="text-xs text-amber-600 font-medium">{falta} cx não retornaram — justificativa obrigatória *</p>
+                        <textarea
+                          value={justificativas[d.id] ?? ''}
+                          onChange={e => setJustificativas(prev => ({ ...prev, [d.id]: e.target.value }))}
+                          placeholder="Ex: ficaram na unidade 12176 para próxima semana…"
+                          rows={2}
+                          className="w-full border border-amber-300 rounded-xl px-3 py-2 text-sm outline-none focus:border-amber-500 resize-none bg-amber-50"
+                        />
+                      </div>
+                    )}
                   </div>
-                  <div className="flex items-center gap-3">
-                    <input
-                      type="number" min="0" max={d.saida}
-                      value={qtdesRetorno[d.id] ?? d.saida}
-                      onChange={e => setQtdesRetorno(prev => ({ ...prev, [d.id]: parseInt(e.target.value) || 0 }))}
-                      className="flex-1 border border-gray-200 rounded-xl px-3 py-3 text-sm outline-none focus:border-[#5C0F0F]"
-                    />
-                    <span className="text-xs text-gray-400">cx retornando</span>
-                  </div>
-                  {(qtdesRetorno[d.id] ?? d.saida) < d.saida && (
-                    <p className="text-xs text-amber-600">
-                      {d.saida - (qtdesRetorno[d.id] ?? d.saida)} cx ficaram com a cooperativa
-                    </p>
-                  )}
-                </div>
-              ))}
+                )
+              })}
+
+              {erroRetorno && <p className="text-xs text-red-500 bg-red-50 rounded-lg p-2">{erroRetorno}</p>}
 
               <button onClick={handleSalvarRetorno} disabled={salvandoRet}
                 className="w-full py-4 rounded-xl text-white font-semibold text-sm disabled:opacity-50"
