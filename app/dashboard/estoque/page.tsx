@@ -9,7 +9,6 @@ const PRIMARY = '#5C0F0F'
 const HOJE = new Date().toISOString().split('T')[0]
 
 type DropItem = { id: string; nome: string }
-type ManifestoItem = { id: string; numero: number; letra: string | null; data_entrega: string }
 
 const TIPO_CONFIG: Record<TipoMovimento, { label: string; badge: string; direcao: 'entrada' | 'saida' | 'ambos' }> = {
   recebimento: { label: 'Recebimento',   badge: 'bg-green-100 text-green-700',   direcao: 'entrada' },
@@ -20,50 +19,45 @@ const TIPO_CONFIG: Record<TipoMovimento, { label: string; badge: string; direcao
   ajuste:      { label: 'Ajuste',        badge: 'bg-gray-100 text-gray-600',     direcao: 'ambos'   },
 }
 
-const TIPOS_REQUER_AGREGADO: TipoMovimento[] = ['distribuicao', 'retorno']
+const TIPOS_COM_MANIFESTO: TipoMovimento[] = ['distribuicao', 'retorno']
 
 const VAZIO = {
-  data:         HOJE,
-  tipo:         'recebimento' as TipoMovimento,
-  cliente_id:   '',
-  agregado_id:  '',
-  manifesto_id: '',
-  quantidade:   '',
-  direcao:      'entrada' as 'entrada' | 'saida',
-  observacao:   '',
+  data:            HOJE,
+  tipo:            'recebimento' as TipoMovimento,
+  cliente_id:      '',
+  manifestoNumero: '',
+  quantidade:      '',
+  direcao:         'entrada' as 'entrada' | 'saida',
+  observacao:      '',
 }
 
 export default function EstoquePage() {
   const [movimentos,  setMovimentos]  = useState<EstoqueMovimento[]>([])
   const [clientes,    setClientes]    = useState<DropItem[]>([])
-  const [agregados,   setAgregados]   = useState<DropItem[]>([])
-  const [manifestos,  setManifestos]  = useState<ManifestoItem[]>([])
   const [loading,     setLoading]     = useState(true)
   const [drawer,      setDrawer]      = useState(false)
   const [salvando,    setSalvando]    = useState(false)
   const [erro,        setErro]        = useState('')
   const [form,        setForm]        = useState(VAZIO)
 
+  // Manifesto lookup
+  const [manifestoId,     setManifestoId]     = useState<string | null>(null)
+  const [manifestoStatus, setManifestoStatus] = useState<'idle' | 'found' | 'not_found'>('idle')
+  const [buscandoManif,   setBuscandoManif]   = useState(false)
+
   const [filtroCliente, setFiltroCliente] = useState('')
 
   async function carregar() {
-    const [{ data: mov }, { data: cli }, { data: agr }, { data: man }] = await Promise.all([
+    const [{ data: mov }, { data: cli }] = await Promise.all([
       getSupabase()
         .from('estoque_movimentos')
-        .select('*, clientes(nome), agregados(nome)')
+        .select('*, clientes(nome)')
         .order('data', { ascending: true })
         .order('created_at', { ascending: true }),
       getSupabase().from('clientes').select('id, nome').eq('ativo', true).order('nome'),
-      getSupabase().from('agregados').select('id, nome').eq('ativo', true).order('nome'),
-      getSupabase().from('ciclo_manifestos')
-        .select('id, numero, letra, data_entrega')
-        .order('data_entrega', { ascending: false })
-        .limit(120),
     ])
     setMovimentos((mov || []) as unknown as EstoqueMovimento[])
     setClientes((cli || []) as DropItem[])
-    setAgregados((agr || []) as DropItem[])
-    setManifestos((man || []) as unknown as ManifestoItem[])
     setLoading(false)
   }
 
@@ -93,12 +87,40 @@ export default function EstoquePage() {
 
   const saldoAtual = linhas.length > 0 ? linhas[linhas.length - 1].saldo : 0
 
+  // ── Manifesto lookup (ao sair do campo) ──────────────────────────────────
+  async function buscarManifesto(texto: string) {
+    const t = texto.trim()
+    if (!t) { setManifestoId(null); setManifestoStatus('idle'); return }
+    const num = parseInt(t)
+    if (isNaN(num)) { setManifestoId(null); setManifestoStatus('not_found'); return }
+    const letra = t.replace(/\d/g, '').toUpperCase() || 'A'
+    setBuscandoManif(true)
+    const { data } = await getSupabase()
+      .from('ciclo_manifestos')
+      .select('id, numero, letra, data_entrega')
+      .eq('numero', num)
+      .eq('letra', letra)
+      .limit(1)
+    setBuscandoManif(false)
+    if (data && data[0]) {
+      setManifestoId(data[0].id)
+      setManifestoStatus('found')
+    } else {
+      setManifestoId(null)
+      setManifestoStatus('not_found')
+    }
+  }
+
   // ── Form helpers ──────────────────────────────────────────────────────────
   const set = (f: keyof typeof VAZIO) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) =>
     setForm(p => ({ ...p, [f]: e.target.value }))
 
   function abrirNovo() {
-    setForm(VAZIO); setErro(''); setDrawer(true)
+    setForm(VAZIO)
+    setManifestoId(null)
+    setManifestoStatus('idle')
+    setErro('')
+    setDrawer(true)
   }
 
   async function handleSalvar(e: React.FormEvent) {
@@ -133,13 +155,12 @@ export default function EstoquePage() {
     const payload = {
       data:         form.data,
       tipo:         form.tipo,
-      cliente_id:   form.cliente_id   || null,
-      agregado_id:  form.agregado_id  || null,
-      manifesto_id: form.manifesto_id || null,
+      cliente_id:   form.cliente_id || null,
+      manifesto_id: manifestoId     || null,
       entrada,
       saida,
-      observacao:   form.observacao   || null,
-      created_by:   session?.user.id  || null,
+      observacao:   form.observacao || null,
+      created_by:   session?.user.id || null,
     }
 
     const { error } = await getSupabase().from('estoque_movimentos').insert(payload)
@@ -161,7 +182,7 @@ export default function EstoquePage() {
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-xl font-bold text-gray-900">Estoque de Caixas</h1>
-          <p className="text-sm text-gray-500 mt-0.5">Conta corrente de caixas por cliente e agregado</p>
+          <p className="text-sm text-gray-500 mt-0.5">Conta corrente de caixas por cliente</p>
         </div>
         <button onClick={abrirNovo} className="text-white text-xs font-medium px-3 py-1.5 rounded-lg hover:opacity-90 transition-opacity" style={{ background: PRIMARY }}>
           + Novo lançamento
@@ -199,7 +220,6 @@ export default function EstoquePage() {
                 <th className="text-left px-4 py-3 text-xs font-medium text-gray-500">Data</th>
                 <th className="text-left px-4 py-3 text-xs font-medium text-gray-500">Tipo</th>
                 <th className="text-left px-4 py-3 text-xs font-medium text-gray-500">Cliente</th>
-                <th className="text-left px-4 py-3 text-xs font-medium text-gray-500">Agregado</th>
                 <th className="text-right px-4 py-3 text-xs font-medium text-green-700">Entrada</th>
                 <th className="text-right px-4 py-3 text-xs font-medium text-red-600">Saída</th>
                 <th className="text-right px-4 py-3 text-xs font-medium text-gray-500">Saldo</th>
@@ -221,7 +241,6 @@ export default function EstoquePage() {
                       </span>
                     </td>
                     <td className="px-4 py-3 text-gray-700 text-xs">{m.clientes?.nome ?? '—'}</td>
-                    <td className="px-4 py-3 text-gray-500 text-xs">{m.agregados?.nome ?? '—'}</td>
                     <td className="px-4 py-3 text-right tabular-nums">
                       {m.entrada > 0
                         ? <span className="text-green-700 font-medium">{m.entrada}</span>
@@ -235,7 +254,7 @@ export default function EstoquePage() {
                     <td className={`px-4 py-3 text-right tabular-nums font-semibold text-xs ${(m as any).saldo < 0 ? 'text-red-600' : 'text-gray-800'}`}>
                       {(m as any).saldo}
                     </td>
-                    <td className="px-4 py-3 text-gray-400 text-xs max-w-[180px] truncate">
+                    <td className="px-4 py-3 text-gray-400 text-xs max-w-[200px] truncate">
                       {m.observacao || '—'}
                     </td>
                     <td className="px-4 py-3 text-right">
@@ -246,7 +265,7 @@ export default function EstoquePage() {
               })}
               {linhas.length === 0 && (
                 <tr>
-                  <td colSpan={9} className="px-4 py-8 text-center text-sm text-gray-400">
+                  <td colSpan={8} className="px-4 py-8 text-center text-sm text-gray-400">
                     {filtroCliente ? 'Nenhum lançamento para este cliente.' : 'Nenhum lançamento registrado.'}
                   </td>
                 </tr>
@@ -255,7 +274,7 @@ export default function EstoquePage() {
             {linhas.length > 0 && (
               <tfoot>
                 <tr className="border-t border-gray-200 bg-gray-50">
-                  <td colSpan={4} className="px-4 py-2 text-xs font-semibold text-gray-500">Total</td>
+                  <td colSpan={3} className="px-4 py-2 text-xs font-semibold text-gray-500">Total</td>
                   <td className="px-4 py-2 text-right tabular-nums text-xs font-semibold text-green-700">
                     {linhas.reduce((a, m) => a + m.entrada, 0)}
                   </td>
@@ -296,7 +315,7 @@ export default function EstoquePage() {
 
           <div>
             <label className="block text-xs font-medium text-gray-600 mb-1">
-              Cliente {cfg.direcao !== 'ambos' && form.tipo !== 'venda' ? '*' : ''}
+              Cliente {cfg.direcao !== 'ambos' ? '*' : ''}
             </label>
             <select value={form.cliente_id} onChange={set('cliente_id')}
               className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#5C0F0F] bg-white">
@@ -309,35 +328,38 @@ export default function EstoquePage() {
             </select>
           </div>
 
-          {TIPOS_REQUER_AGREGADO.includes(form.tipo) && (
+          {TIPOS_COM_MANIFESTO.includes(form.tipo) && (
             <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1">Agregado *</label>
-              <select value={form.agregado_id} onChange={set('agregado_id')}
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#5C0F0F] bg-white">
-                <option value="">Selecione…</option>
-                {agregados.map(a => <option key={a.id} value={a.id}>{a.nome}</option>)}
-              </select>
-            </div>
-          )}
-
-          {TIPOS_REQUER_AGREGADO.includes(form.tipo) && (
-            <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1">Manifesto (referência)</label>
-              <select value={form.manifesto_id} onChange={set('manifesto_id')}
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#5C0F0F] bg-white">
-                <option value="">Sem vínculo</option>
-                {manifestos.map(m => (
-                  <option key={m.id} value={m.id}>
-                    #{m.numero}{m.letra ?? 'A'} — {new Date(m.data_entrega + 'T12:00:00').toLocaleDateString('pt-BR')}
-                  </option>
-                ))}
-              </select>
+              <label className="block text-xs font-medium text-gray-600 mb-1">Nº do manifesto</label>
+              <div className="relative">
+                <input
+                  type="text"
+                  value={form.manifestoNumero}
+                  onChange={e => {
+                    set('manifestoNumero')(e)
+                    setManifestoStatus('idle')
+                    setManifestoId(null)
+                  }}
+                  onBlur={e => buscarManifesto(e.target.value)}
+                  placeholder="ex: 42A"
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#5C0F0F] font-mono"
+                />
+                {buscandoManif && (
+                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-gray-400">buscando…</span>
+                )}
+              </div>
+              {manifestoStatus === 'found' && (
+                <p className="text-xs text-green-600 mt-1">✓ Manifesto encontrado e vinculado</p>
+              )}
+              {manifestoStatus === 'not_found' && (
+                <p className="text-xs text-amber-600 mt-1">Manifesto não encontrado — será salvo sem vínculo</p>
+              )}
             </div>
           )}
 
           <div>
             <label className="block text-xs font-medium text-gray-600 mb-1">Quantidade *</label>
-            <input type="number" min="1" value={form.quantidade} onChange={set('quantidade')} required autoFocus
+            <input type="number" min="1" value={form.quantidade} onChange={set('quantidade')} required
               className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#5C0F0F]" />
           </div>
 
