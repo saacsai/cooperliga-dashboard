@@ -597,7 +597,7 @@ function Manifesto({ manifesto, onVoltar, onDuplicado }: {
                     const dup       = duplicados.has(row.pde_id)
                     const semPedido = !Object.values(row.qtdes).some(q => q.inteira > 0 || q.fracionada > 0)
                     const rowBg     = dup        ? 'bg-red-50'
-                                    : semPedido  ? 'bg-gradient-to-r from-amber-50 to-white print:hidden'
+                                    : semPedido  ? 'bg-amber-50 print:hidden'
                                     : i % 2 === 0 ? '' : 'bg-gray-50/40'
                     return (
                     <tr key={row.mp_id} className={`border-b border-gray-50 last:border-0 ${rowBg}`}>
