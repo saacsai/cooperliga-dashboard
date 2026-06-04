@@ -282,32 +282,56 @@ function Manifesto({ manifesto, onVoltar, onDuplicado }: {
     const sb = getSupabase()
     const emAtual = new Set(pontos.map(p => p.pde_id))
 
-    // Busca pontos de TODAS as variantes da rota + rota_pontos original
-    const [{ data: rotaPts }, { data: varianteIds }] = await Promise.all([
+    // Busca outras variantes desta rota
+    const { data: varianteIds } = await sb
+      .from('ciclo_manifestos').select('id').eq('rota_id', rota.id)
+    const outrosIds = (varianteIds || []).map((m: any) => m.id as string).filter(mid => mid !== id)
+
+    // Sem variantes: fallback para rota_pontos (comportamento original)
+    if (!outrosIds.length) {
+      const { data: rotaPts } = await sb
+        .from('rota_pontos')
+        .select('ponto_de_entrega_id, pontos_de_entrega(id, nome, codigo_prefeitura)')
+        .eq('rota_id', rota.id)
+        .order('sequencia' as any)
+      setPontosDisp(
+        (rotaPts || [])
+          .filter((r: any) => !emAtual.has(r.ponto_de_entrega_id))
+          .map((r: any) => ({
+            id:                r.ponto_de_entrega_id,
+            nome:              (r.pontos_de_entrega as any)?.nome ?? '?',
+            codigo_prefeitura: (r.pontos_de_entrega as any)?.codigo_prefeitura ?? null,
+          }))
+      )
+      setDuplicados(new Set())
+      return
+    }
+
+    // Com variantes: pool vem das variantes (fonte primária)
+    // rota_pontos só entra como fallback para pontos que nenhuma variante tem
+    const [{ data: outrosPontos }, { data: rotaPts }] = await Promise.all([
+      sb.from('manifesto_pontos')
+        .select('pde_id, pontos_de_entrega(id, nome, codigo_prefeitura)')
+        .in('manifesto_id', outrosIds),
       sb.from('rota_pontos')
         .select('ponto_de_entrega_id, pontos_de_entrega(id, nome, codigo_prefeitura)')
         .eq('rota_id', rota.id)
         .order('sequencia' as any),
-      sb.from('ciclo_manifestos').select('id').eq('rota_id', rota.id),
     ])
 
-    const outrosIds = (varianteIds || []).map((m: any) => m.id as string).filter(mid => mid !== id)
-
-    let outrosPontos: any[] = []
-    if (outrosIds.length) {
-      const { data } = await sb
-        .from('manifesto_pontos')
-        .select('pde_id, pontos_de_entrega(id, nome, codigo_prefeitura)')
-        .in('manifesto_id', outrosIds)
-      outrosPontos = data || []
-    }
-
-    // Duplicatas = pde_ids que estão neste manifesto E em outro
-    const noOutros = new Set(outrosPontos.map((p: any) => p.pde_id as string))
+    // Duplicatas = em atual E em alguma variante
+    const noOutros = new Set((outrosPontos || []).map((p: any) => p.pde_id as string))
     setDuplicados(new Set(Array.from(emAtual).filter(pdeId => noOutros.has(pdeId))))
 
-    // Pool disponível = union(rota_pontos, outros manifestos) - já está neste manifesto
+    // 1ª prioridade: pontos das variantes não no atual
     const pool = new Map<string, PontoDisp>()
+    for (const p of (outrosPontos || [])) {
+      if (emAtual.has(p.pde_id) || pool.has(p.pde_id)) continue
+      const pde = (p as any).pontos_de_entrega
+      pool.set(p.pde_id, { id: p.pde_id, nome: pde?.nome ?? '?', codigo_prefeitura: pde?.codigo_prefeitura ?? null })
+    }
+
+    // 2ª prioridade: rota_pontos que nenhuma variante tem (e não está no atual)
     for (const p of (rotaPts || [])) {
       if (emAtual.has(p.ponto_de_entrega_id) || pool.has(p.ponto_de_entrega_id)) continue
       const pde = (p as any).pontos_de_entrega
@@ -315,11 +339,7 @@ function Manifesto({ manifesto, onVoltar, onDuplicado }: {
         id: p.ponto_de_entrega_id, nome: pde?.nome ?? '?', codigo_prefeitura: pde?.codigo_prefeitura ?? null,
       })
     }
-    for (const p of outrosPontos) {
-      if (emAtual.has(p.pde_id) || pool.has(p.pde_id)) continue
-      const pde = (p as any).pontos_de_entrega
-      pool.set(p.pde_id, { id: p.pde_id, nome: pde?.nome ?? '?', codigo_prefeitura: pde?.codigo_prefeitura ?? null })
-    }
+
     setPontosDisp(Array.from(pool.values()))
   }
 
