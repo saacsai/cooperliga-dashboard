@@ -12,7 +12,7 @@ type ContratoDropdown  = { id: string; codigo: string | null; orgao: string }
 
 const PRIMARY = '#5C0F0F'
 
-const VAZIO = { contrato_id: '', codigo: '', nome: '', regiao: '', cep_referencia: '', agregado_id: '', valor_frete: '' }
+const VAZIO = { contrato_id: '', codigo: '', nome: '', regiao: '', subprefeitura: '', agregado_id: '', valor_frete: '' }
 
 const COLUNAS_IMPORT = [
   { key: 'codigo',      label: 'Código' },
@@ -69,10 +69,10 @@ export default function RotasPage() {
   async function sugerirCodigo() {
     const contrato = contratos.find(c => c.id === form.contrato_id)
     if (!contrato?.codigo) { setErro('Selecione um contrato com código definido'); return }
-    const cep5 = form.cep_referencia.replace(/\D/g, '').slice(0, 5)
-    if (cep5.length < 5) { setErro('Preencha os 5 dígitos do CEP de referência'); return }
+    const sigla = form.subprefeitura.trim().toUpperCase().replace(/[^A-Z0-9]/g, '')
+    if (!sigla) { setErro('Preencha a sigla da Subprefeitura'); return }
     setSugerindo(true)
-    const prefix = `${contrato.codigo}-${cep5}-R`
+    const prefix = `${contrato.codigo}-${sigla}-R`
     const { data } = await getSupabase().from('rotas').select('codigo').like('codigo', `${prefix}%`)
     const seqs = (data || [])
       .map(r => parseInt(r.codigo.replace(prefix, '')))
@@ -91,7 +91,7 @@ export default function RotasPage() {
       codigo:         form.codigo,
       nome:           form.nome,
       regiao:         form.regiao         || null,
-      cep_referencia: form.cep_referencia || null,
+      cep_referencia: form.subprefeitura  || null,
       agregado_id:    form.agregado_id    || null,
       valor_frete:    form.valor_frete ? parseFloat(form.valor_frete) : null,
     }
@@ -221,12 +221,12 @@ export default function RotasPage() {
             </select>
           </div>
 
-          {/* CEP + Código */}
+          {/* Subprefeitura + Código */}
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1">CEP de referência</label>
-              <input type="text" value={form.cep_referencia} onChange={set('cep_referencia')} placeholder="ex: 08400" maxLength={9}
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#5C0F0F] font-mono" />
+              <label className="block text-xs font-medium text-gray-600 mb-1">Subprefeitura (sigla)</label>
+              <input type="text" value={form.subprefeitura} onChange={set('subprefeitura')} placeholder="ex: CT" maxLength={6}
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#5C0F0F] font-mono uppercase" />
             </div>
             <div>
               <div className="flex items-center justify-between mb-1">
