@@ -268,7 +268,7 @@ function Manifesto({ manifesto, onVoltar, onDuplicado }: {
   useEffect(() => {
     const el = document.createElement('style')
     el.setAttribute('data-manifesto-print', '')
-    el.textContent = `@media print { @page { size: A4 ${produtos.length >= 3 ? 'landscape' : 'portrait'}; } }`
+    el.textContent = `@media print { @page { size: A4 ${produtos.length >= 2 ? 'landscape' : 'portrait'}; } }`
     document.head.appendChild(el)
     return () => el.remove()
   }, [produtos.length])
@@ -488,7 +488,7 @@ function Manifesto({ manifesto, onVoltar, onDuplicado }: {
           </div>
           <div className="flex items-center gap-2 flex-wrap">
             {sinal && (
-              <span className="text-xs font-semibold px-2.5 py-1 rounded-full"
+              <span className="print:hidden text-xs font-semibold px-2.5 py-1 rounded-full"
                 style={{ background: sinal.cor, color: sinal.txt }}>
                 {sinal.label}
               </span>
@@ -575,7 +575,7 @@ function Manifesto({ manifesto, onVoltar, onDuplicado }: {
               <table className="w-full text-xs">
                 <thead>
                   <tr className="bg-gray-50">
-                    <th rowSpan={2} className="text-left px-3 py-2 font-medium text-gray-500 w-8 border-b border-gray-100 align-bottom">Seq</th>
+                    <th rowSpan={2} className="text-left px-3 py-2 font-medium text-gray-500 print:text-black w-8 border-b border-gray-100 align-bottom">Seq</th>
                     <th rowSpan={2} className="text-left px-3 py-2 font-medium text-gray-500 w-20 border-b border-gray-100 align-bottom">Código</th>
                     <th rowSpan={2} className="text-left px-3 py-2 font-medium text-gray-500 border-b border-gray-100 align-bottom">Unidade</th>
                     <th rowSpan={2} className="text-left px-3 py-2 font-medium text-gray-500 border-b border-gray-100 align-bottom">Endereço</th>
@@ -586,8 +586,8 @@ function Manifesto({ manifesto, onVoltar, onDuplicado }: {
                   <tr className="bg-gray-50 border-b border-gray-100">
                     {produtos.map(p => (
                       <React.Fragment key={p}>
-                        <th className="text-center px-2 py-1 font-medium text-gray-400 w-10 border-l border-gray-200">Cx</th>
-                        <th className="text-center px-2 py-1 font-medium text-gray-400 w-10">Pc</th>
+                        <th className="text-center px-2 py-1 font-medium text-gray-400 print:text-black w-10 border-l border-gray-200">Cx</th>
+                        <th className="text-center px-2 py-1 font-medium text-gray-400 print:text-black w-10">Pc</th>
                       </React.Fragment>
                     ))}
                   </tr>
@@ -597,7 +597,7 @@ function Manifesto({ manifesto, onVoltar, onDuplicado }: {
                     const dup = duplicados.has(row.pde_id)
                     return (
                     <tr key={row.mp_id} className={`border-b border-gray-50 last:border-0 ${dup ? 'bg-red-50' : i % 2 === 0 ? '' : 'bg-gray-50/40'}`}>
-                      <td className="px-3 py-2 font-mono text-gray-400 text-center">{row.sequencia}</td>
+                      <td className="px-3 py-2 font-mono text-gray-400 print:text-black text-center">{row.sequencia}</td>
                       <td className="px-3 py-2 font-mono text-gray-600">{row.codigo_prefeitura || '—'}</td>
                       <td className={`px-3 py-2 font-medium max-w-[200px] truncate print:max-w-none print:whitespace-normal ${dup ? 'text-red-700' : 'text-gray-900'}`}>
                         {row.pde_nome}{dup && <span className="ml-1.5 text-[10px] font-normal text-red-400">(duplicado)</span>}
