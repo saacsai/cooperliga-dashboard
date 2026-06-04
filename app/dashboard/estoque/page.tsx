@@ -51,7 +51,7 @@ export default function EstoquePage() {
     const [{ data: mov }, { data: cli }, { data: agr }, { data: man }] = await Promise.all([
       getSupabase()
         .from('estoque_movimentos')
-        .select('*, clientes(nome), agregados(nome), ciclo_manifestos(numero, variante, rotas(codigo))')
+        .select('*, clientes(nome), agregados(nome)')
         .order('data', { ascending: true })
         .order('created_at', { ascending: true }),
       getSupabase().from('clientes').select('id, nome').eq('ativo', true).order('nome'),
@@ -213,9 +213,6 @@ export default function EstoquePage() {
             <tbody>
               {linhas.map(m => {
                 const tc = TIPO_CONFIG[m.tipo as TipoMovimento]
-                const manifRef = m.ciclo_manifestos
-                  ? `#${m.ciclo_manifestos.numero}${m.ciclo_manifestos.variante || 'A'}`
-                  : null
                 return (
                   <tr key={m.id} className="border-b border-gray-50 last:border-0 hover:bg-gray-50/50">
                     <td className="px-4 py-3 text-gray-600 tabular-nums text-xs">
@@ -242,8 +239,7 @@ export default function EstoquePage() {
                       {(m as any).saldo}
                     </td>
                     <td className="px-4 py-3 text-gray-400 text-xs max-w-[180px] truncate">
-                      {manifRef && <span className="text-gray-500 font-medium mr-1">{manifRef}</span>}
-                      {m.observacao || (!manifRef ? '—' : '')}
+                      {m.observacao || '—'}
                     </td>
                     <td className="px-4 py-3 text-right">
                       <button onClick={() => handleExcluir(m.id)} className="text-xs text-red-400 hover:text-red-600">Excluir</button>
