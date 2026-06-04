@@ -51,7 +51,7 @@ export default function EstoquePage() {
     const [{ data: mov }, { data: cli }] = await Promise.all([
       getSupabase()
         .from('estoque_movimentos')
-        .select('*, clientes(nome)')
+        .select('*, clientes(nome), ciclo_manifestos(numero_base, letra)')
         .order('data', { ascending: true })
         .order('created_at', { ascending: true }),
       getSupabase().from('clientes').select('id, nome').eq('ativo', true).order('nome'),
@@ -220,6 +220,7 @@ export default function EstoquePage() {
                 <th className="text-left px-4 py-3 text-xs font-medium text-gray-500">Data</th>
                 <th className="text-left px-4 py-3 text-xs font-medium text-gray-500">Tipo</th>
                 <th className="text-left px-4 py-3 text-xs font-medium text-gray-500">Cliente</th>
+                <th className="text-left px-4 py-3 text-xs font-medium text-gray-500">Manifesto</th>
                 <th className="text-right px-4 py-3 text-xs font-medium text-green-700">Entrada</th>
                 <th className="text-right px-4 py-3 text-xs font-medium text-red-600">Saída</th>
                 <th className="text-right px-4 py-3 text-xs font-medium text-gray-500">Saldo</th>
@@ -241,6 +242,11 @@ export default function EstoquePage() {
                       </span>
                     </td>
                     <td className="px-4 py-3 text-gray-700 text-xs">{m.clientes?.nome ?? '—'}</td>
+                    <td className="px-4 py-3 text-gray-500 text-xs font-mono">
+                      {(m as any).ciclo_manifestos
+                        ? `#${String((m as any).ciclo_manifestos.numero_base).padStart(4,'0')}${(m as any).ciclo_manifestos.letra}`
+                        : '—'}
+                    </td>
                     <td className="px-4 py-3 text-right tabular-nums">
                       {m.entrada > 0
                         ? <span className="text-green-700 font-medium">{m.entrada}</span>
@@ -265,7 +271,7 @@ export default function EstoquePage() {
               })}
               {linhas.length === 0 && (
                 <tr>
-                  <td colSpan={8} className="px-4 py-8 text-center text-sm text-gray-400">
+                  <td colSpan={9} className="px-4 py-8 text-center text-sm text-gray-400">
                     {filtroCliente ? 'Nenhum lançamento para este cliente.' : 'Nenhum lançamento registrado.'}
                   </td>
                 </tr>
@@ -274,7 +280,7 @@ export default function EstoquePage() {
             {linhas.length > 0 && (
               <tfoot>
                 <tr className="border-t border-gray-200 bg-gray-50">
-                  <td colSpan={3} className="px-4 py-2 text-xs font-semibold text-gray-500">Total</td>
+                  <td colSpan={4} className="px-4 py-2 text-xs font-semibold text-gray-500">Total</td>
                   <td className="px-4 py-2 text-right tabular-nums text-xs font-semibold text-green-700">
                     {linhas.reduce((a, m) => a + m.entrada, 0)}
                   </td>
