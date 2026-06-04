@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useCallback } from 'react'
+import React, { useEffect, useState, useCallback } from 'react'
 import { getSupabase } from '@/lib/supabase'
 import {
   DndContext,
@@ -566,13 +566,21 @@ function Manifesto({ manifesto, onVoltar, onDuplicado }: {
             <div className="bg-white rounded-xl border border-gray-200 overflow-x-auto print:rounded-none print:border-0 print:overflow-visible">
               <table className="w-full text-xs">
                 <thead>
-                  <tr className="border-b border-gray-100 bg-gray-50">
-                    <th className="text-left px-3 py-2 font-medium text-gray-500 w-8">Seq</th>
-                    <th className="text-left px-3 py-2 font-medium text-gray-500 w-20">Código</th>
-                    <th className="text-left px-3 py-2 font-medium text-gray-500">Unidade</th>
-                    <th className="text-left px-3 py-2 font-medium text-gray-500">Endereço</th>
+                  <tr className="bg-gray-50">
+                    <th rowSpan={2} className="text-left px-3 py-2 font-medium text-gray-500 w-8 border-b border-gray-100 align-bottom">Seq</th>
+                    <th rowSpan={2} className="text-left px-3 py-2 font-medium text-gray-500 w-20 border-b border-gray-100 align-bottom">Código</th>
+                    <th rowSpan={2} className="text-left px-3 py-2 font-medium text-gray-500 border-b border-gray-100 align-bottom">Unidade</th>
+                    <th rowSpan={2} className="text-left px-3 py-2 font-medium text-gray-500 border-b border-gray-100 align-bottom">Endereço</th>
                     {produtos.map(p => (
-                      <th key={p} className="text-center px-3 py-2 font-medium text-gray-500 whitespace-nowrap">{p}</th>
+                      <th key={p} colSpan={2} className="text-center px-2 py-2 font-semibold text-gray-600 whitespace-nowrap border-b border-gray-200 border-l border-gray-200">{p}</th>
+                    ))}
+                  </tr>
+                  <tr className="bg-gray-50 border-b border-gray-100">
+                    {produtos.map(p => (
+                      <React.Fragment key={p}>
+                        <th className="text-center px-2 py-1 font-medium text-gray-400 w-10 border-l border-gray-200">Cx</th>
+                        <th className="text-center px-2 py-1 font-medium text-gray-400 w-10">Pc</th>
+                      </React.Fragment>
                     ))}
                   </tr>
                 </thead>
@@ -589,22 +597,22 @@ function Manifesto({ manifesto, onVoltar, onDuplicado }: {
                       <td className="px-3 py-2 text-gray-500 max-w-[200px] truncate print:max-w-none print:whitespace-normal">{row.endereco || '—'}</td>
                       {produtos.map(p => {
                         const q = row.qtdes[p]
-                        if (!q || (q.inteira === 0 && q.fracionada === 0)) {
-                          return <td key={p} className="px-3 py-2 text-center text-gray-300">—</td>
-                        }
                         return (
-                          <td key={p} className="px-3 py-2 text-center font-medium text-gray-800">
-                            {q.inteira > 0 && <span>{q.inteira}cx</span>}
-                            {q.inteira > 0 && q.fracionada > 0 && <span className="mx-0.5 text-gray-300">+</span>}
-                            {q.fracionada > 0 && <span>{q.fracionada}pc</span>}
-                          </td>
+                          <React.Fragment key={p}>
+                            <td className="px-2 py-2 text-center font-mono text-gray-800 border-l border-gray-100">
+                              {q?.inteira ? q.inteira : <span className="text-gray-300">—</span>}
+                            </td>
+                            <td className="px-2 py-2 text-center font-mono text-gray-800">
+                              {q?.fracionada ? q.fracionada : <span className="text-gray-300">—</span>}
+                            </td>
+                          </React.Fragment>
                         )
                       })}
                     </tr>
                   )
                   })}
                   {pontos.length === 0 && (
-                    <tr><td colSpan={4 + produtos.length} className="px-3 py-8 text-center text-gray-400">
+                    <tr><td colSpan={4 + produtos.length * 2} className="px-3 py-8 text-center text-gray-400">
                       Nenhuma parada neste manifesto.
                     </td></tr>
                   )}
@@ -614,11 +622,14 @@ function Manifesto({ manifesto, onVoltar, onDuplicado }: {
                     <tr className="border-t border-gray-200 bg-gray-50 font-semibold">
                       <td colSpan={4} className="px-3 py-2 text-xs text-gray-600">Total</td>
                       {produtos.map(p => (
-                        <td key={p} className="px-3 py-2 text-center text-xs text-gray-800">
-                          {totais[p].inteira > 0 && <span>{totais[p].inteira}cx</span>}
-                          {totais[p].inteira > 0 && totais[p].fracionada > 0 && <span className="mx-0.5 text-gray-300">+</span>}
-                          {totais[p].fracionada > 0 && <span>{totais[p].fracionada}pc</span>}
-                        </td>
+                        <React.Fragment key={p}>
+                          <td className="px-2 py-2 text-center text-xs font-semibold text-gray-800 border-l border-gray-100">
+                            {totais[p]?.inteira || <span className="text-gray-300">—</span>}
+                          </td>
+                          <td className="px-2 py-2 text-center text-xs font-semibold text-gray-800">
+                            {totais[p]?.fracionada || <span className="text-gray-300">—</span>}
+                          </td>
+                        </React.Fragment>
                       ))}
                     </tr>
                   </tfoot>
