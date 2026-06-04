@@ -50,6 +50,7 @@ function EstoqueInner() {
   // Scanner
   const videoRef    = useRef<HTMLVideoElement>(null)
   const readerRef   = useRef<BrowserMultiFormatReader | null>(null)
+  const controlsRef = useRef<{ stop: () => void } | null>(null)
   const [scanning,  setScanning]  = useState(false)
   const [scanError, setScanError] = useState('')
 
@@ -103,10 +104,11 @@ function EstoqueInner() {
     try {
       const reader = new BrowserMultiFormatReader()
       readerRef.current = reader
-      await reader.decodeFromVideoDevice(undefined, videoRef.current!, (result, err) => {
+      const controls = await reader.decodeFromVideoDevice(undefined, videoRef.current!, (result, err) => {
         if (result) {
           const text = result.getText()
-          pararScan()
+          controls.stop()
+          setScanning(false)
           // Extrai manifesto da URL ou usa direto
           const url = (() => { try { return new URL(text) } catch { return null } })()
           const val = url ? (url.searchParams.get('manifesto') ?? text) : text
@@ -114,6 +116,7 @@ function EstoqueInner() {
           buscarManifesto(val)
         }
       })
+      controlsRef.current = controls
     } catch {
       setScanError('Não foi possível acessar a câmera.')
       setScanning(false)
@@ -121,7 +124,7 @@ function EstoqueInner() {
   }
 
   function pararScan() {
-    readerRef.current?.reset()
+    controlsRef.current?.stop()
     setScanning(false)
   }
 
