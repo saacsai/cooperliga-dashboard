@@ -265,6 +265,14 @@ function Manifesto({ manifesto, onVoltar, onDuplicado }: {
 
   useEffect(() => { carregar() }, [carregar])
 
+  useEffect(() => {
+    const el = document.createElement('style')
+    el.setAttribute('data-manifesto-print', '')
+    el.textContent = `@media print { @page { size: A4 ${produtos.length >= 3 ? 'landscape' : 'portrait'}; } }`
+    document.head.appendChild(el)
+    return () => el.remove()
+  }, [produtos.length])
+
   async function atualizarDuplicados(currentPdeIds: string[]) {
     if (!currentPdeIds.length) { setDuplicados(new Set()); return }
     const sb = getSupabase()
