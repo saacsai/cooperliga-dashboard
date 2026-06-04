@@ -170,7 +170,8 @@ function Manifesto({ manifesto, onVoltar, onDuplicado }: {
   const [ordemSalvando,setOrdemSalvando]= useState(false)
   const [pontosDisp,   setPontosDisp]   = useState<PontoDisp[]>([])
   const [duplicados,   setDuplicados]   = useState<Set<string>>(new Set())
-  const [pdeAdd,       setPdeAdd]       = useState('')
+  const [busca,        setBusca]        = useState('')
+  const [showSugestoes,setShowSugestoes]= useState(false)
   const [adicionando,  setAdicionando]  = useState(false)
   const [duplicando,   setDuplicando]   = useState(false)
 
@@ -394,25 +395,27 @@ function Manifesto({ manifesto, onVoltar, onDuplicado }: {
     atualizarDuplicados(novo.map(p => p.pde_id))
   }
 
-  async function adicionar() {
-    if (!pdeAdd || adicionando) return
+  async function adicionar(pde: PontoDisp) {
+    if (adicionando) return
     setAdicionando(true)
+    setBusca('')
+    setShowSugestoes(false)
     const sb      = getSupabase()
     const proxSeq = pontos.length ? Math.max(...pontos.map(p => p.sequencia)) + 1 : 1
     const { data } = await sb
       .from('manifesto_pontos')
-      .insert({ manifesto_id: id, pde_id: pdeAdd, sequencia: proxSeq })
+      .insert({ manifesto_id: id, pde_id: pde.id, sequencia: proxSeq })
       .select('id, pde_id, sequencia, pontos_de_entrega(nome, codigo_prefeitura, endereco)')
       .single()
     if (data) {
-      const pde = (data as any).pontos_de_entrega
+      const pdeInfo = (data as any).pontos_de_entrega
       const novoPonto = {
         mp_id:             data.id,
         pde_id:            data.pde_id,
         sequencia:         data.sequencia,
-        codigo_prefeitura: pde?.codigo_prefeitura ?? null,
-        pde_nome:          pde?.nome ?? '?',
-        endereco:          pde?.endereco ?? null,
+        codigo_prefeitura: pdeInfo?.codigo_prefeitura ?? null,
+        pde_nome:          pdeInfo?.nome ?? '?',
+        endereco:          pdeInfo?.endereco ?? null,
         qtdes:             {},
       }
       setPontos(prev => {
@@ -420,8 +423,7 @@ function Manifesto({ manifesto, onVoltar, onDuplicado }: {
         atualizarDuplicados(updated.map(p => p.pde_id))
         return updated
       })
-      setPontosDisp(prev => prev.filter(p => p.id !== pdeAdd))
-      setPdeAdd('')
+      setPontosDisp(prev => prev.filter(p => p.id !== pde.id))
     }
     setAdicionando(false)
   }
@@ -460,6 +462,13 @@ function Manifesto({ manifesto, onVoltar, onDuplicado }: {
     }
     setDuplicando(false)
   }
+
+  const sugestoes = busca.trim().length >= 1
+    ? pontosDisp.filter(p => {
+        const q = busca.toLowerCase()
+        return p.nome.toLowerCase().includes(q) || (p.codigo_prefeitura || '').includes(q)
+      }).slice(0, 8)
+    : []
 
   const totalPacotes = Object.values(totais).reduce((s, t) => s + t.fracionada, 0)
   const totalCaixas  = Object.values(totais).reduce((s, t) => s + t.inteira, 0) + Math.ceil(totalPacotes / 12)
@@ -558,23 +567,37 @@ function Manifesto({ manifesto, onVoltar, onDuplicado }: {
               )}
 
               {/* Adicionar ponto */}
-              <div className="border-t border-gray-100 p-4">
-                <div className="flex gap-2">
-                  <select value={pdeAdd} onChange={e => setPdeAdd(e.target.value)}
-                    className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#5C0F0F] bg-white">
-                    <option value="">Selecione um ponto para adicionar…</option>
-                    {pontosDisp.map(p => (
-                      <option key={p.id} value={p.id}>
-                        {p.codigo_prefeitura ? `${p.codigo_prefeitura} — ` : ''}{p.nome}
-                      </option>
-                    ))}
-                  </select>
-                  <button onClick={adicionar} disabled={!pdeAdd || adicionando}
-                    className="text-white text-sm font-medium px-4 py-2 rounded-lg disabled:opacity-50 hover:opacity-90"
-                    style={{ background: PRIMARY }}>
-                    {adicionando ? '…' : '+ Adicionar'}
-                  </button>
+              <div className="border-t border-gray-100 p-4 relative">
+                <div className="relative">
+                  <svg className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+                  </svg>
+                  <input
+                    type="text"
+                    value={busca}
+                    onChange={e => { setBusca(e.target.value); setShowSugestoes(true) }}
+                    onFocus={() => setShowSugestoes(true)}
+                    onBlur={() => setTimeout(() => setShowSugestoes(false), 150)}
+                    placeholder="Buscar escola por nome ou código…"
+                    className="w-full border border-gray-300 rounded-lg pl-8 pr-3 py-2 text-sm outline-none focus:border-[#5C0F0F]"
+                  />
                 </div>
+                {showSugestoes && sugestoes.length > 0 && (
+                  <div className="absolute bottom-full left-4 right-4 mb-1 bg-white border border-gray-200 rounded-xl shadow-lg overflow-hidden z-20">
+                    {sugestoes.map(p => (
+                      <button key={p.id} onMouseDown={() => adicionar(p)}
+                        className="w-full text-left px-4 py-2.5 hover:bg-gray-50 border-b border-gray-50 last:border-0">
+                        <span className="text-sm font-medium text-gray-900 block">{p.nome}</span>
+                        {p.codigo_prefeitura && <span className="text-xs text-gray-400">Cód. {p.codigo_prefeitura}</span>}
+                      </button>
+                    ))}
+                  </div>
+                )}
+                {showSugestoes && busca.trim().length >= 1 && sugestoes.length === 0 && (
+                  <div className="absolute bottom-full left-4 right-4 mb-1 bg-white border border-gray-200 rounded-xl shadow-lg p-3 z-20">
+                    <p className="text-xs text-gray-400 text-center">Nenhum ponto encontrado</p>
+                  </div>
+                )}
               </div>
             </div>
           )}
