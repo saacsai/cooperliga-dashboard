@@ -1,0 +1,22 @@
+{
+  "name": "CooperLiga",
+  "short_name": "CooperLiga",
+  "description": "Gestão Logística CooperLiga",
+  "start_url": "/mobile/estoque",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#5C0F0F",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "/cooperliga_logo.jpg",
+      "sizes": "192x192",
+      "type": "image/jpeg"
+    },
+    {
+      "src": "/cooperliga_logo.jpg",
+      "sizes": "512x512",
+      "type": "image/jpeg"
+    }
+  ]
+}

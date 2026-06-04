@@ -20,3 +20,18 @@ CREATE TABLE IF NOT EXISTS estoque_movimentos (
 CREATE INDEX IF NOT EXISTS idx_estoque_cliente  ON estoque_movimentos(cliente_id);
 CREATE INDEX IF NOT EXISTS idx_estoque_agregado ON estoque_movimentos(agregado_id);
 CREATE INDEX IF NOT EXISTS idx_estoque_data     ON estoque_movimentos(data, created_at);
+
+-- RLS
+ALTER TABLE estoque_movimentos ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "usuarios autenticados podem ler estoque"
+  ON estoque_movimentos FOR SELECT
+  TO authenticated USING (true);
+
+CREATE POLICY "usuarios autenticados podem inserir estoque"
+  ON estoque_movimentos FOR INSERT
+  TO authenticated WITH CHECK (true);
+
+CREATE POLICY "usuarios autenticados podem excluir estoque"
+  ON estoque_movimentos FOR DELETE
+  TO authenticated USING (true);

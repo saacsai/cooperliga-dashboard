@@ -1,6 +1,7 @@
 'use client'
 
 import React, { useEffect, useState, useCallback } from 'react'
+import QRCode from 'react-qr-code'
 import { getSupabase } from '@/lib/supabase'
 import {
   DndContext,
@@ -511,9 +512,18 @@ function Manifesto({ manifesto, onVoltar, onDuplicado }: {
           {rota.agregados && <span><span className="font-medium">Motorista:</span> {rota.agregados.nome}</span>}
           <span><span className="font-medium">Paradas:</span> {pontos.length}</span>
         </div>
-        <div className="hidden print:block mt-3 pt-3 border-t border-gray-200 text-xs text-gray-700">
-          <span className="font-medium">Cooperativa:</span>{' '}
-          <span className="inline-block w-48 border-b border-gray-400 ml-1">&nbsp;</span>
+        <div className="hidden print:flex mt-3 pt-3 border-t border-gray-200 items-start justify-between gap-4">
+          <div className="text-xs text-gray-700">
+            <span className="font-medium">Cooperativa:</span>{' '}
+            <span className="inline-block w-48 border-b border-gray-400 ml-1">&nbsp;</span>
+          </div>
+          <div className="flex flex-col items-center gap-1 shrink-0">
+            <QRCode
+              value={`${typeof window !== 'undefined' ? window.location.origin : ''}/mobile/estoque?manifesto=${numero_base}${letra}`}
+              size={72}
+            />
+            <span className="text-[9px] text-gray-400 font-mono">#{numDisplay(numero_base, letra)}</span>
+          </div>
         </div>
       </div>
 
