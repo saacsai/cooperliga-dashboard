@@ -83,11 +83,13 @@ function SortablePonto({
   item,
   index,
   isDuplicado,
+  isSemPedido,
   onRemove,
 }: {
   item: PontoManifesto
   index: number
   isDuplicado: boolean
+  isSemPedido: boolean
   onRemove: (mp_id: string) => void
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
@@ -100,11 +102,15 @@ function SortablePonto({
     zIndex: isDragging ? 10 : undefined,
   }
 
+  const bg = isDuplicado  ? 'bg-red-50'
+           : isSemPedido  ? 'bg-amber-50'
+           : 'bg-white hover:bg-gray-50/40'
+
   return (
     <div
       ref={setNodeRef}
       style={style}
-      className={`flex items-center gap-3 px-4 py-3 border-b border-gray-50 last:border-0 group ${isDuplicado ? 'bg-red-50' : 'bg-white hover:bg-gray-50/40'}`}
+      className={`flex items-center gap-3 px-4 py-3 border-b border-gray-50 last:border-0 group ${bg}`}
     >
       <div
         {...attributes}
@@ -129,7 +135,8 @@ function SortablePonto({
       <div className="flex-1 min-w-0">
         <span className={`text-sm font-medium block truncate ${isDuplicado ? 'text-red-700' : 'text-gray-900'}`}>
           {item.pde_nome}
-          {isDuplicado && <span className="ml-2 text-[10px] font-normal text-red-400">(duplicado)</span>}
+          {isDuplicado  && <span className="ml-2 text-[10px] font-normal text-red-400">(duplicado)</span>}
+          {isSemPedido  && <span className="ml-2 text-[10px] font-normal text-amber-500">sem pedido</span>}
         </span>
         {item.endereco && (
           <span className="text-xs text-gray-400 block truncate">{item.endereco}</span>
@@ -527,7 +534,14 @@ function Manifesto({ manifesto, onVoltar, onDuplicado }: {
                 >
                   <SortableContext items={pontos.map(p => p.mp_id)} strategy={verticalListSortingStrategy}>
                     {pontos.map((p, i) => (
-                      <SortablePonto key={p.mp_id} item={p} index={i} isDuplicado={duplicados.has(p.pde_id)} onRemove={remover} />
+                      <SortablePonto
+                        key={p.mp_id}
+                        item={p}
+                        index={i}
+                        isDuplicado={duplicados.has(p.pde_id)}
+                        isSemPedido={!Object.values(p.qtdes).some(q => q.inteira > 0 || q.fracionada > 0)}
+                        onRemove={remover}
+                      />
                     ))}
                   </SortableContext>
                 </DndContext>
