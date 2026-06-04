@@ -381,7 +381,7 @@ function Manifesto({ manifesto, onVoltar, onDuplicado }: {
     : { cor: '#DCFCE7', txt: '#166534', label: `${totalCaixas} cx — ideal` }
 
   return (
-    <div className="max-w-4xl">
+    <div className="pt-4">
       {/* Barra de ações */}
       <div className="flex items-center justify-between mb-4 print:hidden gap-2 flex-wrap">
         <button onClick={onVoltar}
