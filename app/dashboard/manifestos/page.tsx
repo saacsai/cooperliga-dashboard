@@ -202,7 +202,6 @@ function Manifesto({ manifesto, onVoltar, onDuplicado }: {
         .from('ciclo_entregas')
         .select('ponto_de_entrega_id, qtde_inteira, qtde_fracionada, produtos(nome)')
         .in('ciclo_id', cicloIds)
-        .eq('rota_id', rota.id)
         .in('ponto_de_entrega_id', pdeIds)
       ceData = data || []
     }
@@ -245,10 +244,10 @@ function Manifesto({ manifesto, onVoltar, onDuplicado }: {
     }
     setTotais(tots)
 
-    // Verificar duplicatas com outras variantes da mesma rota
+    // Verificar duplicatas em QUALQUER manifesto da mesma data de entrega
     if (newPontos.length) {
       const { data: outrosManifestos } = await sb
-        .from('ciclo_manifestos').select('id').eq('rota_id', rota.id)
+        .from('ciclo_manifestos').select('id').eq('data_entrega', data_entrega)
       const outrosIds = (outrosManifestos || []).map((m: any) => m.id as string).filter(mid => mid !== id)
       if (outrosIds.length) {
         const pdes = newPontos.map(p => p.pde_id)
@@ -270,7 +269,7 @@ function Manifesto({ manifesto, onVoltar, onDuplicado }: {
     if (!currentPdeIds.length) { setDuplicados(new Set()); return }
     const sb = getSupabase()
     const { data: outrosManifestos } = await sb
-      .from('ciclo_manifestos').select('id').eq('rota_id', rota.id)
+      .from('ciclo_manifestos').select('id').eq('data_entrega', data_entrega)
     const outrosIds = (outrosManifestos || []).map((m: any) => m.id as string).filter(mid => mid !== id)
     if (!outrosIds.length) { setDuplicados(new Set()); return }
     const { data: outrosPts } = await sb
