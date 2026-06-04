@@ -31,6 +31,7 @@ const ICONS: Record<string, React.ReactNode> = {
   produtos:   <Icon d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z" d2="M7 7h.01" />,
   rotas:      <Icon d="M5 17H3a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11v14H5zM9 17h6M13 3h5l3 3v6h-8V3z" d2="M6.5 19a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3zM17.5 19a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3z" />,
   agregados:  <Icon d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" circle={{ cx: 12, cy: 7, r: 4 }} />,
+  estoque:    <Icon d="M5 8h14M5 8a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v1a2 2 0 0 1-2 2M5 8v10a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8M10 12h4" />,
   financeiro: <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="2"/><path d="M6 12h.01M18 12h.01"/></svg>,
   usuarios:   <Icon d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75" circle={{ cx: 9, cy: 7, r: 4 }} />,
   bia:        <Icon d="M12 8V4H8M12 8c-3.87 0-6 2-6 4v4h12v-4c0-2-2.13-4-6-4zM2 14h3M19 14h3M6 18v2M18 18v2" d2="M9 14h.01M15 14h.01" />,
@@ -54,6 +55,7 @@ const NAV_SECTIONS: NavSection[] = [
     items: [
       { href: '/dashboard/manifestos', label: 'Manifestos',  iconKey: 'manifestos', perfis: ['admin','gestor','analista','operador'] },
       { href: '/dashboard/guias',      label: 'Guias (GRs)', iconKey: 'guias',      perfis: ['admin','gestor','analista','operador'] },
+      { href: '/dashboard/estoque',    label: 'Estoque',     iconKey: 'estoque',    perfis: ['admin','gestor','analista','operador','financeiro'] },
     ],
   },
   {

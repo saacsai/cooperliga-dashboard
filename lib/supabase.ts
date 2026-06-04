@@ -107,6 +107,27 @@ export interface Rota {
   contratos?: { codigo: string | null; orgao: string }
 }
 
+export type TipoMovimento = 'recebimento' | 'distribuicao' | 'retorno' | 'retirada' | 'venda' | 'ajuste'
+
+export interface EstoqueMovimento {
+  id: string
+  data: string
+  tipo: TipoMovimento
+  cliente_id: string | null
+  agregado_id: string | null
+  produto_id: string | null
+  manifesto_id: string | null
+  entrada: number
+  saida: number
+  observacao: string | null
+  created_by: string | null
+  created_at: string
+  clientes?: { nome: string } | null
+  agregados?: { nome: string } | null
+  produtos?: { nome: string } | null
+  ciclo_manifestos?: { numero: number; variante: string | null; rotas: { codigo: string } | null } | null
+}
+
 export interface Agregado {
   id: string
   nome: string
