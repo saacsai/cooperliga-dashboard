@@ -79,8 +79,12 @@ function EstoqueInner() {
   // ── Auth check ────────────────────────────────────────────────────────────
   useEffect(() => {
     getSupabase().auth.getSession().then(({ data: { session } }) => {
-      if (!session) router.replace('/login')
-      else setAutenticado(true)
+      if (!session) {
+        const next = encodeURIComponent(window.location.pathname + window.location.search)
+        router.replace(`/login?next=${next}`)
+      } else {
+        setAutenticado(true)
+      }
     })
   }, [router])
 

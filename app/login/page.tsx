@@ -1,13 +1,25 @@
 'use client'
 
-import { useState } from 'react'
+import { Suspense, useState } from 'react'
 import Image from 'next/image'
+import { useSearchParams } from 'next/navigation'
 import { getSupabase } from '@/lib/supabase'
 
 const PRIMARY = '#5C0F0F'
 const ACCENT  = '#D4A0A0'
 
 export default function LoginPage() {
+  return (
+    <Suspense>
+      <LoginInner />
+    </Suspense>
+  )
+}
+
+function LoginInner() {
+  const params = useSearchParams()
+  const next   = params.get('next') ?? '/dashboard'
+
   const [email, setEmail]       = useState('')
   const [senha, setSenha]       = useState('')
   const [modo, setModo]         = useState<'login' | 'recuperar'>('login')
@@ -25,7 +37,7 @@ export default function LoginPage() {
       setLoading(false)
       return
     }
-    window.location.href = '/dashboard'
+    window.location.href = next
   }
 
   async function handleRecuperar(e: React.FormEvent) {
