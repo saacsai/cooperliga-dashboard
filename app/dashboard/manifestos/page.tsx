@@ -675,8 +675,21 @@ function Manifesto({ manifesto, onVoltar, onDuplicado }: {
             </div>
           )}
 
+          {/* Total de caixas (print only) */}
+          {totalCaixas > 0 && (
+            <div className="hidden print:block mt-3 text-xs text-gray-700">
+              {produtos.map(p => (
+                <span key={p} className="mr-4">
+                  <span className="font-medium">{p}:</span>{' '}
+                  {totais[p]?.inteira ?? 0} cx e {totais[p]?.fracionada ?? 0} pac ({Math.floor((totais[p]?.fracionada ?? 0) / 12 + 0.6)} cx)
+                </span>
+              ))}
+              <span className="font-bold ml-2">Total {totalCaixas} caixas</span>
+            </div>
+          )}
+
           {/* Aviso ao motorista (print only) */}
-          <div className="hidden print:block mt-6 border border-gray-300 rounded p-3 text-[10px] text-gray-700 leading-relaxed whitespace-pre-line">
+          <div className="hidden print:block mt-4 border border-gray-300 rounded p-3 text-[10px] text-gray-700 leading-relaxed whitespace-pre-line">
             {AVISO_MOTORISTA}
           </div>
         </>
