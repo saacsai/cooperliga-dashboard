@@ -143,12 +143,16 @@ function EstoqueInner() {
     const sb = getSupabase()
 
     // 1. Busca manifesto
-    const { data: mData } = await sb
+    // Se o operador digitou só números (sem letra), busca pelo numero_base sem filtrar letra
+    // Se digitou letra explícita (ex: 42B), filtra por ela também
+    const textoSemNumeros = t.replace(/\d/g, '')
+    const letraExplicita  = textoSemNumeros.length > 0
+    let query = sb
       .from('ciclo_manifestos')
       .select('id, numero_base, letra')
       .eq('numero_base', parsed.numero)
-      .eq('letra', parsed.letra)
-      .limit(1)
+    if (letraExplicita) query = query.eq('letra', parsed.letra)
+    const { data: mData } = await query.order('letra').limit(1)
 
     if (!mData || !mData[0]) {
       setErroManif(`Manifesto #${texto} não encontrado.`)
