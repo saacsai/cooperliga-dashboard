@@ -339,6 +339,7 @@ function Manifesto({ manifesto, onVoltar, onDuplicado }: {
     if (dirty) await salvarOrdem()
     setEditando(false)
     setDirty(false)
+    carregar()
   }
 
   async function remover(mp_id: string) {
@@ -378,11 +379,9 @@ function Manifesto({ manifesto, onVoltar, onDuplicado }: {
         endereco:          pdeInfo?.endereco ?? null,
         qtdes:             {},
       }
-      setPontos(prev => {
-        const updated = [...prev, novoPonto]
-        atualizarDuplicados(updated.map(p => p.pde_id))
-        return updated
-      })
+      const novosPdeIds = [...pontos.map(p => p.pde_id), data.pde_id as string]
+      setPontos(prev => [...prev, novoPonto])
+      await atualizarDuplicados(novosPdeIds)
     }
     setAdicionando(false)
   }
