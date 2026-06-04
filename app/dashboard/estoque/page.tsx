@@ -6,6 +6,7 @@ import Drawer from '@/components/Drawer'
 import type { EstoqueMovimento, TipoMovimento } from '@/lib/supabase'
 
 const PRIMARY = '#5C0F0F'
+const HOJE = new Date().toISOString().split('T')[0]
 
 type DropItem = { id: string; nome: string }
 type ManifestoItem = { id: string; numero: number; letra: string | null; data_entrega: string }
@@ -22,7 +23,7 @@ const TIPO_CONFIG: Record<TipoMovimento, { label: string; badge: string; direcao
 const TIPOS_REQUER_AGREGADO: TipoMovimento[] = ['distribuicao', 'retorno']
 
 const VAZIO = {
-  data:         new Date().toISOString().split('T')[0],
+  data:         HOJE,
   tipo:         'recebimento' as TipoMovimento,
   cliente_id:   '',
   agregado_id:  '',
@@ -43,9 +44,7 @@ export default function EstoquePage() {
   const [erro,        setErro]        = useState('')
   const [form,        setForm]        = useState(VAZIO)
 
-  // Filtros
-  const [filtroCliente,  setFiltroCliente]  = useState('')
-  const [filtroAgregado, setFiltroAgregado] = useState('')
+  const [filtroCliente, setFiltroCliente] = useState('')
 
   async function carregar() {
     const [{ data: mov }, { data: cli }, { data: agr }, { data: man }] = await Promise.all([
@@ -70,26 +69,29 @@ export default function EstoquePage() {
 
   useEffect(() => { carregar() }, [])
 
-  // ── Filtros + saldo acumulado ─────────────────────────────────────────────
+  // ── Saldo por cliente (para validação) ───────────────────────────────────
+  const saldoPorCliente = useMemo(() => {
+    const map: Record<string, number> = {}
+    for (const m of movimentos) {
+      if (!m.cliente_id) continue
+      map[m.cliente_id] = (map[m.cliente_id] ?? 0) + m.entrada - m.saida
+    }
+    return map
+  }, [movimentos])
+
+  // ── Filtro + saldo acumulado ──────────────────────────────────────────────
   const linhas = useMemo(() => {
-    let list = movimentos
-    if (filtroCliente)  list = list.filter(m => m.cliente_id  === filtroCliente)
-    if (filtroAgregado) list = list.filter(m => m.agregado_id === filtroAgregado)
+    const list = filtroCliente
+      ? movimentos.filter(m => m.cliente_id === filtroCliente)
+      : movimentos
     let saldo = 0
     return list.map(m => {
       saldo += m.entrada - m.saida
       return { ...m, saldo }
     })
-  }, [movimentos, filtroCliente, filtroAgregado])
+  }, [movimentos, filtroCliente])
 
   const saldoAtual = linhas.length > 0 ? linhas[linhas.length - 1].saldo : 0
-
-  // ── Débito por agregado (sem filtro de cliente) ───────────────────────────
-  const debitoAgregado = useMemo(() => {
-    if (!filtroAgregado) return null
-    const movAgr = movimentos.filter(m => m.agregado_id === filtroAgregado)
-    return movAgr.reduce((acc, m) => acc + m.saida - m.entrada, 0)
-  }, [movimentos, filtroAgregado])
 
   // ── Form helpers ──────────────────────────────────────────────────────────
   const set = (f: keyof typeof VAZIO) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) =>
@@ -107,11 +109,24 @@ export default function EstoquePage() {
     const qty = parseInt(form.quantidade) || 0
     if (qty <= 0) { setErro('Quantidade deve ser maior que zero'); setSalvando(false); return }
 
+    if (form.data > HOJE) {
+      setErro('Não é permitido lançamento com data futura.'); setSalvando(false); return
+    }
+
     let entrada = 0, saida = 0
     if (cfg.direcao === 'entrada') entrada = qty
     else if (cfg.direcao === 'saida') saida = qty
     else if (form.direcao === 'entrada') entrada = qty
     else saida = qty
+
+    if (saida > 0 && form.tipo !== 'ajuste' && form.cliente_id) {
+      const saldoCliente = saldoPorCliente[form.cliente_id] ?? 0
+      if (saida > saldoCliente) {
+        const nomeCliente = clientes.find(c => c.id === form.cliente_id)?.nome ?? 'este cliente'
+        setErro(`Saldo insuficiente: ${nomeCliente} tem ${saldoCliente} cx. Não é possível registrar saída de ${saida} cx.`)
+        setSalvando(false); return
+      }
+    }
 
     const { data: { session } } = await getSupabase().auth.getSession()
 
@@ -138,7 +153,6 @@ export default function EstoquePage() {
     carregar()
   }
 
-  const temFiltro = !!(filtroCliente || filtroAgregado)
   const cfg = TIPO_CONFIG[form.tipo]
 
   return (
@@ -162,34 +176,17 @@ export default function EstoquePage() {
           {clientes.map(c => <option key={c.id} value={c.id}>{c.nome}</option>)}
         </select>
 
-        <select value={filtroAgregado} onChange={e => setFiltroAgregado(e.target.value)}
-          className="border border-gray-300 rounded-lg px-3 py-1.5 text-sm outline-none focus:border-[#5C0F0F] bg-white">
-          <option value="">Todos os agregados</option>
-          {agregados.map(a => <option key={a.id} value={a.id}>{a.nome}</option>)}
-        </select>
-
-        {temFiltro && (
-          <button onClick={() => { setFiltroCliente(''); setFiltroAgregado('') }}
-            className="text-xs text-gray-400 hover:text-gray-700">
-            Limpar filtros
+        {filtroCliente && (
+          <button onClick={() => setFiltroCliente('')} className="text-xs text-gray-400 hover:text-gray-700">
+            Limpar filtro
           </button>
         )}
 
-        <div className="ml-auto flex items-center gap-4">
-          {debitoAgregado !== null && (
-            <div className="text-right">
-              <p className="text-xs text-gray-500">Débito agregado</p>
-              <p className={`text-base font-bold ${debitoAgregado > 0 ? 'text-red-600' : 'text-green-600'}`}>
-                {debitoAgregado > 0 ? `${debitoAgregado} cx a devolver` : 'Quitado'}
-              </p>
-            </div>
-          )}
-          <div className="text-right">
-            <p className="text-xs text-gray-500">{temFiltro ? 'Saldo filtrado' : 'Saldo no galpão'}</p>
-            <p className={`text-base font-bold ${saldoAtual < 0 ? 'text-red-600' : 'text-gray-900'}`}>
-              {saldoAtual} cx
-            </p>
-          </div>
+        <div className="ml-auto text-right">
+          <p className="text-xs text-gray-500">{filtroCliente ? 'Saldo filtrado' : 'Saldo no galpão'}</p>
+          <p className={`text-base font-bold ${saldoAtual < 0 ? 'text-red-600' : 'text-gray-900'}`}>
+            {saldoAtual} cx
+          </p>
         </div>
       </div>
 
@@ -250,7 +247,7 @@ export default function EstoquePage() {
               {linhas.length === 0 && (
                 <tr>
                   <td colSpan={9} className="px-4 py-8 text-center text-sm text-gray-400">
-                    {temFiltro ? 'Nenhum lançamento para este filtro.' : 'Nenhum lançamento registrado.'}
+                    {filtroCliente ? 'Nenhum lançamento para este cliente.' : 'Nenhum lançamento registrado.'}
                   </td>
                 </tr>
               )}
@@ -283,7 +280,7 @@ export default function EstoquePage() {
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block text-xs font-medium text-gray-600 mb-1">Data *</label>
-              <input type="date" value={form.data} onChange={set('data')} required
+              <input type="date" value={form.data} onChange={set('data')} required max={HOJE}
                 className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#5C0F0F]" />
             </div>
             <div>
@@ -304,7 +301,11 @@ export default function EstoquePage() {
             <select value={form.cliente_id} onChange={set('cliente_id')}
               className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#5C0F0F] bg-white">
               <option value="">Selecione…</option>
-              {clientes.map(c => <option key={c.id} value={c.id}>{c.nome}</option>)}
+              {clientes.map(c => (
+                <option key={c.id} value={c.id}>
+                  {c.nome}{saldoPorCliente[c.id] !== undefined ? ` (${saldoPorCliente[c.id]} cx)` : ''}
+                </option>
+              ))}
             </select>
           </div>
 
