@@ -26,7 +26,6 @@ const VAZIO = {
   tipo:         'recebimento' as TipoMovimento,
   cliente_id:   '',
   agregado_id:  '',
-  produto_id:   '',
   manifesto_id: '',
   quantidade:   '',
   direcao:      'entrada' as 'entrada' | 'saida',
@@ -37,7 +36,6 @@ export default function EstoquePage() {
   const [movimentos,  setMovimentos]  = useState<EstoqueMovimento[]>([])
   const [clientes,    setClientes]    = useState<DropItem[]>([])
   const [agregados,   setAgregados]   = useState<DropItem[]>([])
-  const [produtos,    setProdutos]    = useState<DropItem[]>([])
   const [manifestos,  setManifestos]  = useState<ManifestoItem[]>([])
   const [loading,     setLoading]     = useState(true)
   const [drawer,      setDrawer]      = useState(false)
@@ -48,18 +46,16 @@ export default function EstoquePage() {
   // Filtros
   const [filtroCliente,  setFiltroCliente]  = useState('')
   const [filtroAgregado, setFiltroAgregado] = useState('')
-  const [filtroProduto,  setFiltroProduto]  = useState('')
 
   async function carregar() {
-    const [{ data: mov }, { data: cli }, { data: agr }, { data: prod }, { data: man }] = await Promise.all([
+    const [{ data: mov }, { data: cli }, { data: agr }, { data: man }] = await Promise.all([
       getSupabase()
         .from('estoque_movimentos')
-        .select('*, clientes(nome), agregados(nome), produtos(nome), ciclo_manifestos(numero, variante, rotas(codigo))')
+        .select('*, clientes(nome), agregados(nome), ciclo_manifestos(numero, variante, rotas(codigo))')
         .order('data', { ascending: true })
         .order('created_at', { ascending: true }),
       getSupabase().from('clientes').select('id, nome').eq('ativo', true).order('nome'),
       getSupabase().from('agregados').select('id, nome').eq('ativo', true).order('nome'),
-      getSupabase().from('produtos').select('id, nome').eq('ativo', true).order('nome'),
       getSupabase().from('ciclo_manifestos')
         .select('id, numero, variante, data_entrega, rotas(codigo)')
         .order('data_entrega', { ascending: false })
@@ -68,7 +64,6 @@ export default function EstoquePage() {
     setMovimentos((mov || []) as unknown as EstoqueMovimento[])
     setClientes((cli || []) as DropItem[])
     setAgregados((agr || []) as DropItem[])
-    setProdutos((prod || []) as DropItem[])
     setManifestos((man || []) as unknown as ManifestoItem[])
     setLoading(false)
   }
@@ -80,13 +75,12 @@ export default function EstoquePage() {
     let list = movimentos
     if (filtroCliente)  list = list.filter(m => m.cliente_id  === filtroCliente)
     if (filtroAgregado) list = list.filter(m => m.agregado_id === filtroAgregado)
-    if (filtroProduto)  list = list.filter(m => m.produto_id  === filtroProduto)
     let saldo = 0
     return list.map(m => {
       saldo += m.entrada - m.saida
       return { ...m, saldo }
     })
-  }, [movimentos, filtroCliente, filtroAgregado, filtroProduto])
+  }, [movimentos, filtroCliente, filtroAgregado])
 
   const saldoAtual = linhas.length > 0 ? linhas[linhas.length - 1].saldo : 0
 
@@ -126,7 +120,6 @@ export default function EstoquePage() {
       tipo:         form.tipo,
       cliente_id:   form.cliente_id   || null,
       agregado_id:  form.agregado_id  || null,
-      produto_id:   form.produto_id   || null,
       manifesto_id: form.manifesto_id || null,
       entrada,
       saida,
@@ -145,7 +138,7 @@ export default function EstoquePage() {
     carregar()
   }
 
-  const temFiltro = !!(filtroCliente || filtroAgregado || filtroProduto)
+  const temFiltro = !!(filtroCliente || filtroAgregado)
   const cfg = TIPO_CONFIG[form.tipo]
 
   return (
@@ -175,14 +168,8 @@ export default function EstoquePage() {
           {agregados.map(a => <option key={a.id} value={a.id}>{a.nome}</option>)}
         </select>
 
-        <select value={filtroProduto} onChange={e => setFiltroProduto(e.target.value)}
-          className="border border-gray-300 rounded-lg px-3 py-1.5 text-sm outline-none focus:border-[#5C0F0F] bg-white">
-          <option value="">Todos os produtos</option>
-          {produtos.map(p => <option key={p.id} value={p.id}>{p.nome}</option>)}
-        </select>
-
         {temFiltro && (
-          <button onClick={() => { setFiltroCliente(''); setFiltroAgregado(''); setFiltroProduto('') }}
+          <button onClick={() => { setFiltroCliente(''); setFiltroAgregado('') }}
             className="text-xs text-gray-400 hover:text-gray-700">
             Limpar filtros
           </button>
@@ -216,7 +203,6 @@ export default function EstoquePage() {
                 <th className="text-left px-4 py-3 text-xs font-medium text-gray-500">Tipo</th>
                 <th className="text-left px-4 py-3 text-xs font-medium text-gray-500">Cliente</th>
                 <th className="text-left px-4 py-3 text-xs font-medium text-gray-500">Agregado</th>
-                <th className="text-left px-4 py-3 text-xs font-medium text-gray-500">Produto</th>
                 <th className="text-right px-4 py-3 text-xs font-medium text-green-700">Entrada</th>
                 <th className="text-right px-4 py-3 text-xs font-medium text-red-600">Saída</th>
                 <th className="text-right px-4 py-3 text-xs font-medium text-gray-500">Saldo</th>
@@ -227,9 +213,6 @@ export default function EstoquePage() {
             <tbody>
               {linhas.map(m => {
                 const tc = TIPO_CONFIG[m.tipo as TipoMovimento]
-                const nomeEntidade = m.agregado_id
-                  ? (m.agregados?.nome ?? '—')
-                  : (m.clientes?.nome ?? '—')
                 const manifRef = m.ciclo_manifestos
                   ? `#${m.ciclo_manifestos.numero}${m.ciclo_manifestos.variante || 'A'}`
                   : null
@@ -245,10 +228,6 @@ export default function EstoquePage() {
                     </td>
                     <td className="px-4 py-3 text-gray-700 text-xs">{m.clientes?.nome ?? '—'}</td>
                     <td className="px-4 py-3 text-gray-500 text-xs">{m.agregados?.nome ?? '—'}</td>
-                    <td className="px-4 py-3 text-gray-500 text-xs">
-                      {m.produtos?.nome ?? '—'}
-                      {manifRef && <span className="ml-1 text-gray-400">{manifRef}</span>}
-                    </td>
                     <td className="px-4 py-3 text-right tabular-nums">
                       {m.entrada > 0
                         ? <span className="text-green-700 font-medium">{m.entrada}</span>
@@ -262,7 +241,10 @@ export default function EstoquePage() {
                     <td className={`px-4 py-3 text-right tabular-nums font-semibold text-xs ${(m as any).saldo < 0 ? 'text-red-600' : 'text-gray-800'}`}>
                       {(m as any).saldo}
                     </td>
-                    <td className="px-4 py-3 text-gray-400 text-xs max-w-[180px] truncate">{m.observacao || '—'}</td>
+                    <td className="px-4 py-3 text-gray-400 text-xs max-w-[180px] truncate">
+                      {manifRef && <span className="text-gray-500 font-medium mr-1">{manifRef}</span>}
+                      {m.observacao || (!manifRef ? '—' : '')}
+                    </td>
                     <td className="px-4 py-3 text-right">
                       <button onClick={() => handleExcluir(m.id)} className="text-xs text-red-400 hover:text-red-600">Excluir</button>
                     </td>
@@ -271,7 +253,7 @@ export default function EstoquePage() {
               })}
               {linhas.length === 0 && (
                 <tr>
-                  <td colSpan={10} className="px-4 py-8 text-center text-sm text-gray-400">
+                  <td colSpan={9} className="px-4 py-8 text-center text-sm text-gray-400">
                     {temFiltro ? 'Nenhum lançamento para este filtro.' : 'Nenhum lançamento registrado.'}
                   </td>
                 </tr>
@@ -280,7 +262,7 @@ export default function EstoquePage() {
             {linhas.length > 0 && (
               <tfoot>
                 <tr className="border-t border-gray-200 bg-gray-50">
-                  <td colSpan={5} className="px-4 py-2 text-xs font-semibold text-gray-500">Total</td>
+                  <td colSpan={4} className="px-4 py-2 text-xs font-semibold text-gray-500">Total</td>
                   <td className="px-4 py-2 text-right tabular-nums text-xs font-semibold text-green-700">
                     {linhas.reduce((a, m) => a + m.entrada, 0)}
                   </td>
@@ -340,15 +322,6 @@ export default function EstoquePage() {
               </select>
             </div>
           )}
-
-          <div>
-            <label className="block text-xs font-medium text-gray-600 mb-1">Produto</label>
-            <select value={form.produto_id} onChange={set('produto_id')}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#5C0F0F] bg-white">
-              <option value="">Selecione…</option>
-              {produtos.map(p => <option key={p.id} value={p.id}>{p.nome}</option>)}
-            </select>
-          </div>
 
           {TIPOS_REQUER_AGREGADO.includes(form.tipo) && (
             <div>
