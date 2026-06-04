@@ -2,6 +2,23 @@
 
 import { useEffect, useState, useCallback } from 'react'
 import { getSupabase } from '@/lib/supabase'
+import {
+  DndContext,
+  closestCenter,
+  PointerSensor,
+  KeyboardSensor,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from '@dnd-kit/core'
+import {
+  SortableContext,
+  sortableKeyboardCoordinates,
+  verticalListSortingStrategy,
+  useSortable,
+  arrayMove,
+} from '@dnd-kit/sortable'
+import { CSS } from '@dnd-kit/utilities'
 
 const PRIMARY = '#5C0F0F'
 
@@ -60,6 +77,75 @@ function numDisplay(n: number, l: string) {
   return String(n).padStart(4, '0') + l
 }
 
+// ── Sortable row (edit mode) ─────────────────────────────────────────────────
+
+function SortablePonto({
+  item,
+  index,
+  onRemove,
+}: {
+  item: PontoManifesto
+  index: number
+  onRemove: (mp_id: string) => void
+}) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
+    useSortable({ id: item.mp_id })
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+    zIndex: isDragging ? 10 : undefined,
+  }
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className="flex items-center gap-3 px-4 py-3 border-b border-gray-50 last:border-0 bg-white hover:bg-gray-50/40 group"
+    >
+      <div
+        {...attributes}
+        {...listeners}
+        className="cursor-grab active:cursor-grabbing text-gray-300 hover:text-gray-500 flex-shrink-0"
+      >
+        <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
+          <circle cx="5" cy="4" r="1.5"/>
+          <circle cx="11" cy="4" r="1.5"/>
+          <circle cx="5" cy="8" r="1.5"/>
+          <circle cx="11" cy="8" r="1.5"/>
+          <circle cx="5" cy="12" r="1.5"/>
+          <circle cx="11" cy="12" r="1.5"/>
+        </svg>
+      </div>
+      <span className="w-5 text-xs font-mono font-semibold text-gray-400 flex-shrink-0 text-right">
+        {index + 1}
+      </span>
+      {item.codigo_prefeitura && (
+        <span className="text-xs font-mono text-gray-400 flex-shrink-0 w-14">{item.codigo_prefeitura}</span>
+      )}
+      <div className="flex-1 min-w-0">
+        <span className="text-sm font-medium text-gray-900 block truncate">{item.pde_nome}</span>
+        {item.endereco && (
+          <span className="text-xs text-gray-400 block truncate">{item.endereco}</span>
+        )}
+      </div>
+      <button
+        onClick={() => onRemove(item.mp_id)}
+        className="opacity-0 group-hover:opacity-100 transition-opacity text-gray-300 hover:text-red-500 flex-shrink-0"
+        title="Remover ponto"
+      >
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <polyline points="3 6 5 6 21 6"/>
+          <path d="M19 6l-1 14H6L5 6"/>
+          <path d="M10 11v6"/>
+          <path d="M14 11v6"/>
+        </svg>
+      </button>
+    </div>
+  )
+}
+
 // ── Componente Manifesto ─────────────────────────────────────────────────────
 
 function Manifesto({ manifesto, onVoltar, onDuplicado }: {
@@ -69,17 +155,23 @@ function Manifesto({ manifesto, onVoltar, onDuplicado }: {
 }) {
   const { id, numero_base, letra, data_entrega, rota } = manifesto
 
-  const [pontos,      setPontos]      = useState<PontoManifesto[]>([])
-  const [produtos,    setProdutos]    = useState<string[]>([])
-  const [totais,      setTotais]      = useState<Record<string, { inteira: number; fracionada: number }>>({})
-  const [dataReceber, setReceber]     = useState<string | null>(null)
-  const [loading,     setLoading]     = useState(true)
-  const [editando,    setEditando]    = useState(false)
-  const [movendo,     setMovendo]     = useState(false)
-  const [pontosDisp,  setPontosDisp]  = useState<PontoDisp[]>([])
-  const [pdeAdd,      setPdeAdd]      = useState('')
-  const [adicionando, setAdicionando] = useState(false)
-  const [duplicando,  setDuplicando]  = useState(false)
+  const [pontos,       setPontos]       = useState<PontoManifesto[]>([])
+  const [produtos,     setProdutos]     = useState<string[]>([])
+  const [totais,       setTotais]       = useState<Record<string, { inteira: number; fracionada: number }>>({})
+  const [dataReceber,  setReceber]      = useState<string | null>(null)
+  const [loading,      setLoading]      = useState(true)
+  const [editando,     setEditando]     = useState(false)
+  const [dirty,        setDirty]        = useState(false)
+  const [ordemSalvando,setOrdemSalvando]= useState(false)
+  const [pontosDisp,   setPontosDisp]   = useState<PontoDisp[]>([])
+  const [pdeAdd,       setPdeAdd]       = useState('')
+  const [adicionando,  setAdicionando]  = useState(false)
+  const [duplicando,   setDuplicando]   = useState(false)
+
+  const sensors = useSensors(
+    useSensor(PointerSensor),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  )
 
   const carregar = useCallback(async () => {
     const sb = getSupabase()
@@ -169,25 +261,38 @@ function Manifesto({ manifesto, onVoltar, onDuplicado }: {
     )
   }
 
-  async function mover(idx: number, dir: 'cima' | 'baixo') {
-    if (movendo) return
-    const j = dir === 'cima' ? idx - 1 : idx + 1
-    if (j < 0 || j >= pontos.length) return
-    setMovendo(true)
-    const sb  = getSupabase()
-    const arr = [...pontos]
-    ;[arr[idx], arr[j]] = [arr[j], arr[idx]]
-    const novo = arr.map((p, i) => ({ ...p, sequencia: i + 1 }))
-    setPontos(novo)
-    await Promise.all([
-      sb.from('manifesto_pontos').update({ sequencia: novo[idx].sequencia }).eq('id', novo[idx].mp_id),
-      sb.from('manifesto_pontos').update({ sequencia: novo[j].sequencia }).eq('id', novo[j].mp_id),
-    ])
-    setMovendo(false)
+  function handleDragEnd(event: DragEndEvent) {
+    const { active, over } = event
+    if (!over || active.id === over.id) return
+    setPontos(prev => {
+      const oldIndex = prev.findIndex(p => p.mp_id === active.id)
+      const newIndex = prev.findIndex(p => p.mp_id === over.id)
+      return arrayMove(prev, oldIndex, newIndex)
+    })
+    setDirty(true)
+  }
+
+  async function salvarOrdem() {
+    setOrdemSalvando(true)
+    const sb = getSupabase()
+    await Promise.all(
+      pontos.map((p, i) =>
+        sb.from('manifesto_pontos').update({ sequencia: i + 1 }).eq('id', p.mp_id)
+      )
+    )
+    setPontos(prev => prev.map((p, i) => ({ ...p, sequencia: i + 1 })))
+    setDirty(false)
+    setOrdemSalvando(false)
+  }
+
+  async function fecharEdicao() {
+    if (dirty) await salvarOrdem()
+    setEditando(false)
+    setDirty(false)
   }
 
   async function remover(mp_id: string) {
-    const sb  = getSupabase()
+    const sb    = getSupabase()
     const ponto = pontos.find(p => p.mp_id === mp_id)
     await sb.from('manifesto_pontos').delete().eq('id', mp_id)
     const novo = pontos
@@ -203,6 +308,7 @@ function Manifesto({ manifesto, onVoltar, onDuplicado }: {
     await Promise.all(novo.map(p =>
       sb.from('manifesto_pontos').update({ sequencia: p.sequencia }).eq('id', p.mp_id)
     ))
+    setDirty(false)
   }
 
   async function adicionar() {
@@ -275,7 +381,7 @@ function Manifesto({ manifesto, onVoltar, onDuplicado }: {
     : { cor: '#DCFCE7', txt: '#166534', label: `${totalCaixas} cx — ideal` }
 
   return (
-    <div>
+    <div className="max-w-5xl">
       {/* Barra de ações */}
       <div className="flex items-center justify-between mb-4 print:hidden gap-2 flex-wrap">
         <button onClick={onVoltar}
@@ -285,13 +391,19 @@ function Manifesto({ manifesto, onVoltar, onDuplicado }: {
           </svg>
           Voltar
         </button>
-        <div className="flex gap-2 flex-wrap">
+        <div className="flex gap-2 flex-wrap items-center">
           <button onClick={duplicar} disabled={duplicando}
             className="text-xs border border-gray-300 text-gray-600 px-3 py-1.5 rounded-lg hover:bg-gray-50 disabled:opacity-50 transition-colors">
             {duplicando ? 'Duplicando…' : 'Duplicar manifesto'}
           </button>
+          {editando && dirty && (
+            <button onClick={salvarOrdem} disabled={ordemSalvando}
+              className="text-xs px-3 py-1.5 rounded-lg font-medium border bg-amber-50 border-amber-300 text-amber-700 disabled:opacity-50 transition-colors">
+              {ordemSalvando ? 'Salvando…' : 'Salvar ordem'}
+            </button>
+          )}
           <button
-            onClick={() => { if (!editando) { setEditando(true); carregarDisp() } else setEditando(false) }}
+            onClick={() => { if (!editando) { setEditando(true); carregarDisp() } else fecharEdicao() }}
             className={`text-xs px-3 py-1.5 rounded-lg font-medium transition-colors border ${editando ? 'bg-amber-50 border-amber-300 text-amber-700' : 'border-gray-300 text-gray-600 hover:bg-gray-50'}`}>
             {editando ? '✓ Fechar edição' : 'Editar pontos'}
           </button>
@@ -336,111 +448,111 @@ function Manifesto({ manifesto, onVoltar, onDuplicado }: {
 
       {loading ? <p className="text-sm text-gray-400">Carregando manifesto…</p> : (
         <>
-          <div className="bg-white rounded-xl border border-gray-200 overflow-x-auto print:rounded-none print:border-0 print:overflow-visible">
-            <table className="w-full text-xs">
-              <thead>
-                <tr className="border-b border-gray-100 bg-gray-50">
-                  {editando && <th className="w-10 print:hidden" />}
-                  <th className="text-left px-3 py-2 font-medium text-gray-500 w-8">Seq</th>
-                  <th className="text-left px-3 py-2 font-medium text-gray-500 w-20">Código</th>
-                  <th className="text-left px-3 py-2 font-medium text-gray-500">Unidade</th>
-                  <th className="text-left px-3 py-2 font-medium text-gray-500">Endereço</th>
-                  {produtos.map(p => (
-                    <th key={p} className="text-center px-3 py-2 font-medium text-gray-500 whitespace-nowrap">{p}</th>
-                  ))}
-                  {editando && <th className="w-8 print:hidden" />}
-                </tr>
-              </thead>
-              <tbody>
-                {pontos.map((row, i) => (
-                  <tr key={row.mp_id} className={`border-b border-gray-50 last:border-0 ${i % 2 === 0 ? '' : 'bg-gray-50/40'}`}>
-                    {editando && (
-                      <td className="px-1 py-1 print:hidden">
-                        <div className="flex flex-col items-center gap-0.5">
-                          <button onClick={() => mover(i, 'cima')} disabled={i === 0 || movendo}
-                            className="text-gray-400 hover:text-gray-700 disabled:opacity-20 leading-none text-base px-1">
-                            ▲
-                          </button>
-                          <button onClick={() => mover(i, 'baixo')} disabled={i === pontos.length - 1 || movendo}
-                            className="text-gray-400 hover:text-gray-700 disabled:opacity-20 leading-none text-base px-1">
-                            ▼
-                          </button>
-                        </div>
-                      </td>
-                    )}
-                    <td className="px-3 py-2 font-mono text-gray-400 text-center">{row.sequencia}</td>
-                    <td className="px-3 py-2 font-mono text-gray-600">{row.codigo_prefeitura || '—'}</td>
-                    <td className="px-3 py-2 font-medium text-gray-900 max-w-[200px] truncate print:max-w-none print:whitespace-normal">{row.pde_nome}</td>
-                    <td className="px-3 py-2 text-gray-500 max-w-[200px] truncate print:max-w-none print:whitespace-normal">{row.endereco || '—'}</td>
-                    {produtos.map(p => {
-                      const q = row.qtdes[p]
-                      if (!q || (q.inteira === 0 && q.fracionada === 0)) {
-                        return <td key={p} className="px-3 py-2 text-center text-gray-300">—</td>
-                      }
-                      return (
-                        <td key={p} className="px-3 py-2 text-center font-medium text-gray-800">
-                          {q.inteira > 0 && <span>{q.inteira}cx</span>}
-                          {q.inteira > 0 && q.fracionada > 0 && <span className="mx-0.5 text-gray-300">+</span>}
-                          {q.fracionada > 0 && <span>{q.fracionada}pc</span>}
-                        </td>
-                      )
-                    })}
-                    {editando && (
-                      <td className="px-2 py-1 print:hidden">
-                        <button onClick={() => remover(row.mp_id)}
-                          className="text-red-300 hover:text-red-600 font-bold text-base leading-none">
-                          ×
-                        </button>
-                      </td>
-                    )}
-                  </tr>
-                ))}
-                {pontos.length === 0 && (
-                  <tr><td colSpan={4 + produtos.length + (editando ? 2 : 0)} className="px-3 py-8 text-center text-gray-400">
-                    Nenhuma parada neste manifesto.
-                    {editando && ' Use o seletor abaixo para adicionar pontos.'}
-                  </td></tr>
-                )}
-              </tbody>
-              {pontos.length > 0 && (
-                <tfoot>
-                  <tr className="border-t border-gray-200 bg-gray-50 font-semibold">
-                    <td colSpan={4 + (editando ? 1 : 0)} className="px-3 py-2 text-xs text-gray-600">Total</td>
-                    {produtos.map(p => (
-                      <td key={p} className="px-3 py-2 text-center text-xs text-gray-800">
-                        {totais[p].inteira > 0 && <span>{totais[p].inteira}cx</span>}
-                        {totais[p].inteira > 0 && totais[p].fracionada > 0 && <span className="mx-0.5 text-gray-300">+</span>}
-                        {totais[p].fracionada > 0 && <span>{totais[p].fracionada}pc</span>}
-                      </td>
-                    ))}
-                    {editando && <td className="print:hidden" />}
-                  </tr>
-                </tfoot>
-              )}
-            </table>
-          </div>
-
-          {/* Adicionar ponto */}
+          {/* ── Modo edição: lista sortable ─────────────────────────────── */}
           {editando && (
-            <div className="mt-3 flex gap-2 print:hidden">
-              <select value={pdeAdd} onChange={e => setPdeAdd(e.target.value)}
-                className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#5C0F0F] bg-white">
-                <option value="">Selecione um ponto para adicionar…</option>
-                {pontosDisp.map(p => (
-                  <option key={p.id} value={p.id}>
-                    {p.codigo_prefeitura ? `${p.codigo_prefeitura} — ` : ''}{p.nome}
-                  </option>
-                ))}
-              </select>
-              <button onClick={adicionar} disabled={!pdeAdd || adicionando}
-                className="text-white text-sm font-medium px-4 py-2 rounded-lg disabled:opacity-50 hover:opacity-90"
-                style={{ background: PRIMARY }}>
-                {adicionando ? '…' : '+ Adicionar'}
-              </button>
+            <div className="bg-white rounded-xl border border-gray-200 overflow-hidden print:hidden">
+              {pontos.length === 0 ? (
+                <div className="py-12 text-center">
+                  <p className="text-sm text-gray-400">Nenhuma parada. Use o seletor abaixo para adicionar pontos.</p>
+                </div>
+              ) : (
+                <DndContext
+                  sensors={sensors}
+                  collisionDetection={closestCenter}
+                  onDragEnd={handleDragEnd}
+                >
+                  <SortableContext items={pontos.map(p => p.mp_id)} strategy={verticalListSortingStrategy}>
+                    {pontos.map((p, i) => (
+                      <SortablePonto key={p.mp_id} item={p} index={i} onRemove={remover} />
+                    ))}
+                  </SortableContext>
+                </DndContext>
+              )}
+
+              {/* Adicionar ponto */}
+              <div className="border-t border-gray-100 p-4">
+                <div className="flex gap-2">
+                  <select value={pdeAdd} onChange={e => setPdeAdd(e.target.value)}
+                    className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#5C0F0F] bg-white">
+                    <option value="">Selecione um ponto para adicionar…</option>
+                    {pontosDisp.map(p => (
+                      <option key={p.id} value={p.id}>
+                        {p.codigo_prefeitura ? `${p.codigo_prefeitura} — ` : ''}{p.nome}
+                      </option>
+                    ))}
+                  </select>
+                  <button onClick={adicionar} disabled={!pdeAdd || adicionando}
+                    className="text-white text-sm font-medium px-4 py-2 rounded-lg disabled:opacity-50 hover:opacity-90"
+                    style={{ background: PRIMARY }}>
+                    {adicionando ? '…' : '+ Adicionar'}
+                  </button>
+                </div>
+              </div>
             </div>
           )}
 
-          {/* Aviso ao motorista */}
+          {/* ── Modo visualização: tabela completa com produtos ──────────── */}
+          {!editando && (
+            <div className="bg-white rounded-xl border border-gray-200 overflow-x-auto print:rounded-none print:border-0 print:overflow-visible">
+              <table className="w-full text-xs">
+                <thead>
+                  <tr className="border-b border-gray-100 bg-gray-50">
+                    <th className="text-left px-3 py-2 font-medium text-gray-500 w-8">Seq</th>
+                    <th className="text-left px-3 py-2 font-medium text-gray-500 w-20">Código</th>
+                    <th className="text-left px-3 py-2 font-medium text-gray-500">Unidade</th>
+                    <th className="text-left px-3 py-2 font-medium text-gray-500">Endereço</th>
+                    {produtos.map(p => (
+                      <th key={p} className="text-center px-3 py-2 font-medium text-gray-500 whitespace-nowrap">{p}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {pontos.map((row, i) => (
+                    <tr key={row.mp_id} className={`border-b border-gray-50 last:border-0 ${i % 2 === 0 ? '' : 'bg-gray-50/40'}`}>
+                      <td className="px-3 py-2 font-mono text-gray-400 text-center">{row.sequencia}</td>
+                      <td className="px-3 py-2 font-mono text-gray-600">{row.codigo_prefeitura || '—'}</td>
+                      <td className="px-3 py-2 font-medium text-gray-900 max-w-[200px] truncate print:max-w-none print:whitespace-normal">{row.pde_nome}</td>
+                      <td className="px-3 py-2 text-gray-500 max-w-[200px] truncate print:max-w-none print:whitespace-normal">{row.endereco || '—'}</td>
+                      {produtos.map(p => {
+                        const q = row.qtdes[p]
+                        if (!q || (q.inteira === 0 && q.fracionada === 0)) {
+                          return <td key={p} className="px-3 py-2 text-center text-gray-300">—</td>
+                        }
+                        return (
+                          <td key={p} className="px-3 py-2 text-center font-medium text-gray-800">
+                            {q.inteira > 0 && <span>{q.inteira}cx</span>}
+                            {q.inteira > 0 && q.fracionada > 0 && <span className="mx-0.5 text-gray-300">+</span>}
+                            {q.fracionada > 0 && <span>{q.fracionada}pc</span>}
+                          </td>
+                        )
+                      })}
+                    </tr>
+                  ))}
+                  {pontos.length === 0 && (
+                    <tr><td colSpan={4 + produtos.length} className="px-3 py-8 text-center text-gray-400">
+                      Nenhuma parada neste manifesto.
+                    </td></tr>
+                  )}
+                </tbody>
+                {pontos.length > 0 && (
+                  <tfoot>
+                    <tr className="border-t border-gray-200 bg-gray-50 font-semibold">
+                      <td colSpan={4} className="px-3 py-2 text-xs text-gray-600">Total</td>
+                      {produtos.map(p => (
+                        <td key={p} className="px-3 py-2 text-center text-xs text-gray-800">
+                          {totais[p].inteira > 0 && <span>{totais[p].inteira}cx</span>}
+                          {totais[p].inteira > 0 && totais[p].fracionada > 0 && <span className="mx-0.5 text-gray-300">+</span>}
+                          {totais[p].fracionada > 0 && <span>{totais[p].fracionada}pc</span>}
+                        </td>
+                      ))}
+                    </tr>
+                  </tfoot>
+                )}
+              </table>
+            </div>
+          )}
+
+          {/* Aviso ao motorista (print only) */}
           <div className="hidden print:block mt-6 border border-gray-300 rounded p-3 text-[10px] text-gray-700 leading-relaxed whitespace-pre-line">
             {AVISO_MOTORISTA}
           </div>
