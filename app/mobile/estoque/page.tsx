@@ -105,6 +105,8 @@ function EstoqueInner() {
   async function iniciarScan() {
     setScanError('')
     setScanning(true)
+    // Aguarda o React renderizar o <video> antes de iniciar o scanner
+    await new Promise(r => setTimeout(r, 100))
     try {
       const reader = new BrowserMultiFormatReader()
       readerRef.current = reader
@@ -143,8 +145,8 @@ function EstoqueInner() {
     // 1. Busca manifesto
     const { data: mData } = await sb
       .from('ciclo_manifestos')
-      .select('id, numero, letra')
-      .eq('numero', parsed.numero)
+      .select('id, numero_base, letra')
+      .eq('numero_base', parsed.numero)
       .eq('letra', parsed.letra)
       .limit(1)
 
@@ -152,7 +154,7 @@ function EstoqueInner() {
       setErroManif(`Manifesto #${texto} não encontrado.`)
       setLoadingManif(false); return
     }
-    const mRow = mData[0]
+    const mRow = mData[0] as { id: string; numero_base: number; letra: string }
 
     // 2. Total de caixas via ciclo_pedidos
     const { data: pedidos } = await sb
@@ -171,7 +173,7 @@ function EstoqueInner() {
       .eq('manifesto_id', mRow.id)
       .eq('tipo', 'distribuicao')
 
-    setManifesto({ id: mRow.id, numero: mRow.numero, letra: mRow.letra, totalCaixas })
+    setManifesto({ id: mRow.id, numero: mRow.numero_base, letra: mRow.letra, totalCaixas })
     setLoadingManif(false)
 
     if (dist && dist.length > 0) {
@@ -300,21 +302,22 @@ function EstoqueInner() {
           <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5 space-y-4">
             <p className="text-sm font-semibold text-gray-700">Identificar manifesto</p>
 
-            {scanning ? (
-              <div className="space-y-3">
-                <div className="relative rounded-xl overflow-hidden bg-black aspect-square">
-                  <video ref={videoRef} className="w-full h-full object-cover" />
-                  <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                    <div className="w-48 h-48 border-2 border-white/70 rounded-xl" />
-                  </div>
+            {/* Vídeo sempre no DOM para iOS Safari — visível só ao escanear */}
+            <div className={scanning ? 'space-y-3' : 'hidden'}>
+              <div className="relative rounded-xl overflow-hidden bg-black aspect-square">
+                <video ref={videoRef} className="w-full h-full object-cover" playsInline muted />
+                <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                  <div className="w-48 h-48 border-2 border-white/70 rounded-xl" />
                 </div>
-                {scanError && <p className="text-xs text-red-500 text-center">{scanError}</p>}
-                <button onClick={pararScan}
-                  className="w-full py-3 rounded-xl border border-gray-200 text-sm text-gray-600 font-medium">
-                  Cancelar
-                </button>
               </div>
-            ) : (
+              {scanError && <p className="text-xs text-red-500 text-center">{scanError}</p>}
+              <button onClick={pararScan}
+                className="w-full py-3 rounded-xl border border-gray-200 text-sm text-gray-600 font-medium">
+                Cancelar
+              </button>
+            </div>
+
+            {!scanning && (
               <>
                 <button onClick={iniciarScan}
                   className="w-full py-4 rounded-xl text-white font-semibold text-sm flex items-center justify-center gap-2"
