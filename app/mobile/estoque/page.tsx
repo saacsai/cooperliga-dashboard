@@ -145,8 +145,7 @@ function EstoqueInner() {
     // 1. Busca manifesto
     // Se o operador digitou só números (sem letra), busca pelo numero_base sem filtrar letra
     // Se digitou letra explícita (ex: 42B), filtra por ela também
-    const textoSemNumeros = t.replace(/\d/g, '')
-    const letraExplicita  = textoSemNumeros.length > 0
+    const letraExplicita = texto.trim().replace(/^#/, '').replace(/\d/g, '').length > 0
     let query = sb
       .from('ciclo_manifestos')
       .select('id, numero_base, letra')
