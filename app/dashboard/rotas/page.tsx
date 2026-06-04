@@ -126,7 +126,7 @@ export default function RotasPage() {
   }
 
   return (
-    <div>
+    <div className="pt-4">
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-xl font-bold text-gray-900">Rotas</h1>

@@ -622,7 +622,7 @@ export default function ManifestosPage() {
   )
 
   return (
-    <div>
+    <div className="pt-4">
       <div className="mb-6">
         <h1 className="text-xl font-bold text-gray-900">Manifestos</h1>
         <p className="text-sm text-gray-500 mt-0.5">Clique para abrir, editar e imprimir</p>

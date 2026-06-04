@@ -146,7 +146,7 @@ export default function GuiasPage() {
   const loading = processando === tab
 
   return (
-    <div className="max-w-2xl">
+    <div className="max-w-2xl pt-4">
       <h1 className="text-xl font-bold text-gray-900 mb-1">Guias de Remessa</h1>
       <p className="text-sm text-gray-500 mb-6">Organiza as GRs por rota para impressão e entrega</p>
 
