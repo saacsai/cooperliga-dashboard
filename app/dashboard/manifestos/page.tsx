@@ -82,10 +82,12 @@ function numDisplay(n: number, l: string) {
 function SortablePonto({
   item,
   index,
+  isDuplicado,
   onRemove,
 }: {
   item: PontoManifesto
   index: number
+  isDuplicado: boolean
   onRemove: (mp_id: string) => void
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
@@ -102,7 +104,7 @@ function SortablePonto({
     <div
       ref={setNodeRef}
       style={style}
-      className="flex items-center gap-3 px-4 py-3 border-b border-gray-50 last:border-0 bg-white hover:bg-gray-50/40 group"
+      className={`flex items-center gap-3 px-4 py-3 border-b border-gray-50 last:border-0 group ${isDuplicado ? 'bg-red-50' : 'bg-white hover:bg-gray-50/40'}`}
     >
       <div
         {...attributes}
@@ -125,7 +127,10 @@ function SortablePonto({
         <span className="text-xs font-mono text-gray-400 flex-shrink-0 w-14">{item.codigo_prefeitura}</span>
       )}
       <div className="flex-1 min-w-0">
-        <span className="text-sm font-medium text-gray-900 block truncate">{item.pde_nome}</span>
+        <span className={`text-sm font-medium block truncate ${isDuplicado ? 'text-red-700' : 'text-gray-900'}`}>
+          {item.pde_nome}
+          {isDuplicado && <span className="ml-2 text-[10px] font-normal text-red-400">(duplicado)</span>}
+        </span>
         {item.endereco && (
           <span className="text-xs text-gray-400 block truncate">{item.endereco}</span>
         )}
@@ -164,6 +169,7 @@ function Manifesto({ manifesto, onVoltar, onDuplicado }: {
   const [dirty,        setDirty]        = useState(false)
   const [ordemSalvando,setOrdemSalvando]= useState(false)
   const [pontosDisp,   setPontosDisp]   = useState<PontoDisp[]>([])
+  const [duplicados,   setDuplicados]   = useState<Set<string>>(new Set())
   const [pdeAdd,       setPdeAdd]       = useState('')
   const [adicionando,  setAdicionando]  = useState(false)
   const [duplicando,   setDuplicando]   = useState(false)
@@ -237,28 +243,84 @@ function Manifesto({ manifesto, onVoltar, onDuplicado }: {
       }
     }
     setTotais(tots)
+
+    // Verificar duplicatas com outras variantes da mesma rota
+    if (newPontos.length) {
+      const { data: outrosManifestos } = await sb
+        .from('ciclo_manifestos').select('id').eq('rota_id', rota.id)
+      const outrosIds = (outrosManifestos || []).map((m: any) => m.id as string).filter(mid => mid !== id)
+      if (outrosIds.length) {
+        const pdes = newPontos.map(p => p.pde_id)
+        const { data: outrosPts } = await sb
+          .from('manifesto_pontos').select('pde_id')
+          .in('manifesto_id', outrosIds).in('pde_id', pdes)
+        setDuplicados(new Set((outrosPts || []).map((p: any) => p.pde_id as string)))
+      } else {
+        setDuplicados(new Set())
+      }
+    }
+
     setLoading(false)
   }, [id, data_entrega, rota.id])
 
   useEffect(() => { carregar() }, [carregar])
 
+  async function atualizarDuplicados(currentPdeIds: string[]) {
+    if (!currentPdeIds.length) { setDuplicados(new Set()); return }
+    const sb = getSupabase()
+    const { data: outrosManifestos } = await sb
+      .from('ciclo_manifestos').select('id').eq('rota_id', rota.id)
+    const outrosIds = (outrosManifestos || []).map((m: any) => m.id as string).filter(mid => mid !== id)
+    if (!outrosIds.length) { setDuplicados(new Set()); return }
+    const { data: outrosPts } = await sb
+      .from('manifesto_pontos').select('pde_id')
+      .in('manifesto_id', outrosIds).in('pde_id', currentPdeIds)
+    setDuplicados(new Set((outrosPts || []).map((p: any) => p.pde_id as string)))
+  }
+
   async function carregarDisp() {
     const sb = getSupabase()
-    const emManifesto = new Set(pontos.map(p => p.pde_id))
-    const { data } = await sb
-      .from('rota_pontos')
-      .select('ponto_de_entrega_id, pontos_de_entrega(id, nome, codigo_prefeitura)')
-      .eq('rota_id', rota.id)
-      .order('sequencia' as any)
-    setPontosDisp(
-      (data || [])
-        .filter((r: any) => !emManifesto.has(r.ponto_de_entrega_id))
-        .map((r: any) => ({
-          id:                r.ponto_de_entrega_id as string,
-          nome:              (r.pontos_de_entrega as any)?.nome ?? '?',
-          codigo_prefeitura: (r.pontos_de_entrega as any)?.codigo_prefeitura ?? null,
-        }))
-    )
+    const emAtual = new Set(pontos.map(p => p.pde_id))
+
+    // Busca pontos de TODAS as variantes da rota + rota_pontos original
+    const [{ data: rotaPts }, { data: varianteIds }] = await Promise.all([
+      sb.from('rota_pontos')
+        .select('ponto_de_entrega_id, pontos_de_entrega(id, nome, codigo_prefeitura)')
+        .eq('rota_id', rota.id)
+        .order('sequencia' as any),
+      sb.from('ciclo_manifestos').select('id').eq('rota_id', rota.id),
+    ])
+
+    const outrosIds = (varianteIds || []).map((m: any) => m.id as string).filter(mid => mid !== id)
+
+    let outrosPontos: any[] = []
+    if (outrosIds.length) {
+      const { data } = await sb
+        .from('manifesto_pontos')
+        .select('pde_id, pontos_de_entrega(id, nome, codigo_prefeitura)')
+        .in('manifesto_id', outrosIds)
+      outrosPontos = data || []
+    }
+
+    // Duplicatas = pde_ids que estão neste manifesto E em outro
+    const noOutros = new Set(outrosPontos.map((p: any) => p.pde_id as string))
+    setDuplicados(new Set(Array.from(emAtual).filter(pdeId => noOutros.has(pdeId))))
+
+    // Pool disponível = union(rota_pontos, outros manifestos) - já está neste manifesto
+    const pool = new Map<string, PontoDisp>()
+    for (const p of (rotaPts || [])) {
+      if (emAtual.has(p.ponto_de_entrega_id) || pool.has(p.ponto_de_entrega_id)) continue
+      const pde = (p as any).pontos_de_entrega
+      pool.set(p.ponto_de_entrega_id, {
+        id: p.ponto_de_entrega_id, nome: pde?.nome ?? '?', codigo_prefeitura: pde?.codigo_prefeitura ?? null,
+      })
+    }
+    for (const p of outrosPontos) {
+      if (emAtual.has(p.pde_id) || pool.has(p.pde_id)) continue
+      const pde = (p as any).pontos_de_entrega
+      pool.set(p.pde_id, { id: p.pde_id, nome: pde?.nome ?? '?', codigo_prefeitura: pde?.codigo_prefeitura ?? null })
+    }
+    setPontosDisp(Array.from(pool.values()))
   }
 
   function handleDragEnd(event: DragEndEvent) {
@@ -309,6 +371,7 @@ function Manifesto({ manifesto, onVoltar, onDuplicado }: {
       sb.from('manifesto_pontos').update({ sequencia: p.sequencia }).eq('id', p.mp_id)
     ))
     setDirty(false)
+    atualizarDuplicados(novo.map(p => p.pde_id))
   }
 
   async function adicionar() {
@@ -323,7 +386,7 @@ function Manifesto({ manifesto, onVoltar, onDuplicado }: {
       .single()
     if (data) {
       const pde = (data as any).pontos_de_entrega
-      setPontos(prev => [...prev, {
+      const novoPonto = {
         mp_id:             data.id,
         pde_id:            data.pde_id,
         sequencia:         data.sequencia,
@@ -331,7 +394,12 @@ function Manifesto({ manifesto, onVoltar, onDuplicado }: {
         pde_nome:          pde?.nome ?? '?',
         endereco:          pde?.endereco ?? null,
         qtdes:             {},
-      }])
+      }
+      setPontos(prev => {
+        const updated = [...prev, novoPonto]
+        atualizarDuplicados(updated.map(p => p.pde_id))
+        return updated
+      })
       setPontosDisp(prev => prev.filter(p => p.id !== pdeAdd))
       setPdeAdd('')
     }
@@ -463,7 +531,7 @@ function Manifesto({ manifesto, onVoltar, onDuplicado }: {
                 >
                   <SortableContext items={pontos.map(p => p.mp_id)} strategy={verticalListSortingStrategy}>
                     {pontos.map((p, i) => (
-                      <SortablePonto key={p.mp_id} item={p} index={i} onRemove={remover} />
+                      <SortablePonto key={p.mp_id} item={p} index={i} isDuplicado={duplicados.has(p.pde_id)} onRemove={remover} />
                     ))}
                   </SortableContext>
                 </DndContext>
@@ -507,11 +575,15 @@ function Manifesto({ manifesto, onVoltar, onDuplicado }: {
                   </tr>
                 </thead>
                 <tbody>
-                  {pontos.map((row, i) => (
-                    <tr key={row.mp_id} className={`border-b border-gray-50 last:border-0 ${i % 2 === 0 ? '' : 'bg-gray-50/40'}`}>
+                  {pontos.map((row, i) => {
+                    const dup = duplicados.has(row.pde_id)
+                    return (
+                    <tr key={row.mp_id} className={`border-b border-gray-50 last:border-0 ${dup ? 'bg-red-50' : i % 2 === 0 ? '' : 'bg-gray-50/40'}`}>
                       <td className="px-3 py-2 font-mono text-gray-400 text-center">{row.sequencia}</td>
                       <td className="px-3 py-2 font-mono text-gray-600">{row.codigo_prefeitura || '—'}</td>
-                      <td className="px-3 py-2 font-medium text-gray-900 max-w-[200px] truncate print:max-w-none print:whitespace-normal">{row.pde_nome}</td>
+                      <td className={`px-3 py-2 font-medium max-w-[200px] truncate print:max-w-none print:whitespace-normal ${dup ? 'text-red-700' : 'text-gray-900'}`}>
+                        {row.pde_nome}{dup && <span className="ml-1.5 text-[10px] font-normal text-red-400">(duplicado)</span>}
+                      </td>
                       <td className="px-3 py-2 text-gray-500 max-w-[200px] truncate print:max-w-none print:whitespace-normal">{row.endereco || '—'}</td>
                       {produtos.map(p => {
                         const q = row.qtdes[p]
@@ -527,7 +599,8 @@ function Manifesto({ manifesto, onVoltar, onDuplicado }: {
                         )
                       })}
                     </tr>
-                  ))}
+                  )
+                  })}
                   {pontos.length === 0 && (
                     <tr><td colSpan={4 + produtos.length} className="px-3 py-8 text-center text-gray-400">
                       Nenhuma parada neste manifesto.
