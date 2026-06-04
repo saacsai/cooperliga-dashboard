@@ -197,7 +197,7 @@ export default function UsuariosPage() {
         </div>
         <button
           onClick={abrirCriar}
-          className="text-white text-sm font-medium px-4 py-2 rounded-lg transition-opacity hover:opacity-90"
+          className="text-white text-xs font-medium px-3 py-1.5 rounded-lg transition-opacity hover:opacity-90"
           style={{ background: PRIMARY }}
         >
           + Novo usuário
@@ -385,11 +385,11 @@ export default function UsuariosPage() {
 
           <div className="flex gap-2 pt-2">
             <button type="button" onClick={() => setDrawer(false)}
-              className="flex-1 border border-gray-200 rounded-lg py-2 text-sm text-gray-600 hover:bg-gray-50">
+              className="flex-1 border border-gray-200 rounded-lg py-1.5 text-xs text-gray-600 hover:bg-gray-50">
               Cancelar
             </button>
             <button type="submit" disabled={salvando}
-              className="flex-1 text-white rounded-lg py-2 text-sm font-medium disabled:opacity-50"
+              className="flex-1 text-white rounded-lg py-1.5 text-xs font-medium disabled:opacity-50"
               style={{ background: PRIMARY }}>
               {salvando ? 'Salvando…' : modo === 'criar' ? 'Criar usuário' : 'Salvar'}
             </button>
