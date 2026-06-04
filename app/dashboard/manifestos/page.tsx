@@ -594,13 +594,19 @@ function Manifesto({ manifesto, onVoltar, onDuplicado }: {
                 </thead>
                 <tbody>
                   {pontos.map((row, i) => {
-                    const dup = duplicados.has(row.pde_id)
+                    const dup       = duplicados.has(row.pde_id)
+                    const semPedido = !Object.values(row.qtdes).some(q => q.inteira > 0 || q.fracionada > 0)
+                    const rowBg     = dup        ? 'bg-red-50'
+                                    : semPedido  ? 'bg-gradient-to-r from-amber-50 to-white print:hidden'
+                                    : i % 2 === 0 ? '' : 'bg-gray-50/40'
                     return (
-                    <tr key={row.mp_id} className={`border-b border-gray-50 last:border-0 ${dup ? 'bg-red-50' : i % 2 === 0 ? '' : 'bg-gray-50/40'}`}>
+                    <tr key={row.mp_id} className={`border-b border-gray-50 last:border-0 ${rowBg}`}>
                       <td className="px-3 py-2 font-mono text-gray-400 print:text-black text-center">{row.sequencia}</td>
                       <td className="px-3 py-2 font-mono text-gray-600">{row.codigo_prefeitura || '—'}</td>
                       <td className={`px-3 py-2 font-medium max-w-[200px] truncate print:max-w-none print:whitespace-normal ${dup ? 'text-red-700' : 'text-gray-900'}`}>
-                        {row.pde_nome}{dup && <span className="ml-1.5 text-[10px] font-normal text-red-400">(duplicado)</span>}
+                        {row.pde_nome}
+                        {dup       && <span className="ml-1.5 text-[10px] font-normal text-red-400">(duplicado)</span>}
+                        {semPedido && <span className="ml-1.5 text-[10px] font-normal text-amber-400">sem pedido</span>}
                       </td>
                       <td className="px-3 py-2 text-gray-500 max-w-[200px] truncate print:max-w-none print:whitespace-normal">{row.endereco || '—'}</td>
                       {produtos.map(p => {
