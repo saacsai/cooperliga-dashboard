@@ -142,4 +142,5 @@ export interface Agregado {
   cep: string | null
   ativo: boolean
   created_at: string
+  access_token: string | null
 }

@@ -71,6 +71,16 @@ export default function AgregadosPage() {
   const set = (f: keyof typeof VAZIO) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
     setForm(p => ({ ...p, [f]: e.target.value }))
 
+  const [linkCopiado, setLinkCopiado] = useState<string | null>(null)
+
+  function copiarLink(a: Agregado) {
+    if (!a.access_token) return
+    const url = `${window.location.origin}/portal/${a.access_token}`
+    navigator.clipboard.writeText(url)
+    setLinkCopiado(a.id)
+    setTimeout(() => setLinkCopiado(null), 2000)
+  }
+
   async function carregar() {
     const { data } = await getSupabase().from('agregados').select('*').order('nome')
     setAgregados(data || [])
@@ -269,6 +279,15 @@ export default function AgregadosPage() {
                   </td>
                   <td className="px-4 py-3 text-right">
                     <div className="flex items-center justify-end gap-3">
+                      {a.access_token && (
+                        <button
+                          onClick={() => copiarLink(a)}
+                          title="Copiar link do portal do agregado"
+                          className="text-xs text-gray-400 hover:text-gray-700"
+                        >
+                          {linkCopiado === a.id ? '✓ Copiado' : 'Portal'}
+                        </button>
+                      )}
                       <button onClick={() => abrirEditar(a)} className="text-xs font-medium hover:opacity-80" style={{ color: PRIMARY }}>Editar</button>
                       <button onClick={() => toggleAtivo(a)} className="text-xs text-gray-400 hover:text-gray-700">{a.ativo ? 'Desativar' : 'Ativar'}</button>
                       <button onClick={() => handleExcluir(a)} className="text-xs text-red-400 hover:text-red-600">Excluir</button>

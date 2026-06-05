@@ -31,6 +31,7 @@ type Pagamento = {
   valor_total: number
   status: Status
   nf_numero: string | null
+  nf_arquivo: string | null
   observacao: string | null
   data_pagamento: string | null
   agregados: { nome: string } | null
@@ -88,7 +89,20 @@ export default function FinanceiroPage() {
   const [expandidos, setExpandidos] = useState<Set<string>>(new Set())
   const [selecionados, setSelecionados] = useState<Set<string>>(new Set())
 
-  const [editandoNF, setEditandoNF] = useState<Record<string, string>>({})
+  const [editandoNF,  setEditandoNF]  = useState<Record<string, string>>({})
+  const [carregandoNF, setCarregandoNF] = useState<string | null>(null)
+
+  async function verNF(pagamentoId: string) {
+    setCarregandoNF(pagamentoId)
+    const { data: { session } } = await getSupabase().auth.getSession()
+    const token = session?.access_token
+    const res = await fetch(`/api/pagamentos/nf-url?pagamento_id=${pagamentoId}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+    const data = await res.json()
+    setCarregandoNF(null)
+    if (data.url) window.open(data.url, '_blank')
+  }
 
   async function carregar() {
     setLoading(true)
@@ -408,7 +422,27 @@ export default function FinanceiroPage() {
                       </td>
                       <td className="px-4 py-3 text-xs">
                         {p.nf_numero ? (
-                          <span className="font-mono text-gray-700">{p.nf_numero}</span>
+                          <div className="flex items-center gap-1.5">
+                            <span className="font-mono text-gray-700">{p.nf_numero}</span>
+                            {p.nf_arquivo && (
+                              <button
+                                onClick={() => verNF(p.id)}
+                                disabled={carregandoNF === p.id}
+                                title="Ver arquivo da NF"
+                                className="text-[10px] text-blue-500 hover:text-blue-700 disabled:opacity-50 underline underline-offset-2"
+                              >
+                                {carregandoNF === p.id ? '…' : 'ver'}
+                              </button>
+                            )}
+                          </div>
+                        ) : p.nf_arquivo ? (
+                          <button
+                            onClick={() => verNF(p.id)}
+                            disabled={carregandoNF === p.id}
+                            className="text-blue-500 hover:text-blue-700 disabled:opacity-50 underline underline-offset-2"
+                          >
+                            {carregandoNF === p.id ? '…' : 'Ver NF'}
+                          </button>
                         ) : p.status !== 'pago' ? (
                           editandoNF[p.id] !== undefined ? (
                             <div className="flex gap-1">
