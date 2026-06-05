@@ -43,17 +43,30 @@ export default function AgregadosPage() {
   const [buscandoCNPJ, setBuscandoCNPJ] = useState(false)
   const [buscandoCEP,  setBuscandoCEP]  = useState(false)
   const [busca,        setBusca]        = useState('')
+  const [filtroVeiculo, setFiltroVeiculo] = useState('')
+
+  const contagemVeiculo = useMemo(() => {
+    const map: Record<string, number> = {}
+    for (const a of agregados) {
+      const t = a.veiculo_tipo || 'sem_tipo'
+      map[t] = (map[t] ?? 0) + 1
+    }
+    return map
+  }, [agregados])
 
   const agregadosFiltrados = useMemo(() => {
-    if (!busca.trim()) return agregados
-    const q = busca.toLowerCase()
-    return agregados.filter(a =>
-      a.nome.toLowerCase().includes(q) ||
-      (a.veiculo_placa || '').toLowerCase().includes(q) ||
-      (a.whatsapp || '').includes(q) ||
-      (a.municipio || '').toLowerCase().includes(q)
-    )
-  }, [agregados, busca])
+    return agregados.filter(a => {
+      if (filtroVeiculo && (a.veiculo_tipo || '') !== filtroVeiculo) return false
+      if (!busca.trim()) return true
+      const q = busca.toLowerCase()
+      return (
+        a.nome.toLowerCase().includes(q) ||
+        (a.veiculo_placa || '').toLowerCase().includes(q) ||
+        (a.whatsapp || '').includes(q) ||
+        (a.municipio || '').toLowerCase().includes(q)
+      )
+    })
+  }, [agregados, busca, filtroVeiculo])
 
   const set = (f: keyof typeof VAZIO) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
     setForm(p => ({ ...p, [f]: e.target.value }))
@@ -202,10 +215,22 @@ export default function AgregadosPage() {
             placeholder="Buscar por nome, placa ou município…"
             className="w-full border border-gray-300 rounded-lg pl-8 pr-3 py-2 text-sm outline-none focus:border-[#5C0F0F]" />
         </div>
-        {busca && <button onClick={() => setBusca('')} className="text-xs text-gray-400 hover:text-gray-700">Limpar</button>}
+        <select value={filtroVeiculo} onChange={e => setFiltroVeiculo(e.target.value)}
+          className="border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#5C0F0F] bg-white">
+          <option value="">Todos os veículos</option>
+          {TIPOS_VEICULO.map(t => (
+            <option key={t} value={t}>
+              {TIPO_LABEL[t]} ({contagemVeiculo[t] ?? 0})
+            </option>
+          ))}
+        </select>
+        {(busca || filtroVeiculo) && (
+          <button onClick={() => { setBusca(''); setFiltroVeiculo('') }}
+            className="text-xs text-gray-400 hover:text-gray-700">Limpar</button>
+        )}
         {!loading && (
           <span className="text-xs text-gray-400 ml-auto">
-            {busca ? `${agregadosFiltrados.length} de ${agregados.length}` : `${agregados.length} agregados`}
+            {(busca || filtroVeiculo) ? `${agregadosFiltrados.length} de ${agregados.length}` : `${agregados.length} agregados`}
           </span>
         )}
       </div>
