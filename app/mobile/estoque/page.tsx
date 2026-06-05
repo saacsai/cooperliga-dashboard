@@ -10,7 +10,7 @@ const PRIMARY = '#5C0F0F'
 const HOJE = new Date().toISOString().split('T')[0]
 
 type Cliente = { id: string; nome: string }
-type Tela = 'hub' | 'manifesto' | 'receber' | 'ajuste' | 'extrato'
+type Tela = 'hub' | 'manifesto' | 'receber' | 'ajuste' | 'extrato' | 'venda' | 'retirada'
 type DistribuicaoExistente = {
   id: string; cliente_id: string; entrada: number; saida: number
   clientes: { nome: string } | null
@@ -84,6 +84,12 @@ function EstoqueInner() {
   const [salvandoRec, setSalvandoRec] = useState(false)
   const [erroRec,     setErroRec]     = useState('')
   const [sucessoRec,  setSucessoRec]  = useState(false)
+
+  // ── venda / retirada (saída simples sem manifesto) ────────────────────────
+  const [saidaForm,     setSaidaForm]     = useState({ cliente_id: '', quantidade: '', data: HOJE, observacao: '' })
+  const [salvandoSaida, setSalvandoSaida] = useState(false)
+  const [erroSaidaSimp, setErroSaidaSimp] = useState('')
+  const [sucessoSaida,  setSucessoSaida]  = useState(false)
 
   // ── ajuste ─────────────────────────────────────────────────────────────────
   const [ajForm,     setAjForm]     = useState({ cliente_id: '', quantidade: '', direcao: 'entrada' as 'entrada' | 'saida', data: HOJE, observacao: '' })
@@ -258,6 +264,31 @@ function EstoqueInner() {
     setSaldoGalpao(p => p !== null ? p + qty : null); setSucessoRec(true)
   }
 
+  // ── salvar venda / retirada ────────────────────────────────────────────────
+  async function handleSalvarSaidaSimples(tipo: 'venda' | 'retirada') {
+    setErroSaidaSimp('')
+    const qty = parseInt(saidaForm.quantidade) || 0
+    if (!saidaForm.cliente_id) { setErroSaidaSimp('Selecione o cliente.'); return }
+    if (qty <= 0) { setErroSaidaSimp('Quantidade deve ser maior que zero.'); return }
+    if (saidaForm.data > HOJE) { setErroSaidaSimp('Data não pode ser futura.'); return }
+    const { data: movs } = await getSupabase().from('estoque_movimentos').select('entrada, saida').eq('cliente_id', saidaForm.cliente_id)
+    const saldo = (movs || []).reduce((a: number, m: any) => a + m.entrada - m.saida, 0)
+    if (qty > saldo) {
+      const nome = clientes.find(c => c.id === saidaForm.cliente_id)?.nome ?? 'cliente'
+      setErroSaidaSimp(`Saldo insuficiente: ${nome} tem ${saldo} cx disponíveis.`); return
+    }
+    setSalvandoSaida(true)
+    const { data: { session } } = await getSupabase().auth.getSession()
+    const { error } = await getSupabase().from('estoque_movimentos').insert({
+      data: saidaForm.data, tipo, cliente_id: saidaForm.cliente_id,
+      entrada: 0, saida: qty, observacao: saidaForm.observacao || null,
+      created_by: session?.user.id || null,
+    })
+    setSalvandoSaida(false)
+    if (error) { setErroSaidaSimp(error.message); return }
+    setSaldoGalpao(p => p !== null ? p - qty : null); setSucessoSaida(true)
+  }
+
   // ── salvar ajuste ──────────────────────────────────────────────────────────
   async function handleSalvarAjuste() {
     setErroAj('')
@@ -430,6 +461,26 @@ function EstoqueInner() {
             <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
             <polyline points="14 2 14 8 20 8"/>
             <line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/>
+          </svg>
+        ),
+      },
+      {
+        id: 'venda', titulo: 'Venda', descricao: 'Registrar venda de caixas',
+        cor: 'bg-orange-50 text-orange-600', borda: 'border-orange-100',
+        icon: (
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/>
+            <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/>
+          </svg>
+        ),
+      },
+      {
+        id: 'retirada', titulo: 'Retirada', descricao: 'Cooperativa leva caixas vazias',
+        cor: 'bg-pink-50 text-pink-600', borda: 'border-pink-100',
+        icon: (
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+            <polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
           </svg>
         ),
       },
@@ -707,6 +758,71 @@ function EstoqueInner() {
               className="w-full py-4 rounded-xl text-white font-semibold text-sm disabled:opacity-50"
               style={{ background: '#16a34a' }}>
               {salvandoRec ? 'Salvando…' : 'Confirmar recebimento'}
+            </button>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // VENDA / RETIRADA
+  // ═══════════════════════════════════════════════════════════════════════════
+  if (tela === 'venda' || tela === 'retirada') {
+    const cfg = tela === 'venda'
+      ? { titulo: 'Venda', desc: 'Registre a saída de caixas por venda.', cor: '#ea580c', corSucesso: 'bg-orange-100 [&>svg]:stroke-orange-600', labelBtn: 'Confirmar venda' }
+      : { titulo: 'Retirada', desc: 'Cooperativa retira caixas vazias do galpão.', cor: '#db2777', corSucesso: 'bg-pink-100 [&>svg]:stroke-pink-600', labelBtn: 'Confirmar retirada' }
+    const nomeCliente = clientes.find(c => c.id === saidaForm.cliente_id)?.nome ?? ''
+    if (sucessoSaida) return (
+      <div className="flex flex-col min-h-screen">
+        <Header titulo={cfg.titulo} onBack={() => setTela('hub')} />
+        <Sucesso titulo={`${cfg.titulo} registrada!`} subtitulo={`${saidaForm.quantidade} cx — ${nomeCliente}`}
+          cor={cfg.corSucesso}
+          onNovo={() => { setSucessoSaida(false); setSaidaForm({ cliente_id: '', quantidade: '', data: HOJE, observacao: '' }) }}
+          labelNovo={`Nova ${tela}`}
+        />
+      </div>
+    )
+    return (
+      <div className="flex flex-col min-h-screen">
+        <Header titulo={cfg.titulo} onBack={() => { setTela('hub'); setErroSaidaSimp('') }} />
+        <div className="flex-1 px-4 py-6">
+          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5 space-y-4">
+            <p className="text-sm text-gray-500">{cfg.desc}</p>
+            <div>
+              <label className="text-xs font-medium text-gray-500 mb-1 block">Cliente *</label>
+              <select value={saidaForm.cliente_id} onChange={e => setSaidaForm(p => ({ ...p, cliente_id: e.target.value }))}
+                className="w-full border border-gray-200 rounded-xl px-3 py-3 text-sm outline-none focus:border-[#5C0F0F] bg-white">
+                <option value="">Selecione…</option>
+                {clientes.map(c => <option key={c.id} value={c.id}>{c.nome}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="text-xs font-medium text-gray-500 mb-1 block">Quantidade (cx) *</label>
+              <input type="number" min="1" value={saidaForm.quantidade} placeholder="0"
+                onChange={e => setSaidaForm(p => ({ ...p, quantidade: e.target.value }))}
+                className="w-full border border-gray-200 rounded-xl px-3 py-3 text-sm outline-none focus:border-[#5C0F0F]"
+              />
+            </div>
+            <div>
+              <label className="text-xs font-medium text-gray-500 mb-1 block">Data *</label>
+              <input type="date" value={saidaForm.data} max={HOJE}
+                onChange={e => setSaidaForm(p => ({ ...p, data: e.target.value }))}
+                className="w-full border border-gray-200 rounded-xl px-3 py-3 text-sm outline-none focus:border-[#5C0F0F]"
+              />
+            </div>
+            <div>
+              <label className="text-xs font-medium text-gray-500 mb-1 block">Observação</label>
+              <textarea value={saidaForm.observacao} rows={2} placeholder="Ex: vendido para unidade 12176…"
+                onChange={e => setSaidaForm(p => ({ ...p, observacao: e.target.value }))}
+                className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-[#5C0F0F] resize-none"
+              />
+            </div>
+            {erroSaidaSimp && <p className="text-xs text-red-500 bg-red-50 rounded-lg p-2">{erroSaidaSimp}</p>}
+            <button onClick={() => handleSalvarSaidaSimples(tela)} disabled={salvandoSaida}
+              className="w-full py-4 rounded-xl text-white font-semibold text-sm disabled:opacity-50"
+              style={{ background: cfg.cor }}>
+              {salvandoSaida ? 'Salvando…' : cfg.labelBtn}
             </button>
           </div>
         </div>
