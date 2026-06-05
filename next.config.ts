@@ -4,7 +4,7 @@ import withPWA from '@ducanh2912/next-pwa'
 const nextConfig: NextConfig = {
   async redirects() {
     return [
-      { source: '/', destination: '/dashboard', permanent: false },
+      { source: '/', destination: '/login', permanent: false },
     ]
   },
 }
