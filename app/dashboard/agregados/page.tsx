@@ -10,8 +10,8 @@ import type { Agregado } from '@/lib/supabase'
 
 const PRIMARY = '#5C0F0F'
 
-const TIPOS_VEICULO = ['truck', 'toco', 'van', 'outro']
-const TIPO_LABEL: Record<string, string> = { truck: 'Truck', toco: 'Toco', van: 'Van', outro: 'Outro' }
+const TIPOS_VEICULO = ['iveco', 'hr', 'fiorino', 'outro']
+const TIPO_LABEL: Record<string, string> = { iveco: 'Iveco', hr: 'HR', fiorino: 'Fiorino', outro: 'Outro' }
 
 const VAZIO = {
   nome: '', cpf_cnpj: '', chave_pix: '', whatsapp: '',
