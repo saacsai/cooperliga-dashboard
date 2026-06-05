@@ -18,7 +18,11 @@ export default function LoginPage() {
 
 function LoginInner() {
   const params = useSearchParams()
-  const next   = params.get('next') ?? '/dashboard'
+  const next = params.get('next') ?? (
+    typeof window !== 'undefined' && /mobile|android|iphone|ipad/i.test(navigator.userAgent)
+      ? '/mobile/estoque'
+      : '/dashboard'
+  )
 
   const [email, setEmail]       = useState('')
   const [senha, setSenha]       = useState('')
