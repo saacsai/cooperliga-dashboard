@@ -2,6 +2,7 @@
 
 import { Suspense, useEffect, useRef, useState, useMemo } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
+import Image from 'next/image'
 import { BrowserMultiFormatReader } from '@zxing/browser'
 import { getSupabase } from '@/lib/supabase'
 
@@ -335,8 +336,10 @@ function EstoqueInner() {
             </button>
           )}
           <div>
-            <p className="text-[10px] text-white/50 font-medium tracking-widest uppercase">CooperLiga</p>
-            <h1 className="text-lg font-bold text-white leading-tight">{titulo}</h1>
+            <Image src="/logo_fonte.jpg" alt="CooperLiga" width={130} height={24} className="object-contain" priority />
+            {titulo !== 'Estoque de Caixas' && (
+              <p className="text-xs text-white/70 mt-0.5">{titulo}</p>
+            )}
           </div>
         </div>
         <div className="flex items-center gap-3">
