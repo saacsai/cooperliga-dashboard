@@ -328,84 +328,22 @@ function EstoqueInner() {
     setSigVazia(true)
   }
 
-  // ── salvar recebimento com PDF ─────────────────────────────────────────────
+  // ── salvar recebimento ────────────────────────────────────────────────────
   async function handleSalvarRecebimento() {
     if (!hasDrawnRef.current) { setErroRec('Assine o documento antes de finalizar.'); return }
     setErroRec(''); setSalvandoRec(true)
 
     const qty = parseInt(recForm.quantidade) || 0
-    const nomeCliente = clientes.find(c => c.id === recForm.cliente_id)?.nome ?? ''
-    const dataFormatada = new Date(recForm.data + 'T12:00:00').toLocaleDateString('pt-BR')
-
-    // 1. Salvar movimento primeiro (não depende de PDF)
     const { data: { session } } = await getSupabase().auth.getSession()
     const { error } = await getSupabase().from('estoque_movimentos').insert({
       data: recForm.data, tipo: 'recebimento', cliente_id: recForm.cliente_id,
       entrada: qty, saida: 0, observacao: recForm.observacao || null,
       created_by: session?.user.id || null,
     })
-    if (error) { setSalvandoRec(false); setErroRec(error.message); return }
+    setSalvandoRec(false)
+    if (error) { setErroRec(error.message); return }
 
     setSaldoGalpao(p => p !== null ? p + qty : null)
-
-    // 2. Gerar PDF (todo dentro de try/catch — falha não cancela o save)
-    let pdfUrl: string | null = null
-    try {
-      const canvas = canvasRef.current
-      if (!canvas) throw new Error('canvas não montado')
-      const sigDataUrl = canvas.toDataURL('image/png')
-
-      const { PDFDocument, StandardFonts, rgb } = await import('pdf-lib')
-      const doc = await PDFDocument.create()
-      const page = doc.addPage([595, 842])
-      const font = await doc.embedFont(StandardFonts.Helvetica)
-      const bold = await doc.embedFont(StandardFonts.HelveticaBold)
-      const vinho = rgb(0.36, 0.06, 0.06)
-
-      page.drawRectangle({ x: 0, y: 792, width: 595, height: 50, color: vinho })
-      page.drawText('COOPERLIGA', { x: 40, y: 810, size: 18, font: bold, color: rgb(1,1,1) })
-      page.drawText('Romaneio de Entrada', { x: 40, y: 795, size: 9, font, color: rgb(1,1,0.8) })
-
-      page.drawText('COMPROVANTE DE RECEBIMENTO', { x: 40, y: 745, size: 13, font: bold, color: vinho })
-      page.drawLine({ start: { x: 40, y: 738 }, end: { x: 555, y: 738 }, thickness: 1, color: rgb(0.8,0.8,0.8) })
-
-      const linha = (label: string, valor: string, y: number) => {
-        page.drawText(label, { x: 40, y, size: 9, font, color: rgb(0.5,0.5,0.5) })
-        page.drawText(valor, { x: 40, y: y - 14, size: 12, font: bold, color: rgb(0.1,0.1,0.1) })
-      }
-      linha('DATA', dataFormatada, 715)
-      linha('CLIENTE / COOPERATIVA', nomeCliente, 680)
-      linha('QUANTIDADE RECEBIDA', `${qty} caixas`, 645)
-      if (recForm.observacao) linha('OBSERVAÇÕES', recForm.observacao, 610)
-
-      const sigY = recForm.observacao ? 520 : 560
-      page.drawLine({ start: { x: 40, y: sigY + 5 }, end: { x: 555, y: sigY + 5 }, thickness: 0.5, color: rgb(0.85,0.85,0.85) })
-      page.drawText('ASSINATURA DO RESPONSÁVEL PELO RECEBIMENTO', { x: 40, y: sigY - 10, size: 8, font, color: rgb(0.5,0.5,0.5) })
-
-      const b64 = sigDataUrl.split(',')[1]
-      const pngBytes = Uint8Array.from(atob(b64), c => c.charCodeAt(0))
-      const img = await doc.embedPng(pngBytes)
-      const { width: iw, height: ih } = img.scaleToFit(300, 100)
-      page.drawImage(img, { x: 40, y: sigY - 120, width: iw, height: ih })
-      page.drawLine({ start: { x: 40, y: sigY - 125 }, end: { x: 340, y: sigY - 125 }, thickness: 0.8, color: rgb(0.3,0.3,0.3) })
-
-      const geradoEm = new Date().toLocaleString('pt-BR')
-      page.drawText(`Documento gerado em ${geradoEm} — CooperLiga`, { x: 40, y: 30, size: 8, font, color: rgb(0.6,0.6,0.6) })
-
-      const pdfBytes = await doc.save()
-      const blob = new Blob([pdfBytes.buffer as ArrayBuffer], { type: 'application/pdf' })
-      const fileName = `romaneio_${recForm.cliente_id}_${Date.now()}.pdf`
-      const { data: upload } = await getSupabase().storage.from('romaneios').upload(fileName, blob, { contentType: 'application/pdf' })
-      if (upload) {
-        const { data: signed } = await getSupabase().storage.from('romaneios').createSignedUrl(fileName, 86400)
-        pdfUrl = signed?.signedUrl ?? null
-      }
-    } catch (err) {
-      console.error('[romaneio] PDF error:', err)
-    }
-
-    setSalvandoRec(false)
-    setRomaneioUrl(pdfUrl)
     setSucessoRec(true)
   }
 
@@ -872,18 +810,6 @@ function EstoqueInner() {
             <p className="text-lg font-bold text-gray-900">Recebimento registrado!</p>
             <p className="text-sm text-gray-500 mt-1">{qty} cx — {nomeCliente}</p>
           </div>
-          {romaneioUrl && (
-            <a href={romaneioUrl} target="_blank" rel="noreferrer"
-              className="w-full py-3 rounded-xl border-2 text-sm font-semibold flex items-center justify-center gap-2"
-              style={{ borderColor: '#16a34a', color: '#16a34a' }}>
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-                <polyline points="14 2 14 8 20 8"/>
-                <line x1="12" y1="18" x2="12" y2="12"/><line x1="9" y1="15" x2="15" y2="15"/>
-              </svg>
-              Baixar Romaneio (PDF)
-            </a>
-          )}
           <button onClick={voltarHub} className="w-full py-3 rounded-xl text-white font-semibold text-sm" style={{ background: PRIMARY }}>
             Voltar ao início
           </button>
