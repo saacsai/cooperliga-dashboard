@@ -89,7 +89,8 @@ function EstoqueInner() {
   const canvasRef   = useRef<HTMLCanvasElement>(null)
   const isDrawing   = useRef(false)
   const lastPos     = useRef<{ x: number; y: number } | null>(null)
-  const [sigVazia,  setSigVazia]      = useState(true)
+  const hasDrawnRef = useRef(false)          // ref síncrono — não depende de re-render
+  const [sigVazia,  setSigVazia]      = useState(true)  // só para exibir placeholder
 
   // ── venda / retirada (saída simples sem manifesto) ────────────────────────
   const [saidaForm,     setSaidaForm]     = useState({ cliente_id: '', quantidade: '', data: HOJE, observacao: '' })
@@ -262,54 +263,98 @@ function EstoqueInner() {
     setRecFase('assinar')
   }
 
-  // ── canvas drawing ─────────────────────────────────────────────────────────
-  function getCanvasPos(e: React.TouchEvent | React.MouseEvent) {
-    const rect = canvasRef.current!.getBoundingClientRect()
-    const dpr = window.devicePixelRatio || 1
-    if ('touches' in e.nativeEvent) {
-      const t = (e.nativeEvent as TouchEvent).touches[0]
-      return { x: (t.clientX - rect.left), y: (t.clientY - rect.top) }
+  // ── canvas drawing — listeners nativos (contornam delegação de eventos do React no mobile)
+  useEffect(() => {
+    if (recFase !== 'assinar') return
+    const canvas = canvasRef.current
+    if (!canvas) return
+
+    // Ajusta buffer do canvas ao tamanho real de exibição
+    const rect = canvas.getBoundingClientRect()
+    canvas.width  = rect.width
+    canvas.height = rect.height
+
+    function getPosNative(e: TouchEvent | MouseEvent) {
+      const r = canvas!.getBoundingClientRect()
+      if ('touches' in e) {
+        return { x: e.touches[0].clientX - r.left, y: e.touches[0].clientY - r.top }
+      }
+      return { x: (e as MouseEvent).clientX - r.left, y: (e as MouseEvent).clientY - r.top }
     }
-    const m = e.nativeEvent as MouseEvent
-    return { x: (m.clientX - rect.left), y: (m.clientY - rect.top) }
-  }
-  function onSigStart(e: React.TouchEvent | React.MouseEvent) {
-    e.preventDefault()
-    isDrawing.current = true; lastPos.current = getCanvasPos(e); setSigVazia(false)
-  }
-  function onSigMove(e: React.TouchEvent | React.MouseEvent) {
-    if (!isDrawing.current || !canvasRef.current) return
-    e.preventDefault()
-    const ctx = canvasRef.current.getContext('2d')!
-    const pos = getCanvasPos(e)
-    ctx.beginPath()
-    ctx.moveTo(lastPos.current!.x, lastPos.current!.y)
-    ctx.lineTo(pos.x, pos.y)
-    ctx.strokeStyle = '#111'; ctx.lineWidth = 2.5; ctx.lineCap = 'round'; ctx.stroke()
-    lastPos.current = pos
-  }
-  function onSigEnd() { isDrawing.current = false; lastPos.current = null }
+
+    function onStart(e: TouchEvent | MouseEvent) {
+      e.preventDefault()
+      isDrawing.current = true
+      lastPos.current = getPosNative(e)
+      hasDrawnRef.current = true
+      setSigVazia(false)
+    }
+    function onMove(e: TouchEvent | MouseEvent) {
+      if (!isDrawing.current) return
+      e.preventDefault()
+      const ctx = canvas!.getContext('2d')!
+      const pos = getPosNative(e)
+      ctx.beginPath()
+      ctx.moveTo(lastPos.current!.x, lastPos.current!.y)
+      ctx.lineTo(pos.x, pos.y)
+      ctx.strokeStyle = '#111'; ctx.lineWidth = 2.5; ctx.lineCap = 'round'; ctx.stroke()
+      lastPos.current = pos
+    }
+    function onEnd() { isDrawing.current = false; lastPos.current = null }
+
+    canvas.addEventListener('touchstart', onStart, { passive: false })
+    canvas.addEventListener('touchmove',  onMove,  { passive: false })
+    canvas.addEventListener('touchend',   onEnd)
+    canvas.addEventListener('mousedown',  onStart)
+    canvas.addEventListener('mousemove',  onMove)
+    canvas.addEventListener('mouseup',    onEnd)
+    canvas.addEventListener('mouseleave', onEnd)
+
+    return () => {
+      canvas.removeEventListener('touchstart', onStart)
+      canvas.removeEventListener('touchmove',  onMove)
+      canvas.removeEventListener('touchend',   onEnd)
+      canvas.removeEventListener('mousedown',  onStart)
+      canvas.removeEventListener('mousemove',  onMove)
+      canvas.removeEventListener('mouseup',    onEnd)
+      canvas.removeEventListener('mouseleave', onEnd)
+    }
+  }, [recFase])
+
   function limparAssinatura() {
     const canvas = canvasRef.current; if (!canvas) return
     canvas.getContext('2d')!.clearRect(0, 0, canvas.width, canvas.height)
+    hasDrawnRef.current = false
     setSigVazia(true)
   }
 
   // ── salvar recebimento com PDF ─────────────────────────────────────────────
   async function handleSalvarRecebimento() {
-    if (sigVazia) { setErroRec('Assine o documento antes de finalizar.'); return }
+    if (!hasDrawnRef.current) { setErroRec('Assine o documento antes de finalizar.'); return }
     setErroRec(''); setSalvandoRec(true)
+
     const qty = parseInt(recForm.quantidade) || 0
     const nomeCliente = clientes.find(c => c.id === recForm.cliente_id)?.nome ?? ''
     const dataFormatada = new Date(recForm.data + 'T12:00:00').toLocaleDateString('pt-BR')
 
-    // 1. Capturar assinatura como PNG
-    const canvas = canvasRef.current!
-    const sigDataUrl = canvas.toDataURL('image/png')
+    // 1. Salvar movimento primeiro (não depende de PDF)
+    const { data: { session } } = await getSupabase().auth.getSession()
+    const { error } = await getSupabase().from('estoque_movimentos').insert({
+      data: recForm.data, tipo: 'recebimento', cliente_id: recForm.cliente_id,
+      entrada: qty, saida: 0, observacao: recForm.observacao || null,
+      created_by: session?.user.id || null,
+    })
+    if (error) { setSalvandoRec(false); setErroRec(error.message); return }
 
-    // 2. Gerar PDF
+    setSaldoGalpao(p => p !== null ? p + qty : null)
+
+    // 2. Gerar PDF (todo dentro de try/catch — falha não cancela o save)
     let pdfUrl: string | null = null
     try {
+      const canvas = canvasRef.current
+      if (!canvas) throw new Error('canvas não montado')
+      const sigDataUrl = canvas.toDataURL('image/png')
+
       const { PDFDocument, StandardFonts, rgb } = await import('pdf-lib')
       const doc = await PDFDocument.create()
       const page = doc.addPage([595, 842])
@@ -317,12 +362,10 @@ function EstoqueInner() {
       const bold = await doc.embedFont(StandardFonts.HelveticaBold)
       const vinho = rgb(0.36, 0.06, 0.06)
 
-      // Cabeçalho
       page.drawRectangle({ x: 0, y: 792, width: 595, height: 50, color: vinho })
       page.drawText('COOPERLIGA', { x: 40, y: 810, size: 18, font: bold, color: rgb(1,1,1) })
       page.drawText('Romaneio de Entrada', { x: 40, y: 795, size: 9, font, color: rgb(1,1,0.8) })
 
-      // Dados
       page.drawText('COMPROVANTE DE RECEBIMENTO', { x: 40, y: 745, size: 13, font: bold, color: vinho })
       page.drawLine({ start: { x: 40, y: 738 }, end: { x: 555, y: 738 }, thickness: 1, color: rgb(0.8,0.8,0.8) })
 
@@ -333,11 +376,8 @@ function EstoqueInner() {
       linha('DATA', dataFormatada, 715)
       linha('CLIENTE / COOPERATIVA', nomeCliente, 680)
       linha('QUANTIDADE RECEBIDA', `${qty} caixas`, 645)
-      if (recForm.observacao) {
-        linha('OBSERVAÇÕES', recForm.observacao, 610)
-      }
+      if (recForm.observacao) linha('OBSERVAÇÕES', recForm.observacao, 610)
 
-      // Área de assinatura
       const sigY = recForm.observacao ? 520 : 560
       page.drawLine({ start: { x: 40, y: sigY + 5 }, end: { x: 555, y: sigY + 5 }, thickness: 0.5, color: rgb(0.85,0.85,0.85) })
       page.drawText('ASSINATURA DO RESPONSÁVEL PELO RECEBIMENTO', { x: 40, y: sigY - 10, size: 8, font, color: rgb(0.5,0.5,0.5) })
@@ -349,7 +389,6 @@ function EstoqueInner() {
       page.drawImage(img, { x: 40, y: sigY - 120, width: iw, height: ih })
       page.drawLine({ start: { x: 40, y: sigY - 125 }, end: { x: 340, y: sigY - 125 }, thickness: 0.8, color: rgb(0.3,0.3,0.3) })
 
-      // Rodapé
       const geradoEm = new Date().toLocaleString('pt-BR')
       page.drawText(`Documento gerado em ${geradoEm} — CooperLiga`, { x: 40, y: 30, size: 8, font, color: rgb(0.6,0.6,0.6) })
 
@@ -362,28 +401,10 @@ function EstoqueInner() {
         pdfUrl = signed?.signedUrl ?? null
       }
     } catch (err) {
-      console.error('PDF error:', err)
+      console.error('[romaneio] PDF error:', err)
     }
 
-    // 3. Salvar movimento (sem assinatura_url — coluna opcional, adicionada por migration)
-    const { data: { session } } = await getSupabase().auth.getSession()
-    const { data: inserted, error } = await getSupabase().from('estoque_movimentos').insert({
-      data: recForm.data, tipo: 'recebimento', cliente_id: recForm.cliente_id,
-      entrada: qty, saida: 0, observacao: recForm.observacao || null,
-      created_by: session?.user.id || null,
-    }).select('id').single()
     setSalvandoRec(false)
-    if (error) { setErroRec(error.message); return }
-
-    // 4. Tentar persistir URL (silencioso — depende da migration)
-    if (pdfUrl && inserted?.id) {
-      await getSupabase().from('estoque_movimentos')
-        .update({ assinatura_url: pdfUrl } as Record<string, unknown>)
-        .eq('id', inserted.id)
-        .then(() => {}) // ignora erro se coluna não existe
-    }
-
-    setSaldoGalpao(p => p !== null ? p + qty : null)
     setRomaneioUrl(pdfUrl)
     setSucessoRec(true)
   }
@@ -455,7 +476,7 @@ function EstoqueInner() {
     setLinhas([{ cliente_id: '', nome: '', quantidade: 0 }])
     setRecFase('form'); setRomaneioUrl(null); setErroRec('')
     setRecForm({ cliente_id: '', quantidade: '', data: HOJE, observacao: '' })
-    setSigVazia(true)
+    hasDrawnRef.current = false; setSigVazia(true)
   }
 
   const totalLinhas  = linhas.reduce((a, l) => a + (l.quantidade || 0), 0)
@@ -900,11 +921,8 @@ function EstoqueInner() {
               style={{ height: 160 }}>
               <canvas
                 ref={canvasRef}
-                width={600} height={160}
                 className="w-full h-full touch-none"
-                style={{ cursor: 'crosshair' }}
-                onMouseDown={onSigStart} onMouseMove={onSigMove} onMouseUp={onSigEnd} onMouseLeave={onSigEnd}
-                onTouchStart={onSigStart} onTouchMove={onSigMove} onTouchEnd={onSigEnd}
+                style={{ cursor: 'crosshair', display: 'block' }}
               />
               {sigVazia && (
                 <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
