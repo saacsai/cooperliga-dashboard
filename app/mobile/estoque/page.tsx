@@ -81,9 +81,15 @@ function EstoqueInner() {
 
   // ── recebimento ────────────────────────────────────────────────────────────
   const [recForm,     setRecForm]     = useState({ cliente_id: '', quantidade: '', data: HOJE, observacao: '' })
+  const [recFase,     setRecFase]     = useState<'form' | 'assinar'>('form')
   const [salvandoRec, setSalvandoRec] = useState(false)
   const [erroRec,     setErroRec]     = useState('')
   const [sucessoRec,  setSucessoRec]  = useState(false)
+  const [romaneioUrl, setRomaneioUrl] = useState<string | null>(null)
+  const canvasRef   = useRef<HTMLCanvasElement>(null)
+  const isDrawing   = useRef(false)
+  const lastPos     = useRef<{ x: number; y: number } | null>(null)
+  const [sigVazia,  setSigVazia]      = useState(true)
 
   // ── venda / retirada (saída simples sem manifesto) ────────────────────────
   const [saidaForm,     setSaidaForm]     = useState({ cliente_id: '', quantidade: '', data: HOJE, observacao: '' })
@@ -245,23 +251,133 @@ function EstoqueInner() {
     setSucessoRet(true)
   }
 
-  // ── salvar recebimento ─────────────────────────────────────────────────────
-  async function handleSalvarRecebimento() {
+  // ── recebimento: validar form → ir para assinatura ────────────────────────
+  function handleAvancarParaAssinatura() {
     setErroRec('')
     const qty = parseInt(recForm.quantidade) || 0
     if (!recForm.cliente_id) { setErroRec('Selecione o cliente.'); return }
     if (qty <= 0) { setErroRec('Quantidade deve ser maior que zero.'); return }
     if (recForm.data > HOJE) { setErroRec('Data não pode ser futura.'); return }
-    setSalvandoRec(true)
+    setSigVazia(true)
+    setRecFase('assinar')
+  }
+
+  // ── canvas drawing ─────────────────────────────────────────────────────────
+  function getCanvasPos(e: React.TouchEvent | React.MouseEvent) {
+    const rect = canvasRef.current!.getBoundingClientRect()
+    const dpr = window.devicePixelRatio || 1
+    if ('touches' in e.nativeEvent) {
+      const t = (e.nativeEvent as TouchEvent).touches[0]
+      return { x: (t.clientX - rect.left), y: (t.clientY - rect.top) }
+    }
+    const m = e.nativeEvent as MouseEvent
+    return { x: (m.clientX - rect.left), y: (m.clientY - rect.top) }
+  }
+  function onSigStart(e: React.TouchEvent | React.MouseEvent) {
+    e.preventDefault()
+    isDrawing.current = true; lastPos.current = getCanvasPos(e); setSigVazia(false)
+  }
+  function onSigMove(e: React.TouchEvent | React.MouseEvent) {
+    if (!isDrawing.current || !canvasRef.current) return
+    e.preventDefault()
+    const ctx = canvasRef.current.getContext('2d')!
+    const pos = getCanvasPos(e)
+    ctx.beginPath()
+    ctx.moveTo(lastPos.current!.x, lastPos.current!.y)
+    ctx.lineTo(pos.x, pos.y)
+    ctx.strokeStyle = '#111'; ctx.lineWidth = 2.5; ctx.lineCap = 'round'; ctx.stroke()
+    lastPos.current = pos
+  }
+  function onSigEnd() { isDrawing.current = false; lastPos.current = null }
+  function limparAssinatura() {
+    const canvas = canvasRef.current; if (!canvas) return
+    canvas.getContext('2d')!.clearRect(0, 0, canvas.width, canvas.height)
+    setSigVazia(true)
+  }
+
+  // ── salvar recebimento com PDF ─────────────────────────────────────────────
+  async function handleSalvarRecebimento() {
+    if (sigVazia) { setErroRec('Assine o documento antes de finalizar.'); return }
+    setErroRec(''); setSalvandoRec(true)
+    const qty = parseInt(recForm.quantidade) || 0
+    const nomeCliente = clientes.find(c => c.id === recForm.cliente_id)?.nome ?? ''
+    const dataFormatada = new Date(recForm.data + 'T12:00:00').toLocaleDateString('pt-BR')
+
+    // 1. Capturar assinatura como PNG
+    const canvas = canvasRef.current!
+    const sigDataUrl = canvas.toDataURL('image/png')
+
+    // 2. Gerar PDF
+    let pdfUrl: string | null = null
+    try {
+      const { PDFDocument, StandardFonts, rgb } = await import('pdf-lib')
+      const doc = await PDFDocument.create()
+      const page = doc.addPage([595, 842])
+      const font = await doc.embedFont(StandardFonts.Helvetica)
+      const bold = await doc.embedFont(StandardFonts.HelveticaBold)
+      const vinho = rgb(0.36, 0.06, 0.06)
+
+      // Cabeçalho
+      page.drawRectangle({ x: 0, y: 792, width: 595, height: 50, color: vinho })
+      page.drawText('COOPERLIGA', { x: 40, y: 810, size: 18, font: bold, color: rgb(1,1,1) })
+      page.drawText('Romaneio de Entrada', { x: 40, y: 795, size: 9, font, color: rgb(1,1,0.8) })
+
+      // Dados
+      page.drawText('COMPROVANTE DE RECEBIMENTO', { x: 40, y: 745, size: 13, font: bold, color: vinho })
+      page.drawLine({ start: { x: 40, y: 738 }, end: { x: 555, y: 738 }, thickness: 1, color: rgb(0.8,0.8,0.8) })
+
+      const linha = (label: string, valor: string, y: number) => {
+        page.drawText(label, { x: 40, y, size: 9, font, color: rgb(0.5,0.5,0.5) })
+        page.drawText(valor, { x: 40, y: y - 14, size: 12, font: bold, color: rgb(0.1,0.1,0.1) })
+      }
+      linha('DATA', dataFormatada, 715)
+      linha('CLIENTE / COOPERATIVA', nomeCliente, 680)
+      linha('QUANTIDADE RECEBIDA', `${qty} caixas`, 645)
+      if (recForm.observacao) {
+        linha('OBSERVAÇÕES', recForm.observacao, 610)
+      }
+
+      // Área de assinatura
+      const sigY = recForm.observacao ? 520 : 560
+      page.drawLine({ start: { x: 40, y: sigY + 5 }, end: { x: 555, y: sigY + 5 }, thickness: 0.5, color: rgb(0.85,0.85,0.85) })
+      page.drawText('ASSINATURA DO RESPONSÁVEL PELO RECEBIMENTO', { x: 40, y: sigY - 10, size: 8, font, color: rgb(0.5,0.5,0.5) })
+
+      const b64 = sigDataUrl.split(',')[1]
+      const pngBytes = Uint8Array.from(atob(b64), c => c.charCodeAt(0))
+      const img = await doc.embedPng(pngBytes)
+      const { width: iw, height: ih } = img.scaleToFit(300, 100)
+      page.drawImage(img, { x: 40, y: sigY - 120, width: iw, height: ih })
+      page.drawLine({ start: { x: 40, y: sigY - 125 }, end: { x: 340, y: sigY - 125 }, thickness: 0.8, color: rgb(0.3,0.3,0.3) })
+
+      // Rodapé
+      const geradoEm = new Date().toLocaleString('pt-BR')
+      page.drawText(`Documento gerado em ${geradoEm} — CooperLiga`, { x: 40, y: 30, size: 8, font, color: rgb(0.6,0.6,0.6) })
+
+      const pdfBytes = await doc.save()
+      const blob = new Blob([pdfBytes.buffer as ArrayBuffer], { type: 'application/pdf' })
+      const fileName = `romaneio_${recForm.cliente_id}_${Date.now()}.pdf`
+      const { data: upload } = await getSupabase().storage.from('romaneios').upload(fileName, blob, { contentType: 'application/pdf' })
+      if (upload) {
+        const { data: signed } = await getSupabase().storage.from('romaneios').createSignedUrl(fileName, 86400)
+        pdfUrl = signed?.signedUrl ?? null
+      }
+    } catch (err) {
+      console.error('PDF error:', err)
+    }
+
+    // 3. Salvar movimento
     const { data: { session } } = await getSupabase().auth.getSession()
     const { error } = await getSupabase().from('estoque_movimentos').insert({
       data: recForm.data, tipo: 'recebimento', cliente_id: recForm.cliente_id,
       entrada: qty, saida: 0, observacao: recForm.observacao || null,
+      assinatura_url: pdfUrl,
       created_by: session?.user.id || null,
     })
     setSalvandoRec(false)
     if (error) { setErroRec(error.message); return }
-    setSaldoGalpao(p => p !== null ? p + qty : null); setSucessoRec(true)
+    setSaldoGalpao(p => p !== null ? p + qty : null)
+    setRomaneioUrl(pdfUrl)
+    setSucessoRec(true)
   }
 
   // ── salvar venda / retirada ────────────────────────────────────────────────
@@ -329,6 +445,7 @@ function EstoqueInner() {
     setFase(null); setManifesto(null); setManifestoTexto(''); setErroManif('')
     setErroSaida(''); setErroRetorno(''); setSucesso(false); setSucessoRet(false)
     setLinhas([{ cliente_id: '', nome: '', quantidade: 0 }])
+    setRecFase('form'); setRomaneioUrl(null)
   }
 
   const totalLinhas  = linhas.reduce((a, l) => a + (l.quantidade || 0), 0)
@@ -708,16 +825,100 @@ function EstoqueInner() {
   // ═══════════════════════════════════════════════════════════════════════════
   if (tela === 'receber') {
     const nomeCliente = clientes.find(c => c.id === recForm.cliente_id)?.nome ?? ''
+    const qty = parseInt(recForm.quantidade) || 0
+
+    // Sucesso
     if (sucessoRec) return (
       <div className="flex flex-col min-h-screen">
-        <Header titulo="Recebimento" onBack={() => setTela('hub')} />
-        <Sucesso titulo="Recebimento registrado!" subtitulo={`${recForm.quantidade} cx — ${nomeCliente}`}
-          cor="bg-green-100 [&>svg]:stroke-green-600"
-          onNovo={() => { setSucessoRec(false); setRecForm({ cliente_id: '', quantidade: '', data: HOJE, observacao: '' }) }}
-          labelNovo="Novo recebimento"
-        />
+        <Header titulo="Recebimento" onBack={voltarHub} />
+        <div className="flex flex-col items-center justify-center flex-1 px-6 text-center gap-6">
+          <div className="w-16 h-16 rounded-full flex items-center justify-center bg-green-100">
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#16a34a" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="20 6 9 17 4 12"/>
+            </svg>
+          </div>
+          <div>
+            <p className="text-lg font-bold text-gray-900">Recebimento registrado!</p>
+            <p className="text-sm text-gray-500 mt-1">{qty} cx — {nomeCliente}</p>
+          </div>
+          {romaneioUrl && (
+            <a href={romaneioUrl} target="_blank" rel="noreferrer"
+              className="w-full py-3 rounded-xl border-2 text-sm font-semibold flex items-center justify-center gap-2"
+              style={{ borderColor: '#16a34a', color: '#16a34a' }}>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                <polyline points="14 2 14 8 20 8"/>
+                <line x1="12" y1="18" x2="12" y2="12"/><line x1="9" y1="15" x2="15" y2="15"/>
+              </svg>
+              Baixar Romaneio (PDF)
+            </a>
+          )}
+          <button onClick={voltarHub} className="w-full py-3 rounded-xl text-white font-semibold text-sm" style={{ background: PRIMARY }}>
+            Voltar ao início
+          </button>
+          <button
+            onClick={() => { setSucessoRec(false); setRecFase('form'); setRomaneioUrl(null); setRecForm({ cliente_id: '', quantidade: '', data: HOJE, observacao: '' }) }}
+            className="text-sm text-gray-400">
+            Novo recebimento
+          </button>
+        </div>
       </div>
     )
+
+    // Fase: assinatura
+    if (recFase === 'assinar') return (
+      <div className="flex flex-col min-h-screen">
+        <Header titulo="Recebimento" onBack={() => { setRecFase('form'); setErroRec('') }} />
+        <div className="flex-1 px-4 py-6 flex flex-col gap-4">
+          {/* Resumo */}
+          <div className="bg-green-50 rounded-2xl p-4 border border-green-100">
+            <p className="text-xs text-green-700 font-medium uppercase tracking-wide">Confirmar recebimento</p>
+            <p className="text-base font-bold text-gray-900 mt-1">{nomeCliente}</p>
+            <p className="text-sm text-gray-600">{qty} caixas · {new Date(recForm.data + 'T12:00:00').toLocaleDateString('pt-BR')}</p>
+            {recForm.observacao && <p className="text-xs text-gray-500 mt-1 italic">{recForm.observacao}</p>}
+          </div>
+
+          {/* Canvas de assinatura */}
+          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 flex flex-col gap-3">
+            <div className="flex items-center justify-between">
+              <p className="text-sm font-semibold text-gray-700">Assinatura do responsável</p>
+              <button onClick={limparAssinatura} className="text-xs text-gray-400 hover:text-gray-700 border border-gray-200 rounded-lg px-2.5 py-1">
+                Limpar
+              </button>
+            </div>
+            <div className="border-2 border-dashed border-gray-200 rounded-xl overflow-hidden bg-gray-50 relative"
+              style={{ height: 160 }}>
+              <canvas
+                ref={canvasRef}
+                width={600} height={160}
+                className="w-full h-full touch-none"
+                style={{ cursor: 'crosshair' }}
+                onMouseDown={onSigStart} onMouseMove={onSigMove} onMouseUp={onSigEnd} onMouseLeave={onSigEnd}
+                onTouchStart={onSigStart} onTouchMove={onSigMove} onTouchEnd={onSigEnd}
+              />
+              {sigVazia && (
+                <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                  <p className="text-sm text-gray-300 select-none">Assine aqui com o dedo</p>
+                </div>
+              )}
+            </div>
+            <p className="text-[10px] text-gray-400 text-center">
+              Ao assinar, o responsável confirma o recebimento das caixas acima.
+            </p>
+          </div>
+
+          {erroRec && <p className="text-xs text-red-500 bg-red-50 rounded-lg p-2">{erroRec}</p>}
+
+          <button onClick={handleSalvarRecebimento} disabled={salvandoRec}
+            className="w-full py-4 rounded-xl text-white font-semibold text-sm disabled:opacity-50 mt-auto"
+            style={{ background: '#16a34a' }}>
+            {salvandoRec ? 'Gerando romaneio…' : 'Finalizar e gerar romaneio'}
+          </button>
+        </div>
+      </div>
+    )
+
+    // Fase: formulário
     return (
       <div className="flex flex-col min-h-screen">
         <Header titulo="Recebimento" onBack={() => { setTela('hub'); setErroRec('') }} />
@@ -754,10 +955,10 @@ function EstoqueInner() {
               />
             </div>
             {erroRec && <p className="text-xs text-red-500 bg-red-50 rounded-lg p-2">{erroRec}</p>}
-            <button onClick={handleSalvarRecebimento} disabled={salvandoRec}
-              className="w-full py-4 rounded-xl text-white font-semibold text-sm disabled:opacity-50"
+            <button onClick={handleAvancarParaAssinatura}
+              className="w-full py-4 rounded-xl text-white font-semibold text-sm"
               style={{ background: '#16a34a' }}>
-              {salvandoRec ? 'Salvando…' : 'Confirmar recebimento'}
+              Avançar para assinatura →
             </button>
           </div>
         </div>
