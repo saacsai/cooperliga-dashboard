@@ -365,16 +365,24 @@ function EstoqueInner() {
       console.error('PDF error:', err)
     }
 
-    // 3. Salvar movimento
+    // 3. Salvar movimento (sem assinatura_url — coluna opcional, adicionada por migration)
     const { data: { session } } = await getSupabase().auth.getSession()
-    const { error } = await getSupabase().from('estoque_movimentos').insert({
+    const { data: inserted, error } = await getSupabase().from('estoque_movimentos').insert({
       data: recForm.data, tipo: 'recebimento', cliente_id: recForm.cliente_id,
       entrada: qty, saida: 0, observacao: recForm.observacao || null,
-      assinatura_url: pdfUrl,
       created_by: session?.user.id || null,
-    })
+    }).select('id').single()
     setSalvandoRec(false)
     if (error) { setErroRec(error.message); return }
+
+    // 4. Tentar persistir URL (silencioso — depende da migration)
+    if (pdfUrl && inserted?.id) {
+      await getSupabase().from('estoque_movimentos')
+        .update({ assinatura_url: pdfUrl } as Record<string, unknown>)
+        .eq('id', inserted.id)
+        .then(() => {}) // ignora erro se coluna não existe
+    }
+
     setSaldoGalpao(p => p !== null ? p + qty : null)
     setRomaneioUrl(pdfUrl)
     setSucessoRec(true)
@@ -445,7 +453,9 @@ function EstoqueInner() {
     setFase(null); setManifesto(null); setManifestoTexto(''); setErroManif('')
     setErroSaida(''); setErroRetorno(''); setSucesso(false); setSucessoRet(false)
     setLinhas([{ cliente_id: '', nome: '', quantidade: 0 }])
-    setRecFase('form'); setRomaneioUrl(null)
+    setRecFase('form'); setRomaneioUrl(null); setErroRec('')
+    setRecForm({ cliente_id: '', quantidade: '', data: HOJE, observacao: '' })
+    setSigVazia(true)
   }
 
   const totalLinhas  = linhas.reduce((a, l) => a + (l.quantidade || 0), 0)
@@ -921,7 +931,7 @@ function EstoqueInner() {
     // Fase: formulário
     return (
       <div className="flex flex-col min-h-screen">
-        <Header titulo="Recebimento" onBack={() => { setTela('hub'); setErroRec('') }} />
+        <Header titulo="Recebimento" onBack={voltarHub} />
         <div className="flex-1 px-4 py-6">
           <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5 space-y-4">
             <p className="text-sm text-gray-500">Registre a entrada de caixas no galpão.</p>
