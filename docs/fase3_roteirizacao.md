@@ -1,202 +1,183 @@
 # Fase 3 — Roteirização Inteligente
 
-**Decisão:** 2026-07-29  
-**Status:** Arquitetura definida, aguardando planilhas XLS para mapear schema de extração
+**Implementado:** 2026-07-29  
+**Status:** ✅ Em produção
 
 ---
 
-## Contexto — Por que mudar o início do fluxo
+## Por que mudar o início do fluxo
 
-### Problema atual
-O fluxo atual exige que a rota exista ANTES do upload das GRs:
+O fluxo antigo exigia que a rota existisse ANTES das GRs:
 ```
 GR + folha de rosto → alinhamento manual → rota cadastrada → manifesto
 ```
-Na prática, a Cooperliga não consegue definir "rotas principais" estáveis porque as rotas mudam a cada operação conforme as GRs recebidas. Isso travou a alimentação do sistema.
+Na prática a Cooperliga não consegue definir "rotas principais" estáveis — elas mudam a cada operação. Isso travava a alimentação do sistema.
 
-### Solução
-Inverter o fluxo: as rotas nascem do alinhamento, não precisam existir antes:
+**Solução:** inverter o fluxo. As rotas nascem das GRs:
 ```
-XLS das GRs por região → staging → 3 perguntas → sugestão de rotas → ajuste humano → manifesto
+Upload das GRs → extração automática → 3 parâmetros → sugestão k-means → ajuste humano → sessão confirmada
 ```
 
 ---
 
-## Fontes de dados confirmadas
+## Fontes de dados
 
-| Origem | Formato | Chave de identificação |
-|--------|---------|----------------------|
-| Estado SP (SEE-SP) | XLS por Diretoria | codigo_estado (CEI) |
-| Municipal (Prefeitura) | XLS por Solicitação | codigo_prefeitura (CODIGO_UNIDADE) |
+| Origem | Formato de upload | Chave de match |
+|--------|------------------|----------------|
+| Estado SP (SEE-SP) | ZIP com PDFs das GRs por Diretoria | `codigo_estado` = CIE extraído do PDF |
+| Prefeitura SP | XLSX de solicitação | `codigo_prefeitura` = CODIGO DA UNIDADE |
 
-**Importante:** ambas as fontes têm planilha XLS — sem necessidade de OCR ou leitura de PDF para extração de dados estruturados. Confiabilidade ~100%.
+**Estado:** o CIE (código único da escola) só aparece no PDF, não no CSV exportado. O worker extrai via regex do texto do PDF.
 
-### Schema das planilhas (A MAPEAR)
-Aguardando XLS de amostra de cada tipo para documentar colunas exatas.
-- [ ] XLS Estado (Diretoria) — colunas a mapear
-- [ ] XLS Municipal — colunas a mapear (CODIGO_UNIDADE e Nº_GUIA_REMESSA confirmados)
+**Prefeitura:** o XLSX já traz endereço completo para 100% das unidades — geocodificação pode acontecer imediatamente.
 
 ---
 
-## Arquitetura técnica
+## Endpoints do worker (FastAPI — guias.cooperliga.saacs.com.br)
 
-### Novas tabelas no Supabase
-
-```sql
--- Sessão de roteirização (uma por operação/ciclo por região)
-CREATE TABLE roteirizacao_sessoes (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  contrato_id uuid REFERENCES contratos(id),
-  regiao text NOT NULL,           -- diretoria ou subprefeitura
-  tipo_gr text NOT NULL,          -- 'estado' | 'municipal'
-  num_produtos int NOT NULL,      -- parâmetro 1: multiplicador de tempo
-  carga_dobrada boolean DEFAULT false, -- parâmetro 2: volume × 2
-  max_entregas int NOT NULL,      -- parâmetro 3: teto empírico por motorista
-  status text DEFAULT 'rascunho', -- 'rascunho' | 'confirmado'
-  data_ciclo text,                -- ex: '0506'
-  created_by uuid REFERENCES usuarios(id),
-  created_at timestamptz DEFAULT now()
-);
-
--- Rotas sugeridas pelo sistema dentro de uma sessão
-CREATE TABLE roteirizacao_rotas (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  sessao_id uuid REFERENCES roteirizacao_sessoes(id) ON DELETE CASCADE,
-  ordem int NOT NULL,
-  veiculo_tipo text,              -- 'iveco' | 'hr' | 'fiorino' (sugerido, ajustável)
-  agregado_id uuid REFERENCES agregados(id),
-  created_at timestamptz DEFAULT now()
-);
-
--- Pontos de entrega atribuídos a cada rota sugerida
-CREATE TABLE roteirizacao_pontos (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  rota_id uuid REFERENCES roteirizacao_rotas(id) ON DELETE CASCADE,
-  ponto_id uuid REFERENCES pontos_de_entrega(id),
-  ordem int NOT NULL,             -- sequência dentro da rota
-  qtde_caixas int,                -- total de caixas nesse ponto nessa operação
-  gr_numeros text[],              -- GRs que geraram esse ponto
-  created_at timestamptz DEFAULT now()
-);
-
--- Geocoordenadas em pontos_de_entrega (migration separada)
-ALTER TABLE pontos_de_entrega ADD COLUMN IF NOT EXISTS lat float;
-ALTER TABLE pontos_de_entrega ADD COLUMN IF NOT EXISTS lng float;
-ALTER TABLE pontos_de_entrega ADD COLUMN IF NOT EXISTS geo_status text
-  DEFAULT 'pendente'; -- 'pendente' | 'ok' | 'sem_endereco' | 'nao_encontrado'
-```
-
-### Algoritmo de sugestão (worker FastAPI — nova rota /roteirizar)
-
-```python
-# Entrada
+### `POST /extrair-prefeitura`
+Recebe: XLSX de solicitação da Prefeitura  
+Retorna:
+```json
 {
-  "pontos": [{"ponto_id": "...", "lat": -23.5, "lng": -46.6, "qtde_caixas": 2}],
-  "num_produtos": 2,
-  "carga_dobrada": false,
-  "max_entregas": 25
-}
-
-# Lógica
-fator_tempo = 1.0 + (num_produtos - 1) * 0.25
-entregas_efetivas = floor(max_entregas / fator_tempo)
-volume_por_ponto  = qtde_caixas * (2 if carga_dobrada else 1)
-N_rotas = ceil(total_pontos / entregas_efetivas)
-
-# K-means geográfico sobre lat/lng → N clusters
-# Para cada cluster: soma volume → define veículo
-#   ≤ 50 cx → Fiorino | ≤ 100 cx → HR | > 100 cx → Iveco
-
-# Saída
-{
-  "rotas": [
+  "numero_solicitacao": "34061",
+  "data_entrega": "25/03/2026",
+  "cooperativa": "AAGFAM",
+  "alimento": "BANANA NANICA UN",
+  "total_pontos": 297,
+  "pontos": [
     {
-      "ordem": 1,
-      "veiculo_sugerido": "hr",
-      "total_entregas": 23,
-      "total_caixas": 48,
-      "pontos": [{"ponto_id": "...", "nome": "CEI ...", "ordem": 1}]
+      "codigo_prefeitura": "7842",
+      "nome": "CEI PARC. VICENTE MATHEUS",
+      "endereco": "R. CTE. CARLOS RUHL Nº 177",
+      "gr_numero": 79124,
+      "qtde_inteira": 1,
+      "qtde_fracionada": 5
     }
   ]
 }
 ```
 
-### Matching XLS → pontos_de_entrega
-
+### `POST /extrair-estado`
+Recebe: ZIP com PDFs das GRs do Estado  
+Retorna:
+```json
+{
+  "total_pontos": 45,
+  "avisos": [],
+  "pontos": [
+    {
+      "gr_numero": "4324946",
+      "cie": "438054",
+      "diretoria": "SUL 2",
+      "nome_escola": "AGENOR DE MIRANDA ARAUJO NETO - CAZUZA",
+      "municipio": "SAO PAULO",
+      "endereco": "ARNALDO DANIEL Nº:S/N RUA JARDIM GUARUJA",
+      "cep": "05877150",
+      "produto": "TANGERINA PONKAN AF",
+      "unidade": "UNIDADE",
+      "quantidade": 1000.0
+    }
+  ]
+}
 ```
-XLS traz codigo_cei
-  ↓
-  Busca pontos_de_entrega WHERE codigo_estado = codigo_cei
-  ↓
-  Encontrou → usa ponto existente + atualiza qtde desta operação
-  Não encontrou → INSERT novo ponto com nome + endereço + município da planilha
-                  (resolve enriquecimento da base automaticamente)
+
+### `POST /roteirizar`
+Recebe:
+```json
+{
+  "pontos": [{"ponto_id": "uuid", "lat": -23.5, "lng": -46.6, "qtde_caixas": 2, "nome": "CEI..."}],
+  "num_produtos": 2,
+  "carga_dobrada": false,
+  "max_entregas": 25
+}
+```
+Retorna rotas sugeridas com veículo por volume:
+- Fiorino: ≤ 25 cx
+- HR: ≤ 50 cx  
+- Iveco: > 50 cx
+
+**Algoritmo:**
+```
+fator_tempo = 1.0 + (num_produtos - 1) × 0.25
+entregas_efetivas = floor(max_entregas / fator_tempo)
+N_rotas = ceil(total_pontos / entregas_efetivas)
+k-means++ geográfico sobre lat/lng → N clusters
 ```
 
 ---
 
-## UI — Novo fluxo no dashboard
+## Dashboard — `/dashboard/roteirizacao`
 
-### Tela: /dashboard/roteirizacao (substitui /dashboard/guias para o fluxo novo)
+Fluxo em 4 fases:
 
-**Passo 1 — Upload dos XLS**
-- Aba Estado: XLS por Diretoria (múltiplos)
-- Aba Municipal: XLS de GRs + XLS de rota
-- Extração roda no worker → retorna pontos + quantidades → salva em staging
+**Fase 1 — Upload**
+- Aba Prefeitura: XLSX de solicitação → `/extrair-prefeitura`
+- Aba Estado: ZIP de PDFs → `/extrair-estado`
 
-**Passo 2 — Setup (3 perguntas)**
-```
-Quantos produtos nessa operação?     [2]
-Carga dobrada?                  ○ Sim ● Não
-Máx. entregas por motorista?        [25]
-                           [Gerar sugestão]
-```
+**Fase 2 — Conferência dos pontos**
+- Lista pontos extraídos com status: 🟢 com geo / 🟡 sem geo / 🔵 novo (não cadastrado)
+- Botão **Geocodificar** — chama `/api/geocodificar` (Nominatim, 1 req/s)
+- Pontos novos ficam marcados mas não bloqueiam o fluxo
 
-**Passo 3 — Ajuste das rotas sugeridas**
-- Cards lado a lado, um por rota sugerida
-- Drag-and-drop de escolas entre rotas
-- Troca de veículo por rota
-- Botão "+ Nova rota" para dividir manualmente
-- Ao confirmar → gera manifestos automaticamente (um por rota)
+**Fase 3 — Parâmetros**
+- Região / Diretoria (auto-detectada da extração quando única)
+- Ciclo (DDMM)
+- Quantos produtos? → calcula fator_tempo
+- Máx. entregas/motorista → calcula entregas efetivas
+- Carga dobrada?
+
+**Fase 4 — Rotas sugeridas**
+- Cards por rota: veículo, total entregas, total caixas, lista de pontos
+- Seleção de veículo editável por rota
+- Confirmar → salva `roteirizacao_sessoes` + `roteirizacao_rotas` + `roteirizacao_pontos`
 
 ---
 
-## Geocodificação dos pontos existentes
+## Geocodificação
 
-- **677 pontos com endereço:** geocodificar via Nominatim (gratuito) em batch
-- **677 pontos sem endereço:** enriquecer via upload de XLS (cada GR traz endereço)
-- **Tela no dashboard:** /dashboard/pontos-de-entrega com status geo + botão "Geocodificar pendentes"
+**API route:** `POST /api/geocodificar`  
+Recebe: `{ "ids": ["uuid1", "uuid2"] }`  
+Para cada ponto:
+1. Busca endereço + município em `pontos_de_entrega`
+2. Chama Nominatim: `endereço, município, SP, Brasil`
+3. Aguarda 1100ms (respeito ao rate limit do Nominatim)
+4. Atualiza `lat`, `lng`, `geo_status`
+
+**geo_status:** `'pendente'` | `'ok'` | `'sem_endereco'` | `'nao_encontrado'`
+
+**Estimativa de tempo:** ~1 seg/ponto → 297 pontos da Prefeitura ≈ 5 minutos.
+
+---
+
+## Tabelas no Supabase
+
+```sql
+-- Adicionado em pontos_de_entrega:
+lat        float
+lng        float
+geo_status text DEFAULT 'pendente'
+
+-- Novas tabelas:
+roteirizacao_sessoes   -- uma por operação/região (status: 'rascunho' | 'confirmado')
+roteirizacao_rotas     -- rotas dentro da sessão
+roteirizacao_pontos    -- escolas por rota com qtde e GRs de origem
+```
+
+Migration: `supabase_migration_roteirizacao.sql`
 
 ---
 
 ## Aprendizado ao longo do tempo
 
-Quando uma sessão é confirmada:
-- Os agrupamentos ficam salvos como referência histórica por região
-- Na próxima operação da mesma região, o sistema parte do último agrupamento confirmado
-- Só precisa tratar pontos novos e removidos
-- Com o PWA registrando hora de chegada/saída por ponto futuramente → calibrar fator_tempo real por CEI
+Sessões confirmadas ficam salvas como referência histórica por região.  
+Na próxima operação da mesma região, o sistema pode partir do último agrupamento confirmado — só trata pontos novos e removidos.
 
 ---
 
-## O que NÃO muda
+## Próximos passos (fase futura)
 
-| Componente | Status |
-|-----------|--------|
-| Upload de GRs atual (/dashboard/guias) | Mantido para retrocompatibilidade |
-| Worker FastAPI na VPS | Mantido, ganha nova rota /roteirizar e /extrair-xls |
-| Tabela pontos_de_entrega | Mantida, ganha lat/lng/geo_status |
-| Geração de manifestos | Não muda — é acionada pelo confirm da sessão |
-| PWA do motorista | Não muda |
-
----
-
-## Pendências antes de implementar
-
-- [ ] Receber XLS de amostra do Estado (por Diretoria) → mapear colunas
-- [ ] Receber XLS de amostra do Municipal → confirmar colunas
-- [ ] Decidir: Nominatim (gratuito) ou Google Maps API (pago, mais preciso) para geocodificação
-- [ ] Confirmar capacidade em caixas por tipo de veículo com a Cooperliga
-  - Iveco: ~100 cx?
-  - HR: ~50 cx?
-  - Fiorino: ~25 cx?
+- [ ] Drag-and-drop de pontos entre rotas no card de ajuste
+- [ ] Geocodificar batch dos pontos já cadastrados (677 com endereço)
+- [ ] Geração de manifesto direto ao confirmar a sessão (integração com tabela `ciclo_manifestos`)
+- [ ] Calibração do fator_tempo real por CEI (hora de chegada/saída via PWA)
