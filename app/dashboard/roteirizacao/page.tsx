@@ -220,7 +220,7 @@ export default function RoteirizacaoPage() {
     try {
       const payload = {
         pontos: pontosGeo
-          .filter(p => p.ponto_id)
+          .filter(p => p.ponto_id && p.lat && p.lng)
           .map(p => ({
             ponto_id:    p.ponto_id,
             lat:         p.lat,
@@ -524,6 +524,14 @@ export default function RoteirizacaoPage() {
                   <p className="text-xs text-amber-700">
                     Nenhum ponto tem geocoordenadas. As rotas serão sugeridas sem agrupamento geográfico.
                     Geocodifique os pontos para resultados melhores.
+                  </p>
+                </div>
+              )}
+              {semGeo > 0 && comGeo > 0 && (
+                <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                  <p className="text-xs text-blue-700">
+                    <span className="font-semibold">{semGeo} pontos sem coordenadas</span> serão excluídos do cálculo.
+                    Rotas geradas a partir dos <span className="font-semibold">{comGeo} pontos geocodificados</span>.
                   </p>
                 </div>
               )}
