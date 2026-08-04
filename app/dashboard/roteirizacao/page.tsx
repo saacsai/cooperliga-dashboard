@@ -162,7 +162,31 @@ export default function RoteirizacaoPage() {
           diretoria: p.diretoria,
         })
       } else {
-        resultado.push({ ponto_id: '', codigo, nome, endereco: p.endereco || '', qtde_caixas: qtde, geo_status: 'novo', produto: p.produto, diretoria: p.diretoria })
+        // Ponto não existe — registrar automaticamente
+        const { data: novo } = await sb
+          .from('pontos_de_entrega')
+          .insert({
+            nome,
+            endereco:          p.endereco          || null,
+            municipio:         p.municipio         || null,
+            cep:               p.cep               || null,
+            codigo_prefeitura: p.codigo_prefeitura || null,
+            codigo_estado:     p.cie               || null,
+            geo_status: 'pendente',
+          })
+          .select('id')
+          .single()
+
+        resultado.push({
+          ponto_id: novo?.id || '',
+          codigo,
+          nome,
+          endereco: p.endereco || '',
+          qtde_caixas: qtde,
+          geo_status: 'pendente',
+          produto: p.produto,
+          diretoria: p.diretoria,
+        })
       }
     }
     setPontosGeo(resultado)
