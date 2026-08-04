@@ -336,9 +336,6 @@ export default function RoteirizacaoPage() {
                 {tipo === 'municipal' ? 'Planilha XLSX de solicitação' : 'ZIP com todos os PDFs das GRs'}
               </label>
               <input ref={fileRef} type="file"
-                accept={tipo === 'municipal'
-                  ? '.xlsx,.xls,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-                  : '.zip,application/zip,application/x-zip-compressed'}
                 onChange={e => setArquivo(e.target.files?.[0] || null)}
                 className="block w-full text-sm text-gray-600 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-medium file:text-white file:cursor-pointer"
                 style={{ '--file-bg': PRIMARY } as React.CSSProperties} />
