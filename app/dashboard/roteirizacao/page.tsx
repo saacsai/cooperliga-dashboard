@@ -456,18 +456,48 @@ export default function RoteirizacaoPage() {
               )}
 
               <div className="border border-gray-100 rounded-lg overflow-hidden mb-4">
-                <div className="grid grid-cols-[1fr_2fr_1fr_auto] text-xs font-semibold text-gray-500 bg-gray-50 px-3 py-2 gap-2">
-                  <span>Código</span><span>Nome</span><span>Qtde cx</span><span>Geo</span>
+                <div className="grid grid-cols-[1fr_2fr_1fr_auto_auto] text-xs font-semibold text-gray-500 bg-gray-50 px-3 py-2 gap-2">
+                  <span>Código</span><span>Nome</span><span>Qtde cx</span><span>Geo</span><span></span>
                 </div>
                 <div className="divide-y divide-gray-50 max-h-72 overflow-y-auto">
                   {pontosGeo.map((p, i) => (
-                    <div key={i} className="grid grid-cols-[1fr_2fr_1fr_auto] px-3 py-2 gap-2 text-xs items-center">
-                      <span className="text-gray-500 font-mono">{p.codigo}</span>
-                      <span className="text-gray-800 truncate">{p.nome}</span>
-                      <span className="text-gray-700">{p.qtde_caixas}</span>
-                      <span title={p.lat && p.lng ? 'Geocodificado' : p.geo_status === 'nao_encontrado' ? 'Endereço não encontrado no mapa' : p.geo_status === 'sem_endereco' ? 'Sem endereço cadastrado' : 'Pendente'}>
-                        {p.lat && p.lng ? '🟢' : p.geo_status === 'nao_encontrado' ? '🔴' : p.geo_status === 'sem_endereco' ? '⚫' : '🟡'}
-                      </span>
+                    <div key={i}>
+                      <div className="grid grid-cols-[1fr_2fr_1fr_auto_auto] px-3 py-2 gap-2 text-xs items-center">
+                        <span className="text-gray-500 font-mono">{p.codigo}</span>
+                        <span className="text-gray-800 truncate">{p.nome}</span>
+                        <span className="text-gray-700">{p.qtde_caixas}</span>
+                        <span title={p.lat && p.lng ? `${p.lat?.toFixed(4)}, ${p.lng?.toFixed(4)}` : 'Sem coordenadas'}>
+                          {p.lat && p.lng ? '🟢' : p.geo_status === 'nao_encontrado' ? '🔴' : p.geo_status === 'sem_endereco' ? '⚫' : '🟡'}
+                        </span>
+                        {p.ponto_id && p.lat && p.lng && (
+                          <button
+                            onClick={() => { setEditandoGeo(p.ponto_id); setLatInput(''); setLngInput('') }}
+                            className="text-[10px] text-gray-300 hover:text-gray-500 leading-none"
+                            title="Corrigir coordenadas"
+                          >✎</button>
+                        )}
+                      </div>
+                      {editandoGeo === p.ponto_id && (
+                        <div className="px-3 pb-2 flex items-center gap-2">
+                          <input
+                            type="text"
+                            placeholder="Cole as coordenadas ex: -23.7414, -46.6695"
+                            value={latInput}
+                            onChange={e => {
+                              const v = e.target.value
+                              const parts = v.split(',').map(s => s.trim()).filter(Boolean)
+                              if (parts.length === 2) { setLatInput(parts[0]); setLngInput(parts[1]) }
+                              else { setLatInput(v); setLngInput('') }
+                            }}
+                            className="flex-1 border border-gray-200 rounded px-2 py-1 text-xs outline-none focus:border-[#5C0F0F]"
+                          />
+                          <button onClick={() => salvarCoordenadas(p.ponto_id)} disabled={salvandoGeo || !latInput || !lngInput}
+                            className="flex-shrink-0 text-xs px-2 py-1 rounded text-white disabled:opacity-50" style={{ background: PRIMARY }}>
+                            {salvandoGeo ? '…' : 'Salvar'}
+                          </button>
+                          <button onClick={() => setEditandoGeo(null)} className="text-xs text-gray-400 hover:text-gray-600">✕</button>
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>
