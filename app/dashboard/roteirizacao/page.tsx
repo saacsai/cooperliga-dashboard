@@ -408,13 +408,14 @@ export default function RoteirizacaoPage() {
 
           {fase === 'pontos' ? (
             <>
-              <div className="flex items-center gap-4 mb-4">
+              <div className="flex items-center gap-4 mb-2">
                 <Badge label={`${comGeo} com geo`}   cor="#16a34a" />
                 <Badge label={`${semGeo} sem geo`}   cor={semGeo > 0 ? '#d97706' : '#9ca3af'} />
                 {pontosGeo.some(p => !p.ponto_id) && (
                   <Badge label={`${pontosGeo.filter(p => !p.ponto_id).length} novos`} cor="#7c3aed" />
                 )}
               </div>
+              <p className="text-[10px] text-gray-400 mb-4">🟢 geocodificado · 🔴 endereço não encontrado · ⚫ sem endereço · 🟡 pendente</p>
 
               {pendGeo > 0 && (
                 <div className="mb-4 p-3 bg-amber-50 border border-amber-200 rounded-lg flex items-center gap-3">
@@ -429,7 +430,7 @@ export default function RoteirizacaoPage() {
                 </div>
               )}
 
-              <div className="border border-gray-100 rounded-lg overflow-hidden mb-5">
+              <div className="border border-gray-100 rounded-lg overflow-hidden mb-4">
                 <div className="grid grid-cols-[1fr_2fr_1fr_auto] text-xs font-semibold text-gray-500 bg-gray-50 px-3 py-2 gap-2">
                   <span>Código</span><span>Nome</span><span>Qtde cx</span><span>Geo</span>
                 </div>
@@ -439,13 +440,41 @@ export default function RoteirizacaoPage() {
                       <span className="text-gray-500 font-mono">{p.codigo}</span>
                       <span className="text-gray-800 truncate">{p.nome}</span>
                       <span className="text-gray-700">{p.qtde_caixas}</span>
-                      <span className="text-base leading-none">
-                        {p.lat && p.lng ? '🟢' : p.ponto_id ? '🟡' : '🔵'}
+                      <span title={p.lat && p.lng ? 'Geocodificado' : p.geo_status === 'nao_encontrado' ? 'Endereço não encontrado no mapa' : p.geo_status === 'sem_endereco' ? 'Sem endereço cadastrado' : 'Pendente'}>
+                        {p.lat && p.lng ? '🟢' : p.geo_status === 'nao_encontrado' ? '🔴' : p.geo_status === 'sem_endereco' ? '⚫' : '🟡'}
                       </span>
                     </div>
                   ))}
                 </div>
               </div>
+
+              {pontosGeo.some(p => !p.lat && (p.geo_status === 'nao_encontrado' || p.geo_status === 'sem_endereco')) && (
+                <details className="mb-4 border border-red-100 rounded-lg overflow-hidden">
+                  <summary className="px-3 py-2 bg-red-50 text-xs font-medium text-red-700 cursor-pointer list-none flex items-center gap-2">
+                    <span>▸</span>
+                    <span>
+                      {pontosGeo.filter(p => !p.lat && (p.geo_status === 'nao_encontrado' || p.geo_status === 'sem_endereco')).length} pontos com falha na geocodificação — ver detalhes
+                    </span>
+                  </summary>
+                  <div className="divide-y divide-red-50 max-h-52 overflow-y-auto">
+                    {pontosGeo
+                      .filter(p => !p.lat && (p.geo_status === 'nao_encontrado' || p.geo_status === 'sem_endereco'))
+                      .map((p, i) => (
+                        <div key={i} className="px-3 py-2 text-xs">
+                          <div className="flex items-center gap-2 mb-0.5">
+                            <span className="font-mono text-gray-400">{p.codigo}</span>
+                            <span className="font-medium text-gray-700">{p.nome}</span>
+                          </div>
+                          {p.geo_status === 'sem_endereco' ? (
+                            <p className="text-red-500">Sem endereço cadastrado — cadastrar manualmente no Supabase</p>
+                          ) : (
+                            <p className="text-red-500">Endereço não reconhecido: <span className="font-mono">{p.endereco}</span></p>
+                          )}
+                        </div>
+                      ))}
+                  </div>
+                </details>
+              )}
 
               {avisos.length > 0 && (
                 <div className="mb-4 p-3 bg-gray-50 border border-gray-200 rounded-lg">
