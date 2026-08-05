@@ -1,7 +1,10 @@
 'use client'
 
 import { useState } from 'react'
+import dynamic from 'next/dynamic'
 import { getSupabase } from '@/lib/supabase'
+
+const MapaPontos = dynamic(() => import('@/components/MapaPontos'), { ssr: false })
 
 const PRIMARY = '#5C0F0F'
 const WORKER  = 'https://guias.cooperliga.saacs.com.br'
@@ -94,6 +97,9 @@ export default function RoteirizacaoPage() {
   const [veiculos,   setVeiculos] = useState<string[]>([])
   const [confirmando, setConf]    = useState(false)
   const [confirmado,  setConfirm] = useState(false)
+
+  // Mapa
+  const [mostraMapa, setMostraMapa] = useState(false)
 
   // ── Passo 1: upload e extração ──────────────────────────────────────────────
   async function handleExtrair() {
@@ -467,6 +473,35 @@ export default function RoteirizacaoPage() {
                       ))}
                   </div>
                 </details>
+              )}
+
+              {comGeo > 0 && (
+                <div className="mb-4">
+                  <button
+                    type="button"
+                    onClick={() => setMostraMapa(m => !m)}
+                    className="text-xs font-medium px-3 py-1.5 rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 flex items-center gap-1.5"
+                  >
+                    <span>{mostraMapa ? '▾' : '▸'}</span>
+                    {mostraMapa ? 'Ocultar mapa' : `Ver mapa dos ${comGeo} pontos geocodificados`}
+                  </button>
+                  {mostraMapa && (
+                    <div className="mt-2 rounded-xl overflow-hidden border border-gray-200">
+                      <MapaPontos
+                        pontos={pontosGeo
+                          .filter(p => p.lat && p.lng)
+                          .map(p => ({
+                            lat: p.lat!,
+                            lng: p.lng!,
+                            nome: p.nome,
+                            codigo: p.codigo,
+                            endereco: p.endereco,
+                            qtde_caixas: p.qtde_caixas,
+                          }))}
+                      />
+                    </div>
+                  )}
+                </div>
               )}
 
               {avisos.length > 0 && (
