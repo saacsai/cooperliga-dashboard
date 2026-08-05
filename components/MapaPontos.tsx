@@ -1,6 +1,5 @@
 'use client'
-import { MapContainer, TileLayer, CircleMarker, Popup } from 'react-leaflet'
-import 'leaflet/dist/leaflet.css'
+import { useEffect, useRef } from 'react'
 
 interface PontoMapa {
   lat: number
@@ -12,38 +11,58 @@ interface PontoMapa {
 }
 
 export default function MapaPontos({ pontos }: { pontos: PontoMapa[] }) {
-  if (!pontos.length) return null
+  const containerRef = useRef<HTMLDivElement>(null)
 
-  const latC = pontos.reduce((s, p) => s + p.lat, 0) / pontos.length
-  const lngC = pontos.reduce((s, p) => s + p.lng, 0) / pontos.length
+  useEffect(() => {
+    if (!containerRef.current || !pontos.length) return
+
+    const el = containerRef.current
+
+    // Leaflet requer window, importar dinamicamente
+    let map: import('leaflet').Map | null = null
+    import('leaflet').then(L => {
+      // Injetar CSS do Leaflet uma única vez
+      if (!document.getElementById('leaflet-css')) {
+        const link = document.createElement('link')
+        link.id   = 'leaflet-css'
+        link.rel  = 'stylesheet'
+        link.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css'
+        document.head.appendChild(link)
+      }
+
+      const latC = pontos.reduce((s, p) => s + p.lat, 0) / pontos.length
+      const lngC = pontos.reduce((s, p) => s + p.lng, 0) / pontos.length
+
+      map = L.map(el).setView([latC, lngC], 12)
+
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+      }).addTo(map)
+
+      pontos.forEach(p => {
+        L.circleMarker([p.lat, p.lng], {
+          radius: 7,
+          color: '#5C0F0F',
+          fillColor: '#5C0F0F',
+          fillOpacity: 0.75,
+          weight: 1.5,
+        })
+          .bindPopup(`<strong style="font-size:12px">${p.nome}</strong><br>
+            <span style="font-size:11px;color:#666">${p.endereco}</span><br>
+            <span style="font-size:11px;color:#5C0F0F">${p.qtde_caixas} caixas</span>`)
+          .addTo(map!)
+      })
+    })
+
+    return () => {
+      map?.remove()
+    }
+  }, [pontos])
 
   return (
-    <MapContainer
-      center={[latC, lngC]}
-      zoom={12}
+    <div
+      ref={containerRef}
       style={{ height: '320px', width: '100%', borderRadius: '8px', zIndex: 0 }}
-      scrollWheelZoom={false}
-    >
-      <TileLayer
-        attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-        url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-      />
-      {pontos.map((p, i) => (
-        <CircleMarker
-          key={i}
-          center={[p.lat, p.lng]}
-          radius={7}
-          pathOptions={{ color: '#5C0F0F', fillColor: '#5C0F0F', fillOpacity: 0.75, weight: 1.5 }}
-        >
-          <Popup>
-            <div style={{ fontSize: '12px', lineHeight: '1.5' }}>
-              <strong>{p.nome}</strong><br />
-              <span style={{ color: '#666' }}>{p.endereco}</span><br />
-              <span style={{ color: '#5C0F0F' }}>{p.qtde_caixas} caixas</span>
-            </div>
-          </Popup>
-        </CircleMarker>
-      ))}
-    </MapContainer>
+    />
   )
 }
