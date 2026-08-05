@@ -510,16 +510,20 @@ export default function RoteirizacaoPage() {
                             <div className="mt-2 flex items-center gap-2">
                               <input
                                 type="text"
-                                placeholder="Lat ex: -23.6234"
+                                placeholder="Cole as coordenadas do Google Maps ex: -23.7414, -46.6695"
                                 value={latInput}
-                                onChange={e => setLatInput(e.target.value)}
-                                className="flex-1 border border-gray-200 rounded px-2 py-1 text-xs outline-none focus:border-[#5C0F0F]"
-                              />
-                              <input
-                                type="text"
-                                placeholder="Lng ex: -46.6789"
-                                value={lngInput}
-                                onChange={e => setLngInput(e.target.value)}
+                                onChange={e => {
+                                  const v = e.target.value
+                                  // Se contiver vírgula entre dois números, separar automaticamente
+                                  const parts = v.split(',').map(s => s.trim()).filter(Boolean)
+                                  if (parts.length === 2) {
+                                    setLatInput(parts[0])
+                                    setLngInput(parts[1])
+                                  } else {
+                                    setLatInput(v)
+                                    setLngInput('')
+                                  }
+                                }}
                                 className="flex-1 border border-gray-200 rounded px-2 py-1 text-xs outline-none focus:border-[#5C0F0F]"
                               />
                               <button
