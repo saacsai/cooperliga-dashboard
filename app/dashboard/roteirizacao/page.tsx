@@ -354,18 +354,24 @@ export default function RoteirizacaoPage() {
             </div>
 
             <div className="mb-4">
-              <label className="block text-xs font-medium text-gray-600 mb-2">
+              <p className="text-xs font-medium text-gray-600 mb-2">
                 {tipo === 'municipal' ? 'Planilha XLSX de solicitação' : 'ZIP com todos os PDFs das GRs'}
+              </p>
+              <label htmlFor="roteir-file"
+                className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium text-white cursor-pointer"
+                style={{ background: PRIMARY }}>
+                {arquivo ? arquivo.name : 'Selecionar arquivo'}
+                <input
+                  id="roteir-file"
+                  type="file"
+                  accept={tipo === 'municipal' ? '.xlsx,.xls' : '.zip'}
+                  className="sr-only"
+                  onChange={e => setArquivo(e.target.files?.[0] || null)}
+                />
               </label>
-              <input
-                type="file"
-                accept={tipo === 'municipal' ? '.xlsx,.xls' : '.zip'}
-                className="block w-full text-sm text-gray-600 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-medium file:text-white file:cursor-pointer cursor-pointer"
-                style={{ '--file-bg': PRIMARY } as React.CSSProperties}
-                onChange={e => setArquivo(e.target.files?.[0] || null)}
-              />
               {arquivo && (
-                <p className="mt-1.5 text-xs font-medium" style={{ color: PRIMARY }}>{arquivo.name}</p>
+                <button type="button" onClick={() => setArquivo(null)}
+                  className="ml-2 text-xs text-gray-400 hover:text-red-500">trocar</button>
               )}
             </div>
 

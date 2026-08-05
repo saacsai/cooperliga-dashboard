@@ -1,6 +1,6 @@
 'use client'
 
-import { useRef, useState, useCallback } from 'react'
+import { useState, useCallback } from 'react'
 
 const PRIMARY  = '#5C0F0F'
 const WORKER   = 'https://guias.cooperliga.saacs.com.br'
@@ -36,20 +36,24 @@ function CampoUpload({
   onChange: (fieldName: string, files: FileList) => void
   onRemover: (fieldName: string, idx: number) => void
 }) {
-  const ref = useRef<HTMLInputElement>(null)
+  const id = `file-${campo.fieldName}`
   return (
     <div className="mb-5">
-      <label className="block text-sm font-semibold text-gray-800 mb-0.5">{campo.label}</label>
+      <p className="text-sm font-semibold text-gray-800 mb-0.5">{campo.label}</p>
       <p className="text-xs text-gray-400 mb-2">{campo.hint}</p>
-      <input
-        ref={ref}
-        type="file"
-        accept={campo.accept}
-        multiple={campo.multiple}
-        className="block w-full text-sm text-gray-600 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-medium file:text-white file:cursor-pointer cursor-pointer"
-        style={{ '--file-bg': PRIMARY } as React.CSSProperties}
-        onChange={e => { if (e.target.files?.length) onChange(campo.fieldName, e.target.files) }}
-      />
+      <label htmlFor={id}
+        className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium text-white cursor-pointer"
+        style={{ background: PRIMARY }}>
+        Selecionar arquivo
+        <input
+          id={id}
+          type="file"
+          accept={campo.accept}
+          multiple={campo.multiple}
+          className="sr-only"
+          onChange={e => { if (e.target.files?.length) onChange(campo.fieldName, e.target.files) }}
+        />
+      </label>
       {acumulados.length > 0 && (
         <div className="mt-2 border border-gray-100 rounded-lg divide-y divide-gray-50 overflow-hidden">
           {acumulados.map((f, i) => (
