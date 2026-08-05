@@ -101,6 +101,12 @@ export default function RoteirizacaoPage() {
   // Mapa
   const [mostraMapa, setMostraMapa] = useState(false)
 
+  // Coordenadas manuais
+  const [editandoGeo, setEditandoGeo] = useState<string | null>(null) // ponto_id
+  const [latInput,    setLatInput]    = useState('')
+  const [lngInput,    setLngInput]    = useState('')
+  const [salvandoGeo, setSalvandoGeo] = useState(false)
+
   // ── Passo 1: upload e extração ──────────────────────────────────────────────
   async function handleExtrair() {
     if (!arquivo) { setErro('Selecione um arquivo'); return }
@@ -215,6 +221,26 @@ export default function RoteirizacaoPage() {
       setErro('Erro ao geocodificar')
     } finally {
       setGeocodando(false)
+    }
+  }
+
+  // ── Coordenadas manuais ────────────────────────────────────────────────────
+  async function salvarCoordenadas(pontoId: string) {
+    const lat = parseFloat(latInput.replace(',', '.'))
+    const lng = parseFloat(lngInput.replace(',', '.'))
+    if (isNaN(lat) || isNaN(lng)) return
+    setSalvandoGeo(true)
+    try {
+      const sb = getSupabase()
+      await sb.from('pontos_de_entrega')
+        .update({ lat, lng, geo_status: 'ok' })
+        .eq('id', pontoId)
+      await enriquecerComGeo(pontosExt)
+      setEditandoGeo(null)
+      setLatInput('')
+      setLngInput('')
+    } finally {
+      setSalvandoGeo(false)
     }
   }
 
@@ -452,22 +478,65 @@ export default function RoteirizacaoPage() {
                   <summary className="px-3 py-2 bg-red-50 text-xs font-medium text-red-700 cursor-pointer list-none flex items-center gap-2">
                     <span>▸</span>
                     <span>
-                      {pontosGeo.filter(p => !p.lat && (p.geo_status === 'nao_encontrado' || p.geo_status === 'sem_endereco')).length} pontos com falha na geocodificação — ver detalhes
+                      {pontosGeo.filter(p => !p.lat && (p.geo_status === 'nao_encontrado' || p.geo_status === 'sem_endereco')).length} pontos com falha — inserir coordenadas manualmente
                     </span>
                   </summary>
-                  <div className="divide-y divide-red-50 max-h-52 overflow-y-auto">
+                  <div className="px-3 py-2 bg-red-50 border-b border-red-100">
+                    <p className="text-[10px] text-red-500">Pesquise o endereço no Google Maps → clique com botão direito na localização → copie as coordenadas (ex: -23.6234, -46.6789)</p>
+                  </div>
+                  <div className="divide-y divide-red-50 max-h-96 overflow-y-auto">
                     {pontosGeo
                       .filter(p => !p.lat && (p.geo_status === 'nao_encontrado' || p.geo_status === 'sem_endereco'))
                       .map((p, i) => (
                         <div key={i} className="px-3 py-2 text-xs">
-                          <div className="flex items-center gap-2 mb-0.5">
-                            <span className="font-mono text-gray-400">{p.codigo}</span>
-                            <span className="font-medium text-gray-700">{p.nome}</span>
+                          <div className="flex items-center justify-between gap-2">
+                            <div className="min-w-0">
+                              <div className="flex items-center gap-2 mb-0.5">
+                                <span className="font-mono text-gray-400 flex-shrink-0">{p.codigo}</span>
+                                <span className="font-medium text-gray-700 truncate">{p.nome}</span>
+                              </div>
+                              <p className="text-red-400 font-mono truncate">{p.endereco || 'Sem endereço'}</p>
+                            </div>
+                            {editandoGeo !== p.ponto_id && (
+                              <button
+                                onClick={() => { setEditandoGeo(p.ponto_id); setLatInput(''); setLngInput('') }}
+                                className="flex-shrink-0 text-xs px-2 py-1 rounded border border-gray-200 text-gray-500 hover:bg-gray-50"
+                              >
+                                Inserir coords
+                              </button>
+                            )}
                           </div>
-                          {p.geo_status === 'sem_endereco' ? (
-                            <p className="text-red-500">Sem endereço cadastrado — cadastrar manualmente no Supabase</p>
-                          ) : (
-                            <p className="text-red-500">Endereço não reconhecido: <span className="font-mono">{p.endereco}</span></p>
+                          {editandoGeo === p.ponto_id && (
+                            <div className="mt-2 flex items-center gap-2">
+                              <input
+                                type="text"
+                                placeholder="Lat ex: -23.6234"
+                                value={latInput}
+                                onChange={e => setLatInput(e.target.value)}
+                                className="flex-1 border border-gray-200 rounded px-2 py-1 text-xs outline-none focus:border-[#5C0F0F]"
+                              />
+                              <input
+                                type="text"
+                                placeholder="Lng ex: -46.6789"
+                                value={lngInput}
+                                onChange={e => setLngInput(e.target.value)}
+                                className="flex-1 border border-gray-200 rounded px-2 py-1 text-xs outline-none focus:border-[#5C0F0F]"
+                              />
+                              <button
+                                onClick={() => salvarCoordenadas(p.ponto_id)}
+                                disabled={salvandoGeo || !latInput || !lngInput}
+                                className="flex-shrink-0 text-xs px-2 py-1 rounded text-white disabled:opacity-50"
+                                style={{ background: PRIMARY }}
+                              >
+                                {salvandoGeo ? '…' : 'Salvar'}
+                              </button>
+                              <button
+                                onClick={() => setEditandoGeo(null)}
+                                className="text-xs text-gray-400 hover:text-gray-600"
+                              >
+                                ✕
+                              </button>
+                            </div>
                           )}
                         </div>
                       ))}
