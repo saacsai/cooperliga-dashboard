@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef, useCallback } from 'react'
+import { useState } from 'react'
 import { getSupabase } from '@/lib/supabase'
 
 const PRIMARY = '#5C0F0F'
@@ -94,8 +94,6 @@ export default function RoteirizacaoPage() {
   const [veiculos,   setVeiculos] = useState<string[]>([])
   const [confirmando, setConf]    = useState(false)
   const [confirmado,  setConfirm] = useState(false)
-
-  const fileRef = useRef<HTMLInputElement>(null)
 
   // ── Passo 1: upload e extração ──────────────────────────────────────────────
   async function handleExtrair() {
@@ -359,27 +357,16 @@ export default function RoteirizacaoPage() {
               <label className="block text-xs font-medium text-gray-600 mb-2">
                 {tipo === 'municipal' ? 'Planilha XLSX de solicitação' : 'ZIP com todos os PDFs das GRs'}
               </label>
-              <div
-                onDragOver={e => e.preventDefault()}
-                onDrop={e => { e.preventDefault(); const f = e.dataTransfer.files?.[0]; if (f) setArquivo(f) }}
-                onClick={() => fileRef.current?.click()}
-                className="border-2 border-dashed rounded-lg p-6 text-center cursor-pointer transition-colors hover:bg-red-50"
-                style={{ borderColor: arquivo ? PRIMARY : '#e5e7eb' }}
-              >
-                {arquivo ? (
-                  <div>
-                    <p className="text-sm font-medium" style={{ color: PRIMARY }}>{arquivo.name}</p>
-                    <p className="text-xs text-gray-400 mt-1">Clique para trocar</p>
-                  </div>
-                ) : (
-                  <div>
-                    <p className="text-sm text-gray-500">Arraste o arquivo aqui ou <span className="font-medium" style={{ color: PRIMARY }}>clique para selecionar</span></p>
-                    <p className="text-xs text-gray-400 mt-1">{tipo === 'municipal' ? 'XLSX' : 'ZIP'}</p>
-                  </div>
-                )}
-              </div>
-              <input ref={fileRef} type="file" className="hidden"
-                onChange={e => setArquivo(e.target.files?.[0] || null)} />
+              <input
+                type="file"
+                accept={tipo === 'municipal' ? '.xlsx,.xls' : '.zip'}
+                className="block w-full text-sm text-gray-600 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-medium file:text-white file:cursor-pointer cursor-pointer"
+                style={{ '--file-bg': PRIMARY } as React.CSSProperties}
+                onChange={e => setArquivo(e.target.files?.[0] || null)}
+              />
+              {arquivo && (
+                <p className="mt-1.5 text-xs font-medium" style={{ color: PRIMARY }}>{arquivo.name}</p>
+              )}
             </div>
 
             {erro && <p className="text-xs text-red-600 bg-red-50 border border-red-200 rounded-lg p-2 mb-4">{erro}</p>}
