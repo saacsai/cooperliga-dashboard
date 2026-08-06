@@ -224,6 +224,28 @@ export default function RoteirizacaoPage() {
     }
   }
 
+  // ── Regeocodificar ponto individual ───────────────────────────────────────
+  const [regeocodando, setRegeocodando] = useState<string | null>(null) // ponto_id
+
+  async function regeocodificar(pontoId: string) {
+    setRegeocodando(pontoId)
+    try {
+      // Limpa coords atuais para forçar reprocessamento
+      const sb = getSupabase()
+      await sb.from('pontos_de_entrega')
+        .update({ lat: null, lng: null, geo_status: 'pendente' })
+        .eq('id', pontoId)
+      await fetch('/api/geocodificar', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ids: [pontoId] }),
+      })
+      await enriquecerComGeo(pontosExt)
+    } finally {
+      setRegeocodando(null)
+    }
+  }
+
   // ── Coordenadas manuais ────────────────────────────────────────────────────
   async function salvarCoordenadas(pontoId: string) {
     const lat = parseFloat(latInput.replace(',', '.'))
@@ -470,11 +492,19 @@ export default function RoteirizacaoPage() {
                           {p.lat && p.lng ? '🟢' : p.geo_status === 'nao_encontrado' ? '🔴' : p.geo_status === 'sem_endereco' ? '⚫' : '🟡'}
                         </span>
                         {p.ponto_id && p.lat && p.lng && (
-                          <button
-                            onClick={() => { setEditandoGeo(p.ponto_id); setLatInput(''); setLngInput('') }}
-                            className="text-[10px] text-gray-300 hover:text-gray-500 leading-none"
-                            title="Corrigir coordenadas"
-                          >✎</button>
+                          <div className="flex items-center gap-1">
+                            <button
+                              onClick={() => regeocodificar(p.ponto_id)}
+                              disabled={regeocodando === p.ponto_id}
+                              className="text-[10px] text-gray-300 hover:text-blue-400 leading-none disabled:opacity-50"
+                              title="Regeocodificar (busca novamente no Google Maps)"
+                            >{regeocodando === p.ponto_id ? '…' : '↺'}</button>
+                            <button
+                              onClick={() => { setEditandoGeo(p.ponto_id); setLatInput(''); setLngInput('') }}
+                              className="text-[10px] text-gray-300 hover:text-gray-500 leading-none"
+                              title="Corrigir coordenadas manualmente"
+                            >✎</button>
+                          </div>
                         )}
                       </div>
                       {editandoGeo === p.ponto_id && (
@@ -594,6 +624,7 @@ export default function RoteirizacaoPage() {
                         pontos={pontosGeo
                           .filter(p => p.lat && p.lng)
                           .map(p => ({
+                            ponto_id: p.ponto_id,
                             lat: p.lat!,
                             lng: p.lng!,
                             nome: p.nome,
@@ -601,6 +632,7 @@ export default function RoteirizacaoPage() {
                             endereco: p.endereco,
                             qtde_caixas: p.qtde_caixas,
                           }))}
+                        onRegeocodificar={regeocodificar}
                       />
                     </div>
                   )}
