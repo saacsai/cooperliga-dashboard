@@ -86,6 +86,7 @@ export default function RoteirizacaoPage() {
   const [pontosGeo, setPontosGeo]   = useState<PontoComGeo[]>([])
   const [geocodando, setGeocodando] = useState(false)
   const [regiao,    setRegiao]      = useState('')
+  const [pacotesPorCaixa, setPacotesPorCaixa] = useState(12)
 
   // Fase setup
   const [numProd,    setNumProd]   = useState(1)
@@ -146,7 +147,13 @@ export default function RoteirizacaoPage() {
       const dirs = new Set(pontos.map(p => p.diretoria).filter(Boolean))
       if (dirs.size === 1) setRegiao(Array.from(dirs)[0] as string)
 
-      await enriquecerComGeo(pontos)
+      // calcular pacotes_por_caixa a partir das embalagens da planilha
+      const embInt  = json.embalagem_inteira_un  || 0
+      const embFrac = json.embalagem_fracionada_un || 0
+      const ppc = embInt > 0 && embFrac > 0 ? Math.round(embInt / embFrac) : 12
+      setPacotesPorCaixa(ppc)
+
+      await enriquecerComGeo(pontos, ppc)
       setFase('pontos')
     } catch (e) {
       setErro(e instanceof Error ? e.message : 'Erro ao extrair')
@@ -155,7 +162,7 @@ export default function RoteirizacaoPage() {
     }
   }
 
-  async function enriquecerComGeo(pontos: PontoExtraido[]) {
+  async function enriquecerComGeo(pontos: PontoExtraido[], ppc = pacotesPorCaixa) {
     const sb = getSupabase()
     const resultado: PontoComGeo[] = []
 
@@ -164,7 +171,7 @@ export default function RoteirizacaoPage() {
       const col    = p.codigo_prefeitura ? 'codigo_prefeitura' : 'codigo_estado'
       const nome   = p.nome || p.nome_escola || `Ponto ${codigo}`
       const qtde   = tipo === 'municipal'
-        ? (p.qtde_inteira || 0) + Math.ceil((p.qtde_fracionada || 0) / 12)
+        ? (p.qtde_inteira || 0) + Math.ceil((p.qtde_fracionada || 0) / ppc)
         : Math.ceil((p.quantidade || 0) / 144)
 
       const { data } = await sb
