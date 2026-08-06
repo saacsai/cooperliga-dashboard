@@ -2,10 +2,15 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getSupabaseAdmin } from '@/lib/supabase'
 
 // ── Google Maps Geocoding ───────────────────────────────────────────────────
+function distGeo(lat1: number, lng1: number, lat2: number, lng2: number): number {
+  return Math.hypot(lat1 - lat2, lng1 - lng2)
+}
+
 async function geocodeGoogle(
   endereco: string,
   municipio: string | null,
   apiKey: string,
+  centroide: { lat: number; lng: number } | null,
 ): Promise<{ lat: number; lng: number } | null> {
   const cidade = municipio || 'São Paulo'
   const query  = `${endereco}, ${cidade}, SP, Brasil`
@@ -21,6 +26,18 @@ async function geocodeGoogle(
     if (!res.ok) return null
     const data = await res.json()
     if (data.status !== 'OK' || !data.results?.length) return null
+
+    // Com centróide disponível, escolhe o resultado mais próximo do cluster
+    if (centroide && data.results.length > 1) {
+      const melhor = data.results.reduce((best: { lat: number; lng: number }, curr: { geometry: { location: { lat: number; lng: number } } }) => {
+        const loc  = curr.geometry.location
+        const dCur = distGeo(loc.lat, loc.lng, centroide.lat, centroide.lng)
+        const dBst = distGeo(best.lat, best.lng, centroide.lat, centroide.lng)
+        return dCur < dBst ? { lat: loc.lat, lng: loc.lng } : best
+      }, { lat: data.results[0].geometry.location.lat, lng: data.results[0].geometry.location.lng })
+      return melhor
+    }
+
     const loc = data.results[0].geometry.location
     return { lat: loc.lat as number, lng: loc.lng as number }
   } catch {
@@ -123,6 +140,24 @@ export async function POST(req: NextRequest) {
   const useGoogle = !!apiKey
 
   const sb = getSupabaseAdmin()
+
+  // Calcular centróide dos pontos já geocodificados para escolher resultado mais próximo
+  let centroide: { lat: number; lng: number } | null = null
+  if (useGoogle) {
+    const { data: jaGeo } = await sb
+      .from('pontos_de_entrega')
+      .select('lat, lng')
+      .eq('geo_status', 'ok')
+      .not('lat', 'is', null)
+      .not('lng', 'is', null)
+    if (jaGeo && jaGeo.length >= 3) {
+      centroide = {
+        lat: jaGeo.reduce((s, p) => s + (p.lat as number), 0) / jaGeo.length,
+        lng: jaGeo.reduce((s, p) => s + (p.lng as number), 0) / jaGeo.length,
+      }
+    }
+  }
+
   const { data: pontos } = await sb
     .from('pontos_de_entrega')
     .select('id, endereco, municipio, geo_status')
@@ -139,7 +174,7 @@ export async function POST(req: NextRequest) {
     }
 
     const coords = useGoogle
-      ? await geocodeGoogle(p.endereco, p.municipio, apiKey)
+      ? await geocodeGoogle(p.endereco, p.municipio, apiKey, centroide)
       : await geocodeNominatim(p.endereco, p.municipio)
 
     // Nominatim exige 1 req/sec; Google não tem esse limite
