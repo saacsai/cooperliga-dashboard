@@ -103,7 +103,7 @@ function parseEndereco(raw: string): { street: string; housenumber: string } {
   return { street: s, housenumber }
 }
 
-async function fetchNominatim(url: string): Promise<{ lat: number; lng: number } | null> {
+async function fetchNominatim(url: string): Promise<GeoResult | null> {
   try {
     const res = await fetch(url, {
       headers: { 'User-Agent': 'CooperLiga/1.0 (cooperliga.saacs.com.br)' },
@@ -121,7 +121,7 @@ async function fetchNominatim(url: string): Promise<{ lat: number; lng: number }
 async function geocodeNominatim(
   endereco: string,
   municipio: string | null,
-): Promise<{ lat: number; lng: number } | null> {
+): Promise<GeoResult | null> {
   const cidade = municipio || 'São Paulo'
   const { street, housenumber } = parseEndereco(endereco)
 
