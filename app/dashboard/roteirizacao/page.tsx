@@ -230,11 +230,6 @@ export default function RoteirizacaoPage() {
   async function regeocodificar(pontoId: string) {
     setRegeocodando(pontoId)
     try {
-      // Limpa coords atuais para forçar reprocessamento
-      const sb = getSupabase()
-      await sb.from('pontos_de_entrega')
-        .update({ lat: null, lng: null, geo_status: 'pendente' })
-        .eq('id', pontoId)
       await fetch('/api/geocodificar', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

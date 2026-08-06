@@ -45,10 +45,16 @@ async function geocodeGoogle(
     : `${endNorm}, ${cidade}, SP, Brasil`
 
   const url = new URL('https://maps.googleapis.com/maps/api/geocode/json')
-  url.searchParams.set('address',  query)
-  url.searchParams.set('key',      apiKey)
-  url.searchParams.set('region',   'br')
-  url.searchParams.set('language', 'pt-BR')
+  url.searchParams.set('address',    query)
+  url.searchParams.set('key',        apiKey)
+  url.searchParams.set('region',     'br')
+  url.searchParams.set('language',   'pt-BR')
+  url.searchParams.set('components', 'country:BR|administrative_area_level_1:SP')
+  if (centroide) {
+    const d = 0.8  // ~90 km — cobre toda a RMSP
+    url.searchParams.set('bounds',
+      `${centroide.lat - d},${centroide.lng - d}|${centroide.lat + d},${centroide.lng + d}`)
+  }
 
   try {
     const res  = await fetch(url.toString(), { signal: AbortSignal.timeout(8000) })
