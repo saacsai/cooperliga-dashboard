@@ -199,6 +199,7 @@ export default function RoteirizacaoPage() {
             cep:               p.cep               || null,
             codigo_prefeitura: p.codigo_prefeitura || null,
             codigo_estado:     p.cie               || null,
+            origem:            tipo === 'municipal' ? 'prefeitura' : 'estado',
             geo_status: 'pendente',
           })
           .select('id')

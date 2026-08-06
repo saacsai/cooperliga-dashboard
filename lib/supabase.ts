@@ -69,9 +69,9 @@ export interface PontoDeEntrega {
   id: string
   nome: string
   contrato_id: string | null
-  codigo_interno: string | null
   codigo_estado: string | null
   codigo_prefeitura: string | null
+  origem: string | null
   endereco: string | null
   municipio: string | null
   bairro: string | null

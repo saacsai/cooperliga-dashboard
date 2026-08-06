@@ -13,15 +13,14 @@ const POR_PAGINA = 50
 type Opcao = { value: string; label: string; count?: number }
 
 const VAZIO = {
-  nome: '', codigo_interno: '', codigo_estado: '', codigo_prefeitura: '',
+  nome: '', codigo_estado: '', codigo_prefeitura: '',
   bairro: '', cep: '', municipio: '', endereco: '', contato_nome: '',
 }
 
 const COLUNAS_IMPORT = [
   { key: 'nome',              label: 'Nome' },
   { key: 'codigo_prefeitura', label: 'Cód. Prefeitura' },
-  { key: 'codigo_estado',     label: 'Cód. Estado' },
-  { key: 'codigo_interno',    label: 'Cód. Interno' },
+  { key: 'codigo_estado',     label: 'Cód. Estado (CIE)' },
   { key: 'cep',               label: 'CEP' },
   { key: 'bairro',            label: 'Bairro' },
   { key: 'municipio',         label: 'Município' },
@@ -258,7 +257,6 @@ export default function PontosDeEntregaPage() {
     setEditId(p.id)
     setForm({
       nome:              p.nome,
-      codigo_interno:    p.codigo_interno    || '',
       codigo_estado:     p.codigo_estado     || '',
       codigo_prefeitura: p.codigo_prefeitura || '',
       bairro:            p.bairro            || '',
@@ -275,7 +273,6 @@ export default function PontosDeEntregaPage() {
     setSalvando(true); setErro('')
     const payload = {
       nome:              form.nome,
-      codigo_interno:    form.codigo_interno    || null,
       codigo_estado:     form.codigo_estado     || null,
       codigo_prefeitura: form.codigo_prefeitura || null,
       bairro:            form.bairro            || null,
@@ -283,6 +280,7 @@ export default function PontosDeEntregaPage() {
       municipio:         form.municipio         || null,
       endereco:          form.endereco          || null,
       contato_nome:      form.contato_nome      || null,
+      origem:            editId ? undefined : 'manual',
     }
     const { error } = editId
       ? await getSupabase().from('pontos_de_entrega').update(payload).eq('id', editId)
@@ -310,12 +308,12 @@ export default function PontosDeEntregaPage() {
       nome:              r.nome,
       codigo_prefeitura: r.codigo_prefeitura || null,
       codigo_estado:     r.codigo_estado     || null,
-      codigo_interno:    r.codigo_interno    || null,
       cep:               r.cep               || null,
       bairro:            r.bairro            || null,
       municipio:         r.municipio         || null,
       endereco:          r.endereco          || null,
       contato_nome:      r.contato_nome      || null,
+      origem:            r.codigo_prefeitura ? 'prefeitura' : r.codigo_estado ? 'estado' : 'manual',
     }))
     const { error } = await getSupabase()
       .from('pontos_de_entrega')
@@ -382,10 +380,9 @@ export default function PontosDeEntregaPage() {
               <thead>
                 <tr className="border-b border-gray-100">
                   <th className="text-left px-4 py-3 text-xs font-medium text-gray-500">Nome</th>
-                  <th className="text-left px-4 py-3 text-xs font-medium text-gray-500">Bairro</th>
-                  <th className="text-left px-4 py-3 text-xs font-medium text-gray-500">Cód. Estado</th>
-                  <th className="text-left px-4 py-3 text-xs font-medium text-gray-500">Cód. Prefeitura</th>
-                  <th className="text-left px-4 py-3 text-xs font-medium text-gray-500">Município</th>
+                  <th className="text-left px-4 py-3 text-xs font-medium text-gray-500">Código</th>
+                  <th className="text-left px-4 py-3 text-xs font-medium text-gray-500">Origem</th>
+                  <th className="text-left px-4 py-3 text-xs font-medium text-gray-500">Bairro / Município</th>
                   <th className="text-left px-4 py-3 text-xs font-medium text-gray-500">Geo</th>
                   <th className="text-left px-4 py-3 text-xs font-medium text-gray-500">Status</th>
                   <th className="px-4 py-3" />
@@ -395,10 +392,23 @@ export default function PontosDeEntregaPage() {
                 {pontos.map(p => (
                   <tr key={p.id} className="border-b border-gray-50 last:border-0 hover:bg-gray-50/50">
                     <td className="px-4 py-3 font-medium text-gray-900">{p.nome}</td>
-                    <td className="px-4 py-3 text-gray-500 text-xs">{p.bairro || '—'}</td>
-                    <td className="px-4 py-3 text-gray-500 font-mono text-xs">{p.codigo_estado || '—'}</td>
-                    <td className="px-4 py-3 text-gray-500 font-mono text-xs">{p.codigo_prefeitura || '—'}</td>
-                    <td className="px-4 py-3 text-gray-500">{p.municipio || '—'}</td>
+                    <td className="px-4 py-3 text-gray-500 font-mono text-xs">
+                      {p.codigo_prefeitura || p.codigo_estado || '—'}
+                    </td>
+                    <td className="px-4 py-3">
+                      {p.origem ? (
+                        <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full ${
+                          p.origem === 'prefeitura' ? 'bg-blue-50 text-blue-600' :
+                          p.origem === 'estado'     ? 'bg-purple-50 text-purple-600' :
+                                                      'bg-gray-100 text-gray-500'
+                        }`}>
+                          {p.origem}
+                        </span>
+                      ) : <span className="text-gray-300 text-xs">—</span>}
+                    </td>
+                    <td className="px-4 py-3 text-gray-500 text-xs">
+                      {[p.bairro, p.municipio].filter(Boolean).join(' · ') || '—'}
+                    </td>
                     <td className="px-4 py-3">
                       {p.lat && p.lng ? (
                         <span className="text-[10px] font-mono text-gray-400" title={`${p.lat}, ${p.lng}`}>
@@ -468,22 +478,17 @@ export default function PontosDeEntregaPage() {
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1">Cód. Prefeitura (PMSP)</label>
+              <input type="text" value={form.codigo_prefeitura} onChange={set('codigo_prefeitura')} placeholder="ex: 12716"
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#5C0F0F] font-mono" />
+            </div>
+            <div>
               <label className="block text-xs font-medium text-gray-600 mb-1">Cód. Estado (CIE)</label>
               <input type="text" value={form.codigo_estado} onChange={set('codigo_estado')} placeholder="ex: 923370"
                 className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#5C0F0F] font-mono" />
             </div>
-            <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1">Cód. Prefeitura</label>
-              <input type="text" value={form.codigo_prefeitura} onChange={set('codigo_prefeitura')} placeholder="ex: 12716"
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#5C0F0F] font-mono" />
-            </div>
           </div>
           <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1">Cód. Interno</label>
-              <input type="text" value={form.codigo_interno} onChange={set('codigo_interno')} placeholder="ex: R03-04"
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#5C0F0F]" />
-            </div>
             <div>
               <label className="block text-xs font-medium text-gray-600 mb-1">
                 CEP{buscandoCEP && <span className="text-gray-400 font-normal ml-1">buscando…</span>}
