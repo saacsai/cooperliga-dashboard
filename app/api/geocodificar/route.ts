@@ -21,14 +21,14 @@ function distGeo(lat1: number, lng1: number, lat2: number, lng2: number): number
   return Math.hypot(lat1 - lat2, lng1 - lng2)
 }
 
-type GeoResult = { lat: number; lng: number; cep?: string }
+type GeoResult = { lat: number; lng: number; cep?: string; bairro?: string; municipio?: string }
 
-function extrairCep(result: { address_components?: { types: string[]; long_name: string }[] }): string | undefined {
+type AddressComponent = { types: string[]; long_name: string }
+
+function extrairComponente(result: { address_components?: AddressComponent[] }, ...types: string[]): string | undefined {
   return result.address_components
-    ?.find(c => c.types.includes('postal_code'))
-    ?.long_name
-    ?.replace(/\D/g, '')  // garante somente dígitos (remove hífen se vier)
-    || undefined
+    ?.find(c => types.some(t => c.types.includes(t)))
+    ?.long_name || undefined
 }
 
 async function fetchGoogleResults(
@@ -96,7 +96,13 @@ async function geocodeGoogle(
     : candidatos[0]
 
   const loc = escolhido.geometry.location
-  return { lat: loc.lat as number, lng: loc.lng as number, cep: extrairCep(escolhido) }
+  return {
+    lat:       loc.lat as number,
+    lng:       loc.lng as number,
+    cep:       extrairComponente(escolhido, 'postal_code')?.replace(/\D/g, ''),
+    bairro:    extrairComponente(escolhido, 'sublocality_level_1', 'sublocality', 'neighborhood'),
+    municipio: extrairComponente(escolhido, 'administrative_area_level_2'),
+  }
 }
 
 // ── Nominatim (fallback quando não há API key) ──────────────────────────────
@@ -230,7 +236,9 @@ export async function POST(req: NextRequest) {
 
     if (coords) {
       const update: Record<string, unknown> = { lat: coords.lat, lng: coords.lng, geo_status: 'ok' }
-      if (coords.cep) update.cep = coords.cep  // sobrescreve CEP anterior (correto > errado)
+      if (coords.cep)      update.cep      = coords.cep
+      if (coords.bairro)   update.bairro   = coords.bairro
+      if (coords.municipio) update.municipio = coords.municipio
       await sb.from('pontos_de_entrega').update(update).eq('id', p.id)
       processados++
     } else {

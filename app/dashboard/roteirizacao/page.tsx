@@ -195,7 +195,7 @@ export default function RoteirizacaoPage() {
           .insert({
             nome,
             endereco:          p.endereco          || null,
-            municipio:         p.municipio         || null,
+            municipio:         p.municipio         || (tipo === 'municipal' ? 'São Paulo' : null),
             cep:               p.cep               || null,
             codigo_prefeitura: p.codigo_prefeitura || null,
             codigo_estado:     p.cie               || null,
