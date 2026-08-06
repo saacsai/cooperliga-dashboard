@@ -1,6 +1,21 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getSupabaseAdmin } from '@/lib/supabase'
 
+// ── Normalização de endereço compartilhada ──────────────────────────────────
+function normalizarEndereco(raw: string): string {
+  return raw
+    .replace(/^R[-\.]\s+/i,    'Rua ')
+    .replace(/^AV[-\.]\s+/i,   'Avenida ')
+    .replace(/^AL[-\.]\s+/i,   'Alameda ')
+    .replace(/^PÇA?[-\.]\s+/i, 'Praça ')
+    .replace(/^TRAV[-\.]\s+/i, 'Travessa ')
+    .replace(/^EST[-\.]\s+/i,  'Estrada ')
+    .replace(/^PC[-\.]\s+/i,   'Praça ')
+    .replace(/\bS\/N\b/gi,     '')
+    .replace(/\s+COM\s+(RUA|AV\.?|AVENIDA|TRAVESSA|TRAV\.?)\s+.*/i, '')
+    .trim()
+}
+
 // ── Google Maps Geocoding ───────────────────────────────────────────────────
 function distGeo(lat1: number, lng1: number, lat2: number, lng2: number): number {
   return Math.hypot(lat1 - lat2, lng1 - lng2)
@@ -11,9 +26,13 @@ async function geocodeGoogle(
   municipio: string | null,
   apiKey: string,
   centroide: { lat: number; lng: number } | null,
+  cep?: string | null,
 ): Promise<{ lat: number; lng: number } | null> {
-  const cidade = municipio || 'São Paulo'
-  const query  = `${endereco}, ${cidade}, SP, Brasil`
+  const cidade   = municipio || 'São Paulo'
+  const endNorm  = normalizarEndereco(endereco)
+  const query    = cep
+    ? `${endNorm}, ${cep}, Brasil`
+    : `${endNorm}, ${cidade}, SP, Brasil`
 
   const url = new URL('https://maps.googleapis.com/maps/api/geocode/json')
   url.searchParams.set('address',  query)
@@ -48,32 +67,26 @@ async function geocodeGoogle(
 // ── Nominatim (fallback quando não há API key) ──────────────────────────────
 function parseEndereco(raw: string): { street: string; housenumber: string } {
   let s = raw.toUpperCase().trim()
-  s = s.replace(/\s+COM\s+(RUA|AV\.?|AVENIDA|TRAVESSA|TRAV\.?)\s+.*/i, '')
 
   let housenumber = ''
+  // Extrai "No 151", "Nº 02", "N. 33" etc.
   const numMatch = s.match(/N[Oº°\.]\s*(\d+[A-Z]?(?:\s*[/\-]\s*\d+[A-Z]?)?)/i)
   if (numMatch) {
     housenumber = numMatch[1].replace(/[A-Za-z]$/, '').replace(/\s*[/\-].*/, '').trim()
     s = s.replace(numMatch[0], '').trim()
   }
+  // Extrai "no 2" no final da string (virgula separa complemento)
+  const commaIdx = s.indexOf(',')
+  const searchPart = commaIdx >= 0 ? s.slice(0, commaIdx) : s
   if (!housenumber) {
-    const trailingNum = s.match(/\s+(\d+[A-Z]?)$/)
+    const trailingNum = searchPart.match(/\s+(\d+[A-Z]?)$/)
     if (trailingNum) {
       housenumber = trailingNum[1].replace(/[A-Za-z]$/, '')
       s = s.slice(0, s.length - trailingNum[0].length).trim()
     }
   }
 
-  s = s
-    .replace(/^R\.\s+/,    'RUA ')
-    .replace(/^AV\.\s+/,   'AVENIDA ')
-    .replace(/^AL\.\s+/,   'ALAMEDA ')
-    .replace(/^PÇA?\.\s+/, 'PRAÇA ')
-    .replace(/^TRAV\.\s+/, 'TRAVESSA ')
-    .replace(/^EST\.\s+/,  'ESTRADA ')
-    .replace(/^PC\.\s+/,   'PRAÇA ')
-    .replace(/\bS\/N\b/gi, '')
-    .trim()
+  s = normalizarEndereco(s).toUpperCase()
 
   return { street: s, housenumber }
 }
@@ -160,7 +173,7 @@ export async function POST(req: NextRequest) {
 
   const { data: pontos } = await sb
     .from('pontos_de_entrega')
-    .select('id, endereco, municipio, geo_status')
+    .select('id, endereco, municipio, cep, geo_status')
     .in('id', ids)
 
   let processados = 0
@@ -174,7 +187,7 @@ export async function POST(req: NextRequest) {
     }
 
     const coords = useGoogle
-      ? await geocodeGoogle(p.endereco, p.municipio, apiKey, centroide)
+      ? await geocodeGoogle(p.endereco, p.municipio, apiKey, centroide, p.cep)
       : await geocodeNominatim(p.endereco, p.municipio)
 
     // Nominatim exige 1 req/sec; Google não tem esse limite
