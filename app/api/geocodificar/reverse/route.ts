@@ -18,9 +18,14 @@ export async function GET(req: NextRequest) {
     const data = await res.json()
     if (data.status !== 'OK' || !data.results?.length) return NextResponse.json({ cep: null })
 
-    const cepRaw = data.results[0].address_components
-      ?.find((c: { types: string[] }) => c.types.includes('postal_code'))
-      ?.long_name as string | undefined
+    // Procura nos resultados do mais específico ao menos específico
+    let cepRaw: string | undefined
+    for (const result of data.results) {
+      const pc = result.address_components
+        ?.find((c: { types: string[] }) => c.types.includes('postal_code'))
+        ?.long_name as string | undefined
+      if (pc) { cepRaw = pc; break }
+    }
 
     return NextResponse.json({ cep: cepRaw?.replace(/\D/g, '') ?? null })
   } catch {
