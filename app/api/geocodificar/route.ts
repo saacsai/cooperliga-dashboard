@@ -21,13 +21,23 @@ function distGeo(lat1: number, lng1: number, lat2: number, lng2: number): number
   return Math.hypot(lat1 - lat2, lng1 - lng2)
 }
 
+type GeoResult = { lat: number; lng: number; cep?: string }
+
+function extrairCep(result: { address_components?: { types: string[]; long_name: string }[] }): string | undefined {
+  return result.address_components
+    ?.find(c => c.types.includes('postal_code'))
+    ?.long_name
+    ?.replace(/\D/g, '')  // garante somente dígitos (remove hífen se vier)
+    || undefined
+}
+
 async function geocodeGoogle(
   endereco: string,
   municipio: string | null,
   apiKey: string,
   centroide: { lat: number; lng: number } | null,
   cep?: string | null,
-): Promise<{ lat: number; lng: number } | null> {
+): Promise<GeoResult | null> {
   const cidade   = municipio || 'São Paulo'
   const endNorm  = normalizarEndereco(endereco)
   const query    = cep
@@ -46,19 +56,21 @@ async function geocodeGoogle(
     const data = await res.json()
     if (data.status !== 'OK' || !data.results?.length) return null
 
+    let escolhido = data.results[0]
+
     // Com centróide disponível, escolhe o resultado mais próximo do cluster
     if (centroide && data.results.length > 1) {
-      const melhor = data.results.reduce((best: { lat: number; lng: number }, curr: { geometry: { location: { lat: number; lng: number } } }) => {
-        const loc  = curr.geometry.location
-        const dCur = distGeo(loc.lat, loc.lng, centroide.lat, centroide.lng)
-        const dBst = distGeo(best.lat, best.lng, centroide.lat, centroide.lng)
-        return dCur < dBst ? { lat: loc.lat, lng: loc.lng } : best
-      }, { lat: data.results[0].geometry.location.lat, lng: data.results[0].geometry.location.lng })
-      return melhor
+      escolhido = data.results.reduce((best: typeof data.results[0], curr: typeof data.results[0]) => {
+        const locC = curr.geometry.location
+        const locB = best.geometry.location
+        return distGeo(locC.lat, locC.lng, centroide.lat, centroide.lng)
+             < distGeo(locB.lat, locB.lng, centroide.lat, centroide.lng)
+          ? curr : best
+      })
     }
 
-    const loc = data.results[0].geometry.location
-    return { lat: loc.lat as number, lng: loc.lng as number }
+    const loc = escolhido.geometry.location
+    return { lat: loc.lat as number, lng: loc.lng as number, cep: extrairCep(escolhido) }
   } catch {
     return null
   }
@@ -194,9 +206,9 @@ export async function POST(req: NextRequest) {
     if (!useGoogle) await delay(1100)
 
     if (coords) {
-      await sb.from('pontos_de_entrega')
-        .update({ lat: coords.lat, lng: coords.lng, geo_status: 'ok' })
-        .eq('id', p.id)
+      const update: Record<string, unknown> = { lat: coords.lat, lng: coords.lng, geo_status: 'ok' }
+      if (coords.cep && !p.cep) update.cep = coords.cep
+      await sb.from('pontos_de_entrega').update(update).eq('id', p.id)
       processados++
     } else {
       await sb.from('pontos_de_entrega').update({ geo_status: 'nao_encontrado' }).eq('id', p.id)
