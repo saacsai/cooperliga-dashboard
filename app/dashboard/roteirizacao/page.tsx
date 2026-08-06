@@ -101,11 +101,20 @@ export default function RoteirizacaoPage() {
   // Mapa
   const [mostraMapa, setMostraMapa] = useState(false)
 
-  // Coordenadas manuais
-  const [editandoGeo, setEditandoGeo] = useState<string | null>(null) // ponto_id
-  const [latInput,    setLatInput]    = useState('')
-  const [lngInput,    setLngInput]    = useState('')
-  const [salvandoGeo, setSalvandoGeo] = useState(false)
+  // Coordenadas manuais — modal flutuante
+  const [editandoGeo,  setEditandoGeo]  = useState<string | null>(null) // ponto_id
+  const [editandoNome, setEditandoNome] = useState('')
+  const [latInput,     setLatInput]     = useState('')
+  const [lngInput,     setLngInput]     = useState('')
+  const [salvandoGeo,  setSalvandoGeo]  = useState(false)
+
+  function abrirModal(pontoId: string) {
+    const p = pontosGeo.find(x => x.ponto_id === pontoId)
+    setEditandoGeo(pontoId)
+    setEditandoNome(p?.nome || '')
+    setLatInput('')
+    setLngInput('')
+  }
 
   // ── Passo 1: upload e extração ──────────────────────────────────────────────
   async function handleExtrair() {
@@ -248,10 +257,18 @@ export default function RoteirizacaoPage() {
     if (isNaN(lat) || isNaN(lng)) return
     setSalvandoGeo(true)
     try {
+      // Busca CEP via reverse geocode
+      let cep: string | null = null
+      try {
+        const r = await fetch(`/api/geocodificar/reverse?lat=${lat}&lng=${lng}`)
+        const d = await r.json()
+        cep = d.cep ?? null
+      } catch { /* ignora falha no reverse geocode */ }
+
       const sb = getSupabase()
-      await sb.from('pontos_de_entrega')
-        .update({ lat, lng, geo_status: 'ok' })
-        .eq('id', pontoId)
+      const update: Record<string, unknown> = { lat, lng, geo_status: 'ok' }
+      if (cep) update.cep = cep
+      await sb.from('pontos_de_entrega').update(update).eq('id', pontoId)
       await enriquecerComGeo(pontosExt)
       setEditandoGeo(null)
       setLatInput('')
@@ -495,34 +512,13 @@ export default function RoteirizacaoPage() {
                               title="Regeocodificar (busca novamente no Google Maps)"
                             >{regeocodando === p.ponto_id ? '…' : '↺'}</button>
                             <button
-                              onClick={() => { setEditandoGeo(p.ponto_id); setLatInput(''); setLngInput('') }}
+                              onClick={() => abrirModal(p.ponto_id)}
                               className="text-[10px] text-gray-300 hover:text-gray-500 leading-none"
                               title="Corrigir coordenadas manualmente"
                             >✎</button>
                           </div>
                         )}
                       </div>
-                      {editandoGeo === p.ponto_id && (
-                        <div className="px-3 pb-2 flex items-center gap-2">
-                          <input
-                            type="text"
-                            placeholder="Cole as coordenadas ex: -23.7414, -46.6695"
-                            value={latInput}
-                            onChange={e => {
-                              const v = e.target.value
-                              const parts = v.split(',').map(s => s.trim()).filter(Boolean)
-                              if (parts.length === 2) { setLatInput(parts[0]); setLngInput(parts[1]) }
-                              else { setLatInput(v); setLngInput('') }
-                            }}
-                            className="flex-1 border border-gray-200 rounded px-2 py-1 text-xs outline-none focus:border-[#5C0F0F]"
-                          />
-                          <button onClick={() => salvarCoordenadas(p.ponto_id)} disabled={salvandoGeo || !latInput || !lngInput}
-                            className="flex-shrink-0 text-xs px-2 py-1 rounded text-white disabled:opacity-50" style={{ background: PRIMARY }}>
-                            {salvandoGeo ? '…' : 'Salvar'}
-                          </button>
-                          <button onClick={() => setEditandoGeo(null)} className="text-xs text-gray-400 hover:text-gray-600">✕</button>
-                        </div>
-                      )}
                     </div>
                   ))}
                 </div>
@@ -552,51 +548,13 @@ export default function RoteirizacaoPage() {
                               </div>
                               <p className="text-red-400 font-mono truncate">{p.endereco || 'Sem endereço'}</p>
                             </div>
-                            {editandoGeo !== p.ponto_id && (
-                              <button
-                                onClick={() => { setEditandoGeo(p.ponto_id); setLatInput(''); setLngInput('') }}
-                                className="flex-shrink-0 text-xs px-2 py-1 rounded border border-gray-200 text-gray-500 hover:bg-gray-50"
-                              >
-                                Inserir coords
-                              </button>
-                            )}
+                            <button
+                              onClick={() => abrirModal(p.ponto_id)}
+                              className="flex-shrink-0 text-xs px-2 py-1 rounded border border-gray-200 text-gray-500 hover:bg-gray-50"
+                            >
+                              ✎ Inserir coords
+                            </button>
                           </div>
-                          {editandoGeo === p.ponto_id && (
-                            <div className="mt-2 flex items-center gap-2">
-                              <input
-                                type="text"
-                                placeholder="Cole as coordenadas do Google Maps ex: -23.7414, -46.6695"
-                                value={latInput}
-                                onChange={e => {
-                                  const v = e.target.value
-                                  // Se contiver vírgula entre dois números, separar automaticamente
-                                  const parts = v.split(',').map(s => s.trim()).filter(Boolean)
-                                  if (parts.length === 2) {
-                                    setLatInput(parts[0])
-                                    setLngInput(parts[1])
-                                  } else {
-                                    setLatInput(v)
-                                    setLngInput('')
-                                  }
-                                }}
-                                className="flex-1 border border-gray-200 rounded px-2 py-1 text-xs outline-none focus:border-[#5C0F0F]"
-                              />
-                              <button
-                                onClick={() => salvarCoordenadas(p.ponto_id)}
-                                disabled={salvandoGeo || !latInput || !lngInput}
-                                className="flex-shrink-0 text-xs px-2 py-1 rounded text-white disabled:opacity-50"
-                                style={{ background: PRIMARY }}
-                              >
-                                {salvandoGeo ? '…' : 'Salvar'}
-                              </button>
-                              <button
-                                onClick={() => setEditandoGeo(null)}
-                                className="text-xs text-gray-400 hover:text-gray-600"
-                              >
-                                ✕
-                              </button>
-                            </div>
-                          )}
                         </div>
                       ))}
                   </div>
@@ -628,6 +586,7 @@ export default function RoteirizacaoPage() {
                             qtde_caixas: p.qtde_caixas,
                           }))}
                         onRegeocodificar={regeocodificar}
+                        onEditarGeo={abrirModal}
                       />
                     </div>
                   )}
@@ -798,6 +757,43 @@ export default function RoteirizacaoPage() {
               </button>
             </>
           )}
+        </div>
+      )}
+
+      {/* Modal flutuante de coordenadas manuais */}
+      {editandoGeo && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4" onClick={() => setEditandoGeo(null)}>
+          <div className="bg-white rounded-xl shadow-xl p-5 w-full max-w-sm" onClick={e => e.stopPropagation()}>
+            <p className="text-xs text-gray-500 mb-1">Corrigir coordenadas</p>
+            <p className="text-sm font-semibold text-gray-800 mb-3 truncate">{editandoNome}</p>
+            <input
+              autoFocus
+              type="text"
+              placeholder="-23.7741, -46.6441"
+              value={latInput || (lngInput ? `${latInput}, ${lngInput}` : '')}
+              onChange={e => {
+                const v = e.target.value
+                const parts = v.split(',').map(s => s.trim()).filter(Boolean)
+                if (parts.length >= 2) { setLatInput(parts[0]); setLngInput(parts[1]) }
+                else { setLatInput(v); setLngInput('') }
+              }}
+              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#5C0F0F] mb-3"
+            />
+            <p className="text-[10px] text-gray-400 mb-3">Cole as coordenadas do Google Maps (ex: -23.7741069, -46.6441512)</p>
+            <div className="flex gap-2">
+              <button
+                onClick={() => salvarCoordenadas(editandoGeo)}
+                disabled={salvandoGeo || !latInput || !lngInput}
+                className="flex-1 py-2 rounded-lg text-sm font-medium text-white disabled:opacity-50"
+                style={{ background: PRIMARY }}
+              >
+                {salvandoGeo ? 'Salvando…' : 'Salvar'}
+              </button>
+              <button onClick={() => setEditandoGeo(null)} className="px-4 py-2 rounded-lg text-sm text-gray-500 border border-gray-200 hover:bg-gray-50">
+                Cancelar
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>
