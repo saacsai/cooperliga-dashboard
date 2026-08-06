@@ -31,54 +31,72 @@ function extrairCep(result: { address_components?: { types: string[]; long_name:
     || undefined
 }
 
+async function fetchGoogleResults(
+  query: string,
+  apiKey: string,
+  municipio: string | null,
+  centroide: { lat: number; lng: number } | null,
+): Promise<unknown[]> {
+  const url = new URL('https://maps.googleapis.com/maps/api/geocode/json')
+  url.searchParams.set('address',  query)
+  url.searchParams.set('key',      apiKey)
+  url.searchParams.set('region',   'br')
+  url.searchParams.set('language', 'pt-BR')
+  const components = ['country:BR', 'administrative_area_level_1:SP']
+  if (municipio) components.push(`locality:${municipio}`)
+  url.searchParams.set('components', components.join('|'))
+  if (centroide) {
+    const d = 0.8
+    url.searchParams.set('bounds',
+      `${centroide.lat - d},${centroide.lng - d}|${centroide.lat + d},${centroide.lng + d}`)
+  }
+  try {
+    const res  = await fetch(url.toString(), { signal: AbortSignal.timeout(8000) })
+    if (!res.ok) return []
+    const data = await res.json()
+    return data.status === 'OK' && data.results?.length ? data.results : []
+  } catch {
+    return []
+  }
+}
+
 async function geocodeGoogle(
   endereco: string,
   municipio: string | null,
   apiKey: string,
   centroide: { lat: number; lng: number } | null,
+  nome?: string | null,
 ): Promise<GeoResult | null> {
   const cidade  = municipio || 'São Paulo'
   const endNorm = normalizarEndereco(endereco)
-  const query   = `${endNorm}, ${cidade}, SP, Brasil`
 
-  const url = new URL('https://maps.googleapis.com/maps/api/geocode/json')
-  url.searchParams.set('address',    query)
-  url.searchParams.set('key',        apiKey)
-  url.searchParams.set('region',     'br')
-  url.searchParams.set('language',   'pt-BR')
-  const components = ['country:BR', 'administrative_area_level_1:SP']
-  if (municipio) components.push(`locality:${municipio}`)
-  url.searchParams.set('components', components.join('|'))
-  if (centroide) {
-    const d = 0.8  // ~90 km — cobre toda a RMSP
-    url.searchParams.set('bounds',
-      `${centroide.lat - d},${centroide.lng - d}|${centroide.lat + d},${centroide.lng + d}`)
+  type Resultado = { geometry: { location: { lat: number; lng: number } }; address_components?: { types: string[]; long_name: string }[] }
+
+  const byAddr = await fetchGoogleResults(`${endNorm}, ${cidade}, SP, Brasil`, apiKey, municipio, centroide) as Resultado[]
+
+  // Se todos os resultados estiverem longe do centróide (>0.5° ≈ 55 km), tenta pelo nome
+  const DIST_SUSPEITA = 0.5
+  const suspeito = centroide && byAddr.length > 0 && byAddr.every(r =>
+    distGeo(r.geometry.location.lat, r.geometry.location.lng, centroide.lat, centroide.lng) > DIST_SUSPEITA
+  )
+
+  let candidatos = byAddr
+  if ((suspeito || !byAddr.length) && nome) {
+    const byNome = await fetchGoogleResults(`${nome}, ${cidade}, SP, Brasil`, apiKey, municipio, centroide) as Resultado[]
+    candidatos = [...byAddr, ...byNome]
   }
 
-  try {
-    const res  = await fetch(url.toString(), { signal: AbortSignal.timeout(8000) })
-    if (!res.ok) return null
-    const data = await res.json()
-    if (data.status !== 'OK' || !data.results?.length) return null
+  if (!candidatos.length) return null
 
-    let escolhido = data.results[0]
+  const escolhido = centroide && candidatos.length > 1
+    ? candidatos.reduce((best, curr) =>
+        distGeo(curr.geometry.location.lat, curr.geometry.location.lng, centroide.lat, centroide.lng)
+      < distGeo(best.geometry.location.lat, best.geometry.location.lng, centroide.lat, centroide.lng)
+        ? curr : best)
+    : candidatos[0]
 
-    // Com centróide disponível, escolhe o resultado mais próximo do cluster
-    if (centroide && data.results.length > 1) {
-      escolhido = data.results.reduce((best: typeof data.results[0], curr: typeof data.results[0]) => {
-        const locC = curr.geometry.location
-        const locB = best.geometry.location
-        return distGeo(locC.lat, locC.lng, centroide.lat, centroide.lng)
-             < distGeo(locB.lat, locB.lng, centroide.lat, centroide.lng)
-          ? curr : best
-      })
-    }
-
-    const loc = escolhido.geometry.location
-    return { lat: loc.lat as number, lng: loc.lng as number, cep: extrairCep(escolhido) }
-  } catch {
-    return null
-  }
+  const loc = escolhido.geometry.location
+  return { lat: loc.lat as number, lng: loc.lng as number, cep: extrairCep(escolhido) }
 }
 
 // ── Nominatim (fallback quando não há API key) ──────────────────────────────
@@ -190,7 +208,7 @@ export async function POST(req: NextRequest) {
 
   const { data: pontos } = await sb
     .from('pontos_de_entrega')
-    .select('id, endereco, municipio, cep, geo_status')
+    .select('id, nome, endereco, municipio, cep, geo_status')
     .in('id', ids)
 
   let processados = 0
@@ -204,7 +222,7 @@ export async function POST(req: NextRequest) {
     }
 
     const coords = useGoogle
-      ? await geocodeGoogle(p.endereco, p.municipio, apiKey, centroide)
+      ? await geocodeGoogle(p.endereco, p.municipio, apiKey, centroide, p.nome)
       : await geocodeNominatim(p.endereco, p.municipio)
 
     // Nominatim exige 1 req/sec; Google não tem esse limite
