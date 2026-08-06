@@ -49,7 +49,9 @@ async function geocodeGoogle(
   url.searchParams.set('key',        apiKey)
   url.searchParams.set('region',     'br')
   url.searchParams.set('language',   'pt-BR')
-  url.searchParams.set('components', 'country:BR|administrative_area_level_1:SP')
+  const components = ['country:BR', 'administrative_area_level_1:SP']
+  if (municipio) components.push(`locality:${municipio}`)
+  url.searchParams.set('components', components.join('|'))
   if (centroide) {
     const d = 0.8  // ~90 km — cobre toda a RMSP
     url.searchParams.set('bounds',
