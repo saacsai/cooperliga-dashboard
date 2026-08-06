@@ -36,13 +36,10 @@ async function geocodeGoogle(
   municipio: string | null,
   apiKey: string,
   centroide: { lat: number; lng: number } | null,
-  cep?: string | null,
 ): Promise<GeoResult | null> {
-  const cidade   = municipio || 'São Paulo'
-  const endNorm  = normalizarEndereco(endereco)
-  const query    = cep
-    ? `${endNorm}, ${cep}, Brasil`
-    : `${endNorm}, ${cidade}, SP, Brasil`
+  const cidade  = municipio || 'São Paulo'
+  const endNorm = normalizarEndereco(endereco)
+  const query   = `${endNorm}, ${cidade}, SP, Brasil`
 
   const url = new URL('https://maps.googleapis.com/maps/api/geocode/json')
   url.searchParams.set('address',    query)
@@ -207,7 +204,7 @@ export async function POST(req: NextRequest) {
     }
 
     const coords = useGoogle
-      ? await geocodeGoogle(p.endereco, p.municipio, apiKey, centroide, p.cep)
+      ? await geocodeGoogle(p.endereco, p.municipio, apiKey, centroide)
       : await geocodeNominatim(p.endereco, p.municipio)
 
     // Nominatim exige 1 req/sec; Google não tem esse limite
@@ -215,7 +212,7 @@ export async function POST(req: NextRequest) {
 
     if (coords) {
       const update: Record<string, unknown> = { lat: coords.lat, lng: coords.lng, geo_status: 'ok' }
-      if (coords.cep && !p.cep) update.cep = coords.cep
+      if (coords.cep) update.cep = coords.cep  // sobrescreve CEP anterior (correto > errado)
       await sb.from('pontos_de_entrega').update(update).eq('id', p.id)
       processados++
     } else {
