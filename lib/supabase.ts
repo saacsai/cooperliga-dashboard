@@ -77,6 +77,9 @@ export interface PontoDeEntrega {
   bairro: string | null
   cep: string | null
   contato_nome: string | null
+  lat: number | null
+  lng: number | null
+  geo_status: string | null
   ativo: boolean
   created_at: string
   contratos?: { orgao: string; clientes: { nome: string } }

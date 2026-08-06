@@ -33,6 +33,7 @@ interface PontoComGeo {
   codigo: string
   nome: string
   endereco: string
+  municipio?: string
   lat?: number
   lng?: number
   qtde_caixas: number
@@ -102,10 +103,13 @@ export default function RoteirizacaoPage() {
   const [mostraMapa, setMostraMapa] = useState(false)
 
   // Coordenadas manuais — modal flutuante
-  const [editandoGeo,  setEditandoGeo]  = useState<string | null>(null) // ponto_id
+  const [editandoGeo,  setEditandoGeo]  = useState<string | null>(null)
   const [editandoNome, setEditandoNome] = useState('')
   const [latInput,     setLatInput]     = useState('')
   const [lngInput,     setLngInput]     = useState('')
+  const [cepInput,     setCepInput]     = useState('')
+  const [bairroInput,  setBairroInput]  = useState('')
+  const [municipioInput, setMunicipioInput] = useState('')
   const [salvandoGeo,  setSalvandoGeo]  = useState(false)
 
   function abrirModal(pontoId: string) {
@@ -114,6 +118,9 @@ export default function RoteirizacaoPage() {
     setEditandoNome(p?.nome || '')
     setLatInput('')
     setLngInput('')
+    setCepInput('')
+    setBairroInput('')
+    setMunicipioInput(p?.municipio || '')
   }
 
   // ── Passo 1: upload e extração ──────────────────────────────────────────────
@@ -162,22 +169,23 @@ export default function RoteirizacaoPage() {
 
       const { data } = await sb
         .from('pontos_de_entrega')
-        .select('id, lat, lng, geo_status')
+        .select('id, lat, lng, geo_status, municipio')
         .eq(col, codigo)
         .limit(1)
         .single()
 
       if (data) {
         resultado.push({
-          ponto_id: data.id,
+          ponto_id:  data.id,
           codigo,
           nome,
-          endereco: p.endereco || '',
-          lat: data.lat ?? undefined,
-          lng: data.lng ?? undefined,
+          endereco:  p.endereco || '',
+          municipio: data.municipio ?? undefined,
+          lat:       data.lat ?? undefined,
+          lng:       data.lng ?? undefined,
           qtde_caixas: qtde,
           geo_status: data.geo_status || 'pendente',
-          produto: p.produto,
+          produto:   p.produto,
           diretoria: p.diretoria,
         })
       } else {
@@ -257,22 +265,14 @@ export default function RoteirizacaoPage() {
     if (isNaN(lat) || isNaN(lng)) return
     setSalvandoGeo(true)
     try {
-      // Busca CEP via reverse geocode
-      let cep: string | null = null
-      try {
-        const r = await fetch(`/api/geocodificar/reverse?lat=${lat}&lng=${lng}`)
-        const d = await r.json()
-        cep = d.cep ?? null
-      } catch { /* ignora falha no reverse geocode */ }
-
       const sb = getSupabase()
       const update: Record<string, unknown> = { lat, lng, geo_status: 'ok' }
-      if (cep) update.cep = cep
+      if (cepInput.trim())      update.cep      = cepInput.trim().replace(/\D/g, '')
+      if (bairroInput.trim())   update.bairro   = bairroInput.trim()
+      if (municipioInput.trim()) update.municipio = municipioInput.trim()
       await sb.from('pontos_de_entrega').update(update).eq('id', pontoId)
       await enriquecerComGeo(pontosExt)
       setEditandoGeo(null)
-      setLatInput('')
-      setLngInput('')
     } finally {
       setSalvandoGeo(false)
     }
@@ -763,24 +763,53 @@ export default function RoteirizacaoPage() {
       {/* Modal flutuante de coordenadas manuais */}
       {editandoGeo && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4" onClick={() => setEditandoGeo(null)}>
-          <div className="bg-white rounded-xl shadow-xl p-5 w-full max-w-sm" onClick={e => e.stopPropagation()}>
-            <p className="text-xs text-gray-500 mb-1">Corrigir coordenadas</p>
-            <p className="text-sm font-semibold text-gray-800 mb-3 truncate">{editandoNome}</p>
-            <input
-              autoFocus
-              type="text"
-              placeholder="-23.7741, -46.6441"
-              value={latInput || (lngInput ? `${latInput}, ${lngInput}` : '')}
-              onChange={e => {
-                const v = e.target.value
-                const parts = v.split(',').map(s => s.trim()).filter(Boolean)
-                if (parts.length >= 2) { setLatInput(parts[0]); setLngInput(parts[1]) }
-                else { setLatInput(v); setLngInput('') }
-              }}
-              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#5C0F0F] mb-3"
-            />
-            <p className="text-[10px] text-gray-400 mb-3">Cole as coordenadas do Google Maps (ex: -23.7741069, -46.6441512)</p>
-            <div className="flex gap-2">
+          <div className="bg-white rounded-xl shadow-xl p-5 w-full max-w-sm space-y-3" onClick={e => e.stopPropagation()}>
+            <div>
+              <p className="text-xs text-gray-500">Corrigir localização</p>
+              <p className="text-sm font-semibold text-gray-800 truncate">{editandoNome}</p>
+            </div>
+
+            <div>
+              <label className="block text-xs text-gray-500 mb-1">Coordenadas *</label>
+              <input
+                autoFocus
+                type="text"
+                placeholder="-23.7741, -46.6441"
+                value={latInput && lngInput ? `${latInput}, ${lngInput}` : latInput}
+                onChange={e => {
+                  const v = e.target.value
+                  const parts = v.split(',').map(s => s.trim()).filter(Boolean)
+                  if (parts.length >= 2) { setLatInput(parts[0]); setLngInput(parts[1]) }
+                  else { setLatInput(v); setLngInput('') }
+                }}
+                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#5C0F0F]"
+              />
+              <p className="text-[10px] text-gray-400 mt-1">Cole as coordenadas do Google Maps</p>
+            </div>
+
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <label className="block text-xs text-gray-500 mb-1">CEP</label>
+                <input type="text" placeholder="04872-210" value={cepInput}
+                  onChange={e => setCepInput(e.target.value)}
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#5C0F0F] font-mono" />
+              </div>
+              <div>
+                <label className="block text-xs text-gray-500 mb-1">Município</label>
+                <input type="text" placeholder="São Paulo" value={municipioInput}
+                  onChange={e => setMunicipioInput(e.target.value)}
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#5C0F0F]" />
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-xs text-gray-500 mb-1">Bairro</label>
+              <input type="text" placeholder="Borore" value={bairroInput}
+                onChange={e => setBairroInput(e.target.value)}
+                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#5C0F0F]" />
+            </div>
+
+            <div className="flex gap-2 pt-1">
               <button
                 onClick={() => salvarCoordenadas(editandoGeo)}
                 disabled={salvandoGeo || !latInput || !lngInput}

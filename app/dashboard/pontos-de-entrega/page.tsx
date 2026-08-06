@@ -386,6 +386,7 @@ export default function PontosDeEntregaPage() {
                   <th className="text-left px-4 py-3 text-xs font-medium text-gray-500">Cód. Estado</th>
                   <th className="text-left px-4 py-3 text-xs font-medium text-gray-500">Cód. Prefeitura</th>
                   <th className="text-left px-4 py-3 text-xs font-medium text-gray-500">Município</th>
+                  <th className="text-left px-4 py-3 text-xs font-medium text-gray-500">Geo</th>
                   <th className="text-left px-4 py-3 text-xs font-medium text-gray-500">Status</th>
                   <th className="px-4 py-3" />
                 </tr>
@@ -398,6 +399,17 @@ export default function PontosDeEntregaPage() {
                     <td className="px-4 py-3 text-gray-500 font-mono text-xs">{p.codigo_estado || '—'}</td>
                     <td className="px-4 py-3 text-gray-500 font-mono text-xs">{p.codigo_prefeitura || '—'}</td>
                     <td className="px-4 py-3 text-gray-500">{p.municipio || '—'}</td>
+                    <td className="px-4 py-3">
+                      {p.lat && p.lng ? (
+                        <span className="text-[10px] font-mono text-gray-400" title={`${p.lat}, ${p.lng}`}>
+                          🟢 {p.lat.toFixed(4)}, {p.lng.toFixed(4)}
+                        </span>
+                      ) : (
+                        <span className="text-[10px] text-gray-300">
+                          {p.geo_status === 'nao_encontrado' ? '🔴 não encontrado' : p.geo_status === 'sem_endereco' ? '⚫ sem endereço' : '🟡 pendente'}
+                        </span>
+                      )}
+                    </td>
                     <td className="px-4 py-3">
                       <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${p.ativo ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
                         {p.ativo ? 'ativo' : 'inativo'}
@@ -414,7 +426,7 @@ export default function PontosDeEntregaPage() {
                 ))}
                 {pontos.length === 0 && (
                   <tr>
-                    <td colSpan={7} className="px-4 py-8 text-center text-sm text-gray-400">
+                    <td colSpan={8} className="px-4 py-8 text-center text-sm text-gray-400">
                       {temFiltro ? 'Nenhum ponto encontrado para este filtro.' : 'Nenhum ponto de entrega cadastrado.'}
                     </td>
                   </tr>
