@@ -36,6 +36,11 @@ const ICONS: Record<string, React.ReactNode> = {
   financeiro: <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="2"/><path d="M6 12h.01M18 12h.01"/></svg>,
   usuarios:   <Icon d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75" circle={{ cx: 9, cy: 7, r: 4 }} />,
   bia:        <Icon d="M12 8V4H8M12 8c-3.87 0-6 2-6 4v4h12v-4c0-2-2.13-4-6-4zM2 14h3M19 14h3M6 18v2M18 18v2" d2="M9 14h.01M15 14h.01" />,
+  ceaf_empresas:  <Icon d="M6 22V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v18H6z" d2="M6 12H4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h2M18 9h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-2" />,
+  ceaf_cardapio:  <Icon d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2M9 3h6a1 1 0 0 1 1 1v2a1 1 0 0 1-1 1H9a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z" d2="M9 12h6M9 16h4" />,
+  ceaf_pedidos:   <Icon d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z" d2="M3 6h18M16 10a4 4 0 0 1-8 0" />,
+  ceaf_ciclos:    <Icon d="M23 7l-7 5 7 5V7z" d2="M1 5h15v14H1z" />,
+  ceaf_montagem:  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>,
 }
 
 interface NavItem {
@@ -69,6 +74,16 @@ const NAV_SECTIONS: NavSection[] = [
       { href: '/dashboard/produtos',          label: 'Produtos',          iconKey: 'produtos',  perfis: ['admin','gestor'] },
       { href: '/dashboard/rotas',             label: 'Rotas',             iconKey: 'rotas',     perfis: ['admin','gestor'] },
       { href: '/dashboard/agregados',         label: 'Agregados',         iconKey: 'agregados', perfis: ['admin','gestor'] },
+    ],
+  },
+  {
+    label: 'VENDAS CEAF',
+    items: [
+      { href: '/dashboard/vendas/empresas',  label: 'Empresas',       iconKey: 'ceaf_empresas', perfis: ['admin','gestor'] },
+      { href: '/dashboard/vendas/cardapio',  label: 'Cardápio',       iconKey: 'ceaf_cardapio', perfis: ['admin','gestor'] },
+      { href: '/dashboard/vendas/pedidos',   label: 'Pedidos',        iconKey: 'ceaf_pedidos',  perfis: ['admin','gestor','analista'] },
+      { href: '/dashboard/vendas/ciclos',    label: 'Ciclos',         iconKey: 'ceaf_ciclos',   perfis: ['admin','gestor'] },
+      { href: '/dashboard/vendas/montagem',  label: 'Montagem',       iconKey: 'ceaf_montagem', perfis: ['admin','gestor','operador'] },
     ],
   },
   {

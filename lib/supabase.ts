@@ -131,6 +131,97 @@ export interface EstoqueMovimento {
   ciclo_manifestos?: { numero: number; variante: string | null; rotas: { codigo: string } | null } | null
 }
 
+export type CeafCategoria = 'folhosa' | 'legume' | 'fruta' | 'grao' | 'processado' | 'outro'
+export type CeafCicloStatus = 'aberto' | 'fechado' | 'consolidado' | 'entregue'
+export type CeafPedidoStatus = 'pendente' | 'pago' | 'cancelado'
+
+export interface CeafEmpresa {
+  id: string
+  nome: string
+  cnpj: string | null
+  razao_social: string | null
+  endereco_entrega: string | null
+  municipio: string | null
+  cep: string | null
+  contato_nome: string | null
+  contato_whatsapp: string | null
+  email: string | null
+  ativa: boolean
+  created_at: string
+}
+
+export interface CeafFuncionario {
+  id: string
+  empresa_id: string
+  nome: string
+  whatsapp: string
+  preferencias_nunca: string[]
+  ativo: boolean
+  created_at: string
+  ceaf_empresas?: { nome: string }
+}
+
+export interface CeafProduto {
+  id: string
+  nome: string
+  categoria: CeafCategoria
+  unidade: string
+  preco_unitario: number
+  disponivel: boolean
+  created_at: string
+}
+
+export interface CeafCardapio {
+  id: string
+  semana_ref: string
+  produto_id: string
+  quantidade_cx: number | null
+  preco_semana: number | null
+  ativo: boolean
+  ceaf_produtos?: CeafProduto
+}
+
+export interface CeafCiclo {
+  id: string
+  semana_ref: string
+  empresa_id: string
+  status: CeafCicloStatus
+  data_cardapio: string | null
+  data_fechamento: string | null
+  data_entrega: string | null
+  veiculo_sugerido: string | null
+  total_caixas: number
+  valor_frete: number | null
+  plus_montagem: number | null
+  observacao: string | null
+  created_at: string
+  ceaf_empresas?: { nome: string }
+}
+
+export interface CeafPedido {
+  id: string
+  ciclo_id: string
+  funcionario_id: string
+  status: CeafPedidoStatus
+  valor_total: number
+  slot_retirada: string | null
+  pago_em: string | null
+  observacao: string | null
+  created_at: string
+  ceaf_funcionarios?: { nome: string; whatsapp: string }
+  ceaf_pedidos_itens?: CeafPedidoItem[]
+}
+
+export interface CeafPedidoItem {
+  id: string
+  pedido_id: string
+  produto_id: string
+  quantidade: number
+  preco_unitario: number
+  substituto_de: string | null
+  ceaf_produtos?: { nome: string; unidade: string }
+}
+
 export interface Agregado {
   id: string
   nome: string
