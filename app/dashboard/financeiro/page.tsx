@@ -3,7 +3,7 @@
 import { useEffect, useState, useMemo } from 'react'
 import { getSupabase } from '@/lib/supabase'
 
-const PRIMARY = '#5C0F0F'
+const PRIMARY = '#072740'
 
 type Status = 'aguardando_nf' | 'nf_recebida' | 'aprovado' | 'pago'
 
@@ -292,8 +292,7 @@ export default function FinanceiroPage() {
         </div>
         <button
           onClick={gerarPagamentos} disabled={gerando}
-          className="text-white text-xs font-medium px-3 py-1.5 rounded-lg hover:opacity-90 disabled:opacity-50 transition-opacity"
-          style={{ background: PRIMARY }}>
+          className="text-xs font-medium px-3 py-1.5 rounded-lg disabled:opacity-50 transition-opacity btn-brand">
           {gerando ? 'Gerando…' : '↻ Gerar pagamentos'}
         </button>
       </div>
@@ -321,7 +320,7 @@ export default function FinanceiroPage() {
       {/* Filtros */}
       <div className="flex flex-wrap gap-3 mb-4">
         <select value={filtroVencimento} onChange={e => setFiltroVencimento(e.target.value)}
-          className="border border-gray-300 rounded-lg px-3 py-1.5 text-sm outline-none focus:border-[#5C0F0F] bg-white">
+          className="border border-gray-300 rounded-lg px-3 py-1.5 text-sm outline-none focus:border-[#072740] bg-white">
           <option value="">Todos os vencimentos</option>
           {vencimentosDistintos.map(v => (
             <option key={v} value={v}>Vence {fmtDate(v)}</option>
@@ -329,7 +328,7 @@ export default function FinanceiroPage() {
         </select>
 
         <select value={filtroStatus} onChange={e => setFiltroStatus(e.target.value as Status | '')}
-          className="border border-gray-300 rounded-lg px-3 py-1.5 text-sm outline-none focus:border-[#5C0F0F] bg-white">
+          className="border border-gray-300 rounded-lg px-3 py-1.5 text-sm outline-none focus:border-[#072740] bg-white">
           <option value="">Todos os status</option>
           {(Object.keys(STATUS_CONFIG) as Status[]).map(s => (
             <option key={s} value={s}>{STATUS_CONFIG[s].label}</option>
@@ -378,7 +377,7 @@ export default function FinanceiroPage() {
                   <input type="checkbox"
                     checked={selecionados.size === filtrados.length && filtrados.length > 0}
                     onChange={toggleSelectAll}
-                    className="accent-[#5C0F0F]" />
+                    className="accent-[#072740]" />
                 </th>
                 <th className="text-left px-4 py-3 text-xs font-medium text-gray-500">Agregado</th>
                 <th className="text-left px-4 py-3 text-xs font-medium text-gray-500">Semana trabalhada</th>
@@ -402,7 +401,7 @@ export default function FinanceiroPage() {
                     <tr key={p.id}
                       className={`border-b border-gray-50 last:border-0 hover:bg-gray-50/50 ${sel ? 'bg-blue-50/30' : ''}`}>
                       <td className="px-4 py-3">
-                        <input type="checkbox" checked={sel} onChange={() => toggleSelect(p.id)} className="accent-[#5C0F0F]" />
+                        <input type="checkbox" checked={sel} onChange={() => toggleSelect(p.id)} className="accent-[#072740]" />
                       </td>
                       <td className="px-4 py-3 font-medium text-gray-800 text-xs">{p.agregados?.nome ?? '—'}</td>
                       <td className="px-4 py-3 text-xs text-gray-600 tabular-nums">{fmtSemana(p.semana_ref)}</td>
@@ -453,7 +452,7 @@ export default function FinanceiroPage() {
                                 onKeyDown={e => e.key === 'Enter' && salvarNF(p.id)}
                                 placeholder="Nº NF"
                                 autoFocus
-                                className="w-24 border border-gray-300 rounded px-2 py-1 text-xs outline-none focus:border-[#5C0F0F] font-mono"
+                                className="w-24 border border-gray-300 rounded px-2 py-1 text-xs outline-none focus:border-[#072740] font-mono"
                               />
                               <button onClick={() => salvarNF(p.id)}
                                 className="text-green-600 hover:text-green-700 text-xs font-medium">✓</button>

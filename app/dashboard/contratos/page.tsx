@@ -5,7 +5,7 @@ import { getSupabase } from '@/lib/supabase'
 import Drawer from '@/components/Drawer'
 import type { Cliente, Contrato } from '@/lib/supabase'
 
-const PRIMARY = '#5C0F0F'
+const PRIMARY = '#072740'
 
 const ORGAOS = ['Estado SP', 'Prefeitura SP', 'Prefeitura Mauá']
 
@@ -90,7 +90,7 @@ export default function ContratosPage() {
           <h1 className="text-xl font-bold text-gray-900">Contratos</h1>
           <p className="text-sm text-gray-500 mt-0.5">Contratos de cada cooperativa com órgãos públicos</p>
         </div>
-        <button onClick={abrirNovo} className="text-white text-xs font-medium px-3 py-1.5 rounded-lg hover:opacity-90 transition-opacity" style={{ background: PRIMARY }}>
+        <button onClick={abrirNovo} className="text-xs font-medium px-3 py-1.5 rounded-lg transition-opacity btn-brand">
           + Novo contrato
         </button>
       </div>
@@ -150,7 +150,7 @@ export default function ContratosPage() {
           <div>
             <label className="block text-xs font-medium text-gray-600 mb-1">Cliente *</label>
             <select value={form.cliente_id} onChange={set('cliente_id')} required
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#5C0F0F]">
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#072740]">
               <option value="">Selecione…</option>
               {clientes.map(c => <option key={c.id} value={c.id}>{c.nome}</option>)}
             </select>
@@ -158,14 +158,14 @@ export default function ContratosPage() {
           <div>
             <label className="block text-xs font-medium text-gray-600 mb-1">Código do contrato</label>
             <input type="text" value={form.codigo} onChange={set('codigo')} placeholder="ex: MUN01, EST01"
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#5C0F0F] font-mono uppercase" />
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#072740] font-mono uppercase" />
             <p className="text-xs text-gray-400 mt-1">Usado para gerar o código das rotas (ex: MUN01-08400-R1)</p>
           </div>
           <div>
             <label className="block text-xs font-medium text-gray-600 mb-1">Órgão *</label>
             <input type="text" value={form.orgao} onChange={set('orgao')} required autoFocus
               list="orgaos-list" placeholder="Estado SP, Prefeitura SP…"
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#5C0F0F]" />
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#072740]" />
             <datalist id="orgaos-list">
               {ORGAOS.map(o => <option key={o} value={o} />)}
             </datalist>
@@ -173,12 +173,12 @@ export default function ContratosPage() {
           <div>
             <label className="block text-xs font-medium text-gray-600 mb-1">Nº do contrato</label>
             <input type="text" value={form.numero} onChange={set('numero')}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#5C0F0F]" />
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#072740]" />
           </div>
           <div>
             <label className="block text-xs font-medium text-gray-600 mb-1">Tipo de GR</label>
             <select value={form.tipo_gr} onChange={set('tipo_gr')}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#5C0F0F]">
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#072740]">
               <option value="">Selecione…</option>
               <option value="estado">Estado</option>
               <option value="municipal">Municipal</option>
@@ -187,12 +187,12 @@ export default function ContratosPage() {
           <div>
             <label className="block text-xs font-medium text-gray-600 mb-1">Descrição</label>
             <input type="text" value={form.descricao} onChange={set('descricao')} placeholder="Observações opcionais"
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#5C0F0F]" />
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#072740]" />
           </div>
           {erro && <p className="text-xs text-red-600 bg-red-50 border border-red-200 rounded-lg p-2">{erro}</p>}
           <div className="flex gap-2 pt-2">
             <button type="button" onClick={() => setDrawer(false)} className="flex-1 border border-gray-200 rounded-lg py-1.5 text-xs text-gray-600 hover:bg-gray-50">Cancelar</button>
-            <button type="submit" disabled={salvando} className="flex-1 text-white rounded-lg py-1.5 text-xs font-medium disabled:opacity-50" style={{ background: PRIMARY }}>
+            <button type="submit" disabled={salvando} className="flex-1 rounded-lg py-1.5 text-xs font-medium disabled:opacity-50 btn-brand">
               {salvando ? 'Salvando…' : 'Salvar'}
             </button>
           </div>

@@ -34,7 +34,7 @@ export default function CallbackPage() {
   }, [])
 
   return (
-    <div className="min-h-screen flex items-center justify-center" style={{ background: '#F5EFEF' }}>
+    <div className="min-h-screen flex items-center justify-center" style={{ background: 'linear-gradient(160deg, #ffffff 0%, #e8f4ff 100%)' }}>
       <p className="text-sm text-gray-400">Verificando acesso…</p>
     </div>
   )

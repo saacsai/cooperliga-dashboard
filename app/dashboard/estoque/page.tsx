@@ -5,7 +5,7 @@ import { getSupabase } from '@/lib/supabase'
 import Drawer from '@/components/Drawer'
 import type { EstoqueMovimento, TipoMovimento } from '@/lib/supabase'
 
-const PRIMARY = '#5C0F0F'
+const PRIMARY = '#072740'
 const HOJE = new Date().toISOString().split('T')[0]
 
 type DropItem = { id: string; nome: string }
@@ -184,7 +184,7 @@ export default function EstoquePage() {
           <h1 className="text-xl font-bold text-gray-900">Estoque de Caixas</h1>
           <p className="text-sm text-gray-500 mt-0.5">Conta corrente de caixas por cliente</p>
         </div>
-        <button onClick={abrirNovo} className="text-white text-xs font-medium px-3 py-1.5 rounded-lg hover:opacity-90 transition-opacity" style={{ background: PRIMARY }}>
+        <button onClick={abrirNovo} className="text-xs font-medium px-3 py-1.5 rounded-lg transition-opacity btn-brand">
           + Novo lançamento
         </button>
       </div>
@@ -192,7 +192,7 @@ export default function EstoquePage() {
       {/* Filtros */}
       <div className="flex flex-wrap items-center gap-3 mb-4">
         <select value={filtroCliente} onChange={e => setFiltroCliente(e.target.value)}
-          className="border border-gray-300 rounded-lg px-3 py-1.5 text-sm outline-none focus:border-[#5C0F0F] bg-white">
+          className="border border-gray-300 rounded-lg px-3 py-1.5 text-sm outline-none focus:border-[#072740] bg-white">
           <option value="">Todos os clientes</option>
           {clientes.map(c => <option key={c.id} value={c.id}>{c.nome}</option>)}
         </select>
@@ -306,12 +306,12 @@ export default function EstoquePage() {
             <div>
               <label className="block text-xs font-medium text-gray-600 mb-1">Data *</label>
               <input type="date" value={form.data} onChange={set('data')} required max={HOJE}
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#5C0F0F]" />
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#072740]" />
             </div>
             <div>
               <label className="block text-xs font-medium text-gray-600 mb-1">Tipo *</label>
               <select value={form.tipo} onChange={set('tipo')}
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#5C0F0F] bg-white">
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#072740] bg-white">
                 {(Object.keys(TIPO_CONFIG) as TipoMovimento[]).map(t => (
                   <option key={t} value={t}>{TIPO_CONFIG[t].label}</option>
                 ))}
@@ -324,7 +324,7 @@ export default function EstoquePage() {
               Cliente {cfg.direcao !== 'ambos' ? '*' : ''}
             </label>
             <select value={form.cliente_id} onChange={set('cliente_id')}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#5C0F0F] bg-white">
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#072740] bg-white">
               <option value="">Selecione…</option>
               {clientes.map(c => (
                 <option key={c.id} value={c.id}>
@@ -348,7 +348,7 @@ export default function EstoquePage() {
                   }}
                   onBlur={e => buscarManifesto(e.target.value)}
                   placeholder="ex: 42A"
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#5C0F0F] font-mono"
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#072740] font-mono"
                 />
                 {buscandoManif && (
                   <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-gray-400">buscando…</span>
@@ -366,7 +366,7 @@ export default function EstoquePage() {
           <div>
             <label className="block text-xs font-medium text-gray-600 mb-1">Quantidade *</label>
             <input type="number" min="1" value={form.quantidade} onChange={set('quantidade')} required
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#5C0F0F]" />
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#072740]" />
           </div>
 
           {cfg.direcao === 'ambos' && (
@@ -377,7 +377,7 @@ export default function EstoquePage() {
                   <label key={d} className="flex items-center gap-2 cursor-pointer">
                     <input type="radio" name="direcao" value={d} checked={form.direcao === d}
                       onChange={() => setForm(p => ({ ...p, direcao: d }))}
-                      className="accent-[#5C0F0F]" />
+                      className="accent-[#072740]" />
                     <span className="text-sm text-gray-700">{d === 'entrada' ? '+ Entrada' : '− Saída'}</span>
                   </label>
                 ))}
@@ -389,7 +389,7 @@ export default function EstoquePage() {
             <label className="block text-xs font-medium text-gray-600 mb-1">Observação</label>
             <textarea value={form.observacao} onChange={set('observacao')} rows={2}
               placeholder="Ex: 4 cx a mais do pedido, 1 cx emprestada para unidade 12176…"
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#5C0F0F] resize-none" />
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#072740] resize-none" />
           </div>
 
           {erro && <p className="text-xs text-red-600 bg-red-50 border border-red-200 rounded-lg p-2">{erro}</p>}
@@ -400,8 +400,7 @@ export default function EstoquePage() {
               Cancelar
             </button>
             <button type="submit" disabled={salvando}
-              className="flex-1 text-white rounded-lg py-1.5 text-xs font-medium disabled:opacity-50"
-              style={{ background: PRIMARY }}>
+              className="flex-1 rounded-lg py-1.5 text-xs font-medium disabled:opacity-50 btn-brand">
               {salvando ? 'Salvando…' : 'Salvar'}
             </button>
           </div>

@@ -6,7 +6,7 @@ import { buscarCNPJ } from '@/lib/useCNPJLookup'
 import Drawer from '@/components/Drawer'
 import type { CeafEmpresa, CeafFuncionario } from '@/lib/supabase'
 
-const PRIMARY = '#5C0F0F'
+const PRIMARY = '#072740'
 
 const VAZIO_EMPRESA = {
   nome: '', cnpj: '', razao_social: '', endereco_entrega: '',
@@ -171,8 +171,7 @@ export default function EmpresasPage() {
           <p className="text-xs text-gray-400 mt-0.5">Clientes corporativos do programa Cesta de AF</p>
         </div>
         <button onClick={abrirNova}
-          className="px-4 py-2 rounded-lg text-sm font-medium text-white"
-          style={{ background: PRIMARY }}>
+          className="px-4 py-2 rounded-lg text-sm font-medium btn-brand">
           + Nova empresa
         </button>
       </div>
@@ -180,7 +179,7 @@ export default function EmpresasPage() {
       <input
         value={busca} onChange={e => setBusca(e.target.value)}
         placeholder="Buscar por nome, município ou CNPJ…"
-        className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm mb-4 outline-none focus:border-[#5C0F0F] bg-white"
+        className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm mb-4 outline-none focus:border-[#072740] bg-white"
       />
 
       {empresasFiltradas.length === 0 ? (
@@ -225,7 +224,7 @@ export default function EmpresasPage() {
                     <td className="px-4 py-3 text-center">
                       <button onClick={() => abrirFuncionarios(e)}
                         className="inline-flex items-center gap-1 text-xs font-medium px-2 py-1 rounded-md"
-                        style={{ background: '#F5EFEF', color: PRIMARY }}>
+                        style={{ background: 'linear-gradient(160deg, #ffffff 0%, #e8f4ff 100%)', color: PRIMARY }}>
                         {nFunc} {nFunc === 1 ? 'func' : 'funcs'}
                       </button>
                     </td>
@@ -257,20 +256,20 @@ export default function EmpresasPage() {
             <label className="block text-xs font-medium text-gray-600 mb-1">CNPJ</label>
             <input type="text" value={form.cnpj} onChange={set('cnpj')} onBlur={handleCNPJBlur}
               placeholder="00.000.000/0000-00"
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#5C0F0F]" />
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#072740]" />
             {buscandoCNPJ && <p className="text-xs text-gray-400 mt-0.5">Buscando CNPJ…</p>}
           </div>
 
           <div>
             <label className="block text-xs font-medium text-gray-600 mb-1">Nome fantasia *</label>
             <input type="text" value={form.nome} onChange={set('nome')} required autoFocus
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#5C0F0F]" />
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#072740]" />
           </div>
 
           <div>
             <label className="block text-xs font-medium text-gray-600 mb-1">Razão social</label>
             <input type="text" value={form.razao_social} onChange={set('razao_social')}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#5C0F0F]" />
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#072740]" />
           </div>
 
           <div className="border-t border-gray-100 pt-3">
@@ -280,18 +279,18 @@ export default function EmpresasPage() {
                 <label className="block text-xs font-medium text-gray-600 mb-1">Endereço completo</label>
                 <input type="text" value={form.endereco_entrega} onChange={set('endereco_entrega')}
                   placeholder="Rua, número, bairro"
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#5C0F0F]" />
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#072740]" />
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-medium text-gray-600 mb-1">Município</label>
                   <input type="text" value={form.municipio} onChange={set('municipio')}
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#5C0F0F]" />
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#072740]" />
                 </div>
                 <div>
                   <label className="block text-xs font-medium text-gray-600 mb-1">CEP</label>
                   <input type="text" value={form.cep} onChange={set('cep')} placeholder="00000-000"
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#5C0F0F]" />
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#072740]" />
                 </div>
               </div>
             </div>
@@ -303,18 +302,18 @@ export default function EmpresasPage() {
               <div>
                 <label className="block text-xs font-medium text-gray-600 mb-1">Nome do contato</label>
                 <input type="text" value={form.contato_nome} onChange={set('contato_nome')}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#5C0F0F]" />
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#072740]" />
               </div>
               <div>
                 <label className="block text-xs font-medium text-gray-600 mb-1">WhatsApp</label>
                 <input type="tel" value={form.contato_whatsapp} onChange={set('contato_whatsapp')}
                   placeholder="(11) 99999-9999"
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#5C0F0F]" />
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#072740]" />
               </div>
               <div>
                 <label className="block text-xs font-medium text-gray-600 mb-1">E-mail</label>
                 <input type="email" value={form.email} onChange={set('email')}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#5C0F0F]" />
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#072740]" />
               </div>
             </div>
           </div>
@@ -327,8 +326,7 @@ export default function EmpresasPage() {
               Cancelar
             </button>
             <button type="submit" disabled={salvando}
-              className="flex-1 text-white rounded-lg py-2 text-sm font-medium disabled:opacity-50"
-              style={{ background: PRIMARY }}>
+              className="flex-1 rounded-lg py-2 text-sm font-medium disabled:opacity-50 btn-brand">
               {salvando ? 'Salvando…' : 'Salvar'}
             </button>
           </div>
@@ -347,13 +345,13 @@ export default function EmpresasPage() {
               <label className="block text-xs font-medium text-gray-600 mb-1">Nome *</label>
               <input type="text" value={formFunc.nome} onChange={setF('nome')} required
                 placeholder="Nome completo"
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#5C0F0F] bg-white" />
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#072740] bg-white" />
             </div>
             <div>
               <label className="block text-xs font-medium text-gray-600 mb-1">WhatsApp *</label>
               <input type="tel" value={formFunc.whatsapp} onChange={setF('whatsapp')} required
                 placeholder="(11) 99999-9999"
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#5C0F0F] bg-white" />
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#072740] bg-white" />
             </div>
             {erro && <p className="text-xs text-red-600">{erro}</p>}
             <div className="flex gap-2">
@@ -364,8 +362,7 @@ export default function EmpresasPage() {
                 </button>
               )}
               <button type="submit" disabled={salvando}
-                className="flex-1 text-white rounded-lg py-2 text-sm font-medium disabled:opacity-50"
-                style={{ background: PRIMARY }}>
+                className="flex-1 rounded-lg py-2 text-sm font-medium disabled:opacity-50 btn-brand">
                 {salvando ? 'Salvando…' : editFuncId ? 'Atualizar' : '+ Adicionar'}
               </button>
             </div>

@@ -7,7 +7,7 @@ import ImportarLote from '@/components/ImportarLote'
 import { buscarCEP } from '@/lib/useCEPLookup'
 import type { PontoDeEntrega } from '@/lib/supabase'
 
-const PRIMARY = '#5C0F0F'
+const PRIMARY = '#072740'
 const POR_PAGINA = 50
 
 type Opcao = { value: string; label: string; count?: number }
@@ -62,7 +62,7 @@ function MultiSelect({ label, options, selected, onChange }: {
         onClick={() => setOpen(o => !o)}
         className={`flex items-center gap-2 border rounded-lg px-3 py-2 text-sm bg-white transition-colors ${
           selected.length > 0
-            ? 'border-[#5C0F0F] text-[#5C0F0F]'
+            ? 'border-[#072740] text-[#072740]'
             : 'border-gray-300 text-gray-700 hover:border-gray-400'
         }`}
       >
@@ -92,7 +92,7 @@ function MultiSelect({ label, options, selected, onChange }: {
                 type="checkbox"
                 checked={selected.includes(opt.value)}
                 onChange={() => toggle(opt.value)}
-                className="accent-[#5C0F0F]"
+                className="accent-[#072740]"
               />
               <span className="text-sm text-gray-700 flex-1">{opt.label}</span>
               {opt.count !== undefined && (
@@ -338,7 +338,7 @@ export default function PontosDeEntregaPage() {
         </div>
         <div className="flex items-center gap-3">
           <ImportarLote colunas={COLUNAS_IMPORT} onImportar={handleImportar} primaryColor={PRIMARY} />
-          <button onClick={abrirNovo} className="text-white text-xs font-medium px-3 py-1.5 rounded-lg hover:opacity-90 transition-opacity" style={{ background: PRIMARY }}>
+          <button onClick={abrirNovo} className="text-xs font-medium px-3 py-1.5 rounded-lg transition-opacity btn-brand">
             + Novo ponto
           </button>
         </div>
@@ -355,7 +355,7 @@ export default function PontosDeEntregaPage() {
             value={busca}
             onChange={handleBuscaChange}
             placeholder="Buscar por nome, código, bairro…"
-            className="border border-gray-300 rounded-lg pl-8 pr-3 py-2 text-sm outline-none focus:border-[#5C0F0F] w-64"
+            className="border border-gray-300 rounded-lg pl-8 pr-3 py-2 text-sm outline-none focus:border-[#072740] w-64"
           />
         </div>
 
@@ -474,18 +474,18 @@ export default function PontosDeEntregaPage() {
           <div>
             <label className="block text-xs font-medium text-gray-600 mb-1">Nome *</label>
             <input type="text" value={form.nome} onChange={set('nome')} required autoFocus
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#5C0F0F]" />
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#072740]" />
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block text-xs font-medium text-gray-600 mb-1">Cód. Prefeitura (PMSP)</label>
               <input type="text" value={form.codigo_prefeitura} onChange={set('codigo_prefeitura')} placeholder="ex: 12716"
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#5C0F0F] font-mono" />
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#072740] font-mono" />
             </div>
             <div>
               <label className="block text-xs font-medium text-gray-600 mb-1">Cód. Estado (CIE)</label>
               <input type="text" value={form.codigo_estado} onChange={set('codigo_estado')} placeholder="ex: 923370"
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#5C0F0F] font-mono" />
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#072740] font-mono" />
             </div>
           </div>
           <div className="grid grid-cols-2 gap-3">
@@ -495,35 +495,35 @@ export default function PontosDeEntregaPage() {
               </label>
               <input type="text" value={form.cep} onChange={set('cep')} onBlur={handleCEPBlur}
                 placeholder="00000-000"
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#5C0F0F] font-mono" />
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#072740] font-mono" />
             </div>
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block text-xs font-medium text-gray-600 mb-1">Bairro</label>
               <input type="text" value={form.bairro} onChange={set('bairro')}
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#5C0F0F]" />
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#072740]" />
             </div>
             <div>
               <label className="block text-xs font-medium text-gray-600 mb-1">Município</label>
               <input type="text" value={form.municipio} onChange={set('municipio')}
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#5C0F0F]" />
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#072740]" />
             </div>
           </div>
           <div>
             <label className="block text-xs font-medium text-gray-600 mb-1">Endereço</label>
             <input type="text" value={form.endereco} onChange={set('endereco')}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#5C0F0F]" />
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#072740]" />
           </div>
           <div>
             <label className="block text-xs font-medium text-gray-600 mb-1">Contato</label>
             <input type="text" value={form.contato_nome} onChange={set('contato_nome')}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#5C0F0F]" />
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#072740]" />
           </div>
           {erro && <p className="text-xs text-red-600 bg-red-50 border border-red-200 rounded-lg p-2">{erro}</p>}
           <div className="flex gap-2 pt-2">
             <button type="button" onClick={() => setDrawer(false)} className="flex-1 border border-gray-200 rounded-lg py-1.5 text-xs text-gray-600 hover:bg-gray-50">Cancelar</button>
-            <button type="submit" disabled={salvando} className="flex-1 text-white rounded-lg py-1.5 text-xs font-medium disabled:opacity-50" style={{ background: PRIMARY }}>
+            <button type="submit" disabled={salvando} className="flex-1 rounded-lg py-1.5 text-xs font-medium disabled:opacity-50 btn-brand">
               {salvando ? 'Salvando…' : 'Salvar'}
             </button>
           </div>

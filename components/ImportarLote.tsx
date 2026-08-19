@@ -10,7 +10,7 @@ interface Props {
   primaryColor?: string
 }
 
-export default function ImportarLote({ colunas, onImportar, primaryColor = '#5C0F0F' }: Props) {
+export default function ImportarLote({ colunas, onImportar, primaryColor = '#072740' }: Props) {
   const inputRef = useRef<HTMLInputElement>(null)
   const [status, setStatus] = useState<'idle' | 'loading' | 'ok' | 'erro'>('idle')
   const [msg,    setMsg]    = useState('')

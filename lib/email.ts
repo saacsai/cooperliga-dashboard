@@ -16,13 +16,13 @@ export async function enviarBoasVindas(opts: { nome: string; email: string; link
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"></head>
-<body style="margin:0;padding:0;background:#F5EFEF;font-family:sans-serif;">
-  <table width="100%" cellpadding="0" cellspacing="0" style="background:#F5EFEF;padding:40px 16px;">
+<body style="margin:0;padding:0;background:#eef6fc;font-family:sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#eef6fc;padding:40px 16px;">
     <tr><td align="center">
       <table width="100%" style="max-width:520px;background:#fff;border-radius:16px;overflow:hidden;border:1px solid #e5e7eb;">
         <!-- Header -->
-        <tr><td style="background:#5C0F0F;padding:32px 32px 24px;text-align:center;">
-          <p style="margin:0;color:#D4A0A0;font-size:11px;letter-spacing:2px;text-transform:uppercase;">Gestão Logística</p>
+        <tr><td style="background:#072740;padding:32px 32px 24px;text-align:center;">
+          <p style="margin:0;color:#e8f4ff;font-size:11px;letter-spacing:2px;text-transform:uppercase;">Gestão Logística</p>
           <p style="margin:8px 0 0;color:#fff;font-size:22px;font-weight:700;">CooperLiga</p>
         </td></tr>
         <!-- Body -->
@@ -34,7 +34,7 @@ export async function enviarBoasVindas(opts: { nome: string; email: string; link
           <!-- CTA -->
           <table width="100%" cellpadding="0" cellspacing="0">
             <tr><td align="center" style="padding-bottom:24px;">
-              <a href="${opts.link}" style="display:inline-block;background:#5C0F0F;color:#fff;font-size:14px;font-weight:600;text-decoration:none;padding:14px 36px;border-radius:10px;">
+              <a href="${opts.link}" style="display:inline-block;background:#072740;color:#fff;font-size:14px;font-weight:600;text-decoration:none;padding:14px 36px;border-radius:10px;">
                 Definir minha senha →
               </a>
             </td></tr>
@@ -64,13 +64,13 @@ export async function enviarRecuperacaoSenha(opts: { nome: string; email: string
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"></head>
-<body style="margin:0;padding:0;background:#F5EFEF;font-family:sans-serif;">
-  <table width="100%" cellpadding="0" cellspacing="0" style="background:#F5EFEF;padding:40px 16px;">
+<body style="margin:0;padding:0;background:#eef6fc;font-family:sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#eef6fc;padding:40px 16px;">
     <tr><td align="center">
       <table width="100%" style="max-width:520px;background:#fff;border-radius:16px;overflow:hidden;border:1px solid #e5e7eb;">
         <!-- Header -->
-        <tr><td style="background:#5C0F0F;padding:32px 32px 24px;text-align:center;">
-          <p style="margin:0;color:#D4A0A0;font-size:11px;letter-spacing:2px;text-transform:uppercase;">Gestão Logística</p>
+        <tr><td style="background:#072740;padding:32px 32px 24px;text-align:center;">
+          <p style="margin:0;color:#e8f4ff;font-size:11px;letter-spacing:2px;text-transform:uppercase;">Gestão Logística</p>
           <p style="margin:8px 0 0;color:#fff;font-size:22px;font-weight:700;">CooperLiga</p>
         </td></tr>
         <!-- Body -->
@@ -83,7 +83,7 @@ export async function enviarRecuperacaoSenha(opts: { nome: string; email: string
           <!-- CTA -->
           <table width="100%" cellpadding="0" cellspacing="0">
             <tr><td align="center" style="padding-bottom:24px;">
-              <a href="${opts.link}" style="display:inline-block;background:#5C0F0F;color:#fff;font-size:14px;font-weight:600;text-decoration:none;padding:12px 32px;border-radius:10px;">
+              <a href="${opts.link}" style="display:inline-block;background:#072740;color:#fff;font-size:14px;font-weight:600;text-decoration:none;padding:12px 32px;border-radius:10px;">
                 Criar nova senha →
               </a>
             </td></tr>

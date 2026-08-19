@@ -6,7 +6,7 @@ import Drawer from '@/components/Drawer'
 import { CAPACIDADE_VEICULO } from '@/lib/veiculo'
 import type { CeafCiclo, CeafEmpresa } from '@/lib/supabase'
 
-const PRIMARY = '#5C0F0F'
+const PRIMARY = '#072740'
 
 const STATUS_CONFIG: Record<string, { label: string; badge: string }> = {
   aberto:       { label: 'Aberto',       badge: 'bg-blue-100 text-blue-700' },
@@ -171,8 +171,7 @@ export default function CiclosPage() {
           <p className="text-xs text-gray-400 mt-0.5">Rodadas semanais da Feira no Trabalho</p>
         </div>
         <button onClick={abrirNovo}
-          className="px-4 py-2 rounded-lg text-sm font-medium text-white"
-          style={{ background: PRIMARY }}>
+          className="px-4 py-2 rounded-lg text-sm font-medium btn-brand">
           + Novo ciclo
         </button>
       </div>
@@ -241,8 +240,7 @@ export default function CiclosPage() {
                     </button>
                     {prox && (
                       <button onClick={() => avancarStatus(c)}
-                        className="px-3 py-1.5 text-xs rounded-lg text-white font-medium"
-                        style={{ background: PRIMARY }}>
+                        className="px-3 py-1.5 text-xs rounded-lg font-medium btn-brand">
                         {prox}
                       </button>
                     )}
@@ -259,7 +257,7 @@ export default function CiclosPage() {
           <div>
             <label className="block text-xs font-medium text-gray-600 mb-1">Empresa *</label>
             <select value={form.empresa_id} onChange={set('empresa_id')} required
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#5C0F0F]">
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#072740]">
               <option value="">Selecione a empresa</option>
               {empresas.map(e => <option key={e.id} value={e.id}>{e.nome}</option>)}
             </select>
@@ -268,7 +266,7 @@ export default function CiclosPage() {
           <div>
             <label className="block text-xs font-medium text-gray-600 mb-1">Semana de referência *</label>
             <input type="date" value={form.semana_ref} onChange={set('semana_ref')} required
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#5C0F0F]" />
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#072740]" />
           </div>
 
           <div className="border-t border-gray-100 pt-3">
@@ -277,17 +275,17 @@ export default function CiclosPage() {
               <div>
                 <label className="block text-xs font-medium text-gray-600 mb-1">Segunda — Cardápio para WhatsApp</label>
                 <input type="date" value={form.data_cardapio} onChange={set('data_cardapio')}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#5C0F0F]" />
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#072740]" />
               </div>
               <div>
                 <label className="block text-xs font-medium text-gray-600 mb-1">Quarta — Fechamento de pedidos</label>
                 <input type="date" value={form.data_fechamento} onChange={set('data_fechamento')}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#5C0F0F]" />
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#072740]" />
               </div>
               <div>
                 <label className="block text-xs font-medium text-gray-600 mb-1">Sexta — Entrega e montagem</label>
                 <input type="date" value={form.data_entrega} onChange={set('data_entrega')}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#5C0F0F]" />
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#072740]" />
               </div>
             </div>
           </div>
@@ -299,13 +297,13 @@ export default function CiclosPage() {
                 <label className="block text-xs font-medium text-gray-600 mb-1">Frete (R$)</label>
                 <input type="number" min="0" step="0.01" value={form.valor_frete} onChange={set('valor_frete')}
                   placeholder="0,00"
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#5C0F0F]" />
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#072740]" />
               </div>
               <div>
                 <label className="block text-xs font-medium text-gray-600 mb-1">Plus montagem (R$)</label>
                 <input type="number" min="0" step="0.01" value={form.plus_montagem} onChange={set('plus_montagem')}
                   placeholder="0,00"
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#5C0F0F]" />
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#072740]" />
               </div>
             </div>
             <p className="text-xs text-gray-400 mt-1.5">Plus de montagem = valor pago ao agregado pela montagem individual das cestas no ponto de entrega.</p>
@@ -325,7 +323,7 @@ export default function CiclosPage() {
           <div>
             <label className="block text-xs font-medium text-gray-600 mb-1">Observação</label>
             <textarea value={form.observacao} onChange={set('observacao')} rows={2}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#5C0F0F] resize-none" />
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#072740] resize-none" />
           </div>
 
           {erro && <p className="text-xs text-red-600 bg-red-50 border border-red-200 rounded-lg p-2">{erro}</p>}
@@ -336,8 +334,7 @@ export default function CiclosPage() {
               Cancelar
             </button>
             <button type="submit" disabled={salvando}
-              className="flex-1 text-white rounded-lg py-2 text-sm font-medium disabled:opacity-50"
-              style={{ background: PRIMARY }}>
+              className="flex-1 rounded-lg py-2 text-sm font-medium disabled:opacity-50 btn-brand">
               {salvando ? 'Salvando…' : 'Salvar'}
             </button>
           </div>

@@ -5,8 +5,8 @@ import Image from 'next/image'
 import { useSearchParams } from 'next/navigation'
 import { getSupabase } from '@/lib/supabase'
 
-const PRIMARY = '#5C0F0F'
-const ACCENT  = '#D4A0A0'
+const PRIMARY = '#072740'
+const ACCENT  = '#e8f4ff'
 
 export default function LoginPage() {
   return (
@@ -64,7 +64,7 @@ function LoginInner() {
   }
 
   if (mensagem) return (
-    <div className="min-h-screen flex items-center justify-center p-4" style={{ background: '#F5EFEF' }}>
+    <div className="min-h-screen flex items-center justify-center p-4" style={{ background: 'linear-gradient(160deg, #ffffff 0%, #e8f4ff 100%)' }}>
       <div className="rounded-xl shadow-xl w-full max-w-sm overflow-hidden" style={{ background: PRIMARY }}>
         <div className="px-6 pt-8 pb-6 text-center space-y-3">
           <div className="w-12 h-12 rounded-full flex items-center justify-center mx-auto" style={{ background: 'rgba(255,255,255,0.15)' }}>
@@ -86,13 +86,13 @@ function LoginInner() {
   )
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-4" style={{ background: '#F5EFEF' }}>
+    <div className="min-h-screen flex items-center justify-center p-4" style={{ background: 'linear-gradient(160deg, #ffffff 0%, #e8f4ff 100%)' }}>
       <div className="rounded-xl shadow-xl w-full max-w-sm overflow-hidden" style={{ background: PRIMARY }}>
 
         {/* Logo */}
         <div className="px-6 pt-8 pb-5 flex flex-col items-center gap-2">
           <Image
-            src="/logo_fonte.jpg"
+            src="/cooperliga_logo_dark.png"
             alt="CooperLiga"
             width={220}
             height={40}
@@ -148,8 +148,7 @@ function LoginInner() {
               )}
               <button
                 type="submit" disabled={loading}
-                className="w-full text-sm font-semibold rounded-lg py-2.5 disabled:opacity-60 transition-all clear-both"
-                style={{ background: loading ? 'white' : ACCENT, color: PRIMARY }}
+                className="w-full text-sm font-semibold rounded-lg py-2.5 disabled:opacity-60 transition-all clear-both bg-[#e8f4ff] text-[#072740] hover:bg-[#072740] hover:text-[#e8f4ff]"
               >
                 {loading ? 'Entrando…' : 'Entrar'}
               </button>
@@ -171,8 +170,7 @@ function LoginInner() {
               )}
               <button
                 type="submit" disabled={loading}
-                className="w-full text-sm font-semibold rounded-lg py-2.5 disabled:opacity-50 transition-opacity"
-                style={{ background: 'white', color: PRIMARY }}
+                className="w-full text-sm font-semibold rounded-lg py-2.5 disabled:opacity-50 transition-all bg-[#e8f4ff] text-[#072740] hover:bg-[#072740] hover:text-[#e8f4ff]"
               >
                 {loading ? 'Enviando…' : 'Enviar link'}
               </button>

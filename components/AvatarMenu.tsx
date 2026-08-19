@@ -120,7 +120,7 @@ export default function AvatarMenu({ nomeExibido, email, initials, onEditarPerfi
       >
         <div
           className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 text-xs font-semibold"
-          style={{ background: dark ? '#D4A0A0' : 'linear-gradient(135deg,#a855f7,#2dd4bf)', color: dark ? '#5C0F0F' : 'white' }}
+          style={{ background: dark ? '#e8f4ff' : 'linear-gradient(135deg,#a855f7,#2dd4bf)', color: dark ? '#072740' : 'white' }}
         >
           {initials}
         </div>

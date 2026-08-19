@@ -5,7 +5,7 @@ import { getSupabase } from '@/lib/supabase'
 import Drawer from '@/components/Drawer'
 import type { CeafProduto, CeafCardapio } from '@/lib/supabase'
 
-const PRIMARY = '#5C0F0F'
+const PRIMARY = '#072740'
 
 const CATEGORIAS: Record<string, { label: string; cor: string }> = {
   folhosa:    { label: 'Folhosa',    cor: 'bg-green-100 text-green-700' },
@@ -219,7 +219,7 @@ export default function CardapioPage() {
                         value={qtdMap[c.produto_id] ?? ''}
                         onChange={e => setQtdMap(m => ({ ...m, [c.produto_id]: e.target.value }))}
                         onBlur={e => atualizarQtd(c, e.target.value)}
-                        className="w-16 text-center border border-gray-200 rounded-lg px-2 py-1 text-sm outline-none focus:border-[#5C0F0F]"
+                        className="w-16 text-center border border-gray-200 rounded-lg px-2 py-1 text-sm outline-none focus:border-[#072740]"
                         placeholder="—"
                       />
                     </td>
@@ -229,7 +229,7 @@ export default function CardapioPage() {
                         value={precoMap[c.produto_id] ?? ''}
                         onChange={e => setPrecoMap(m => ({ ...m, [c.produto_id]: e.target.value }))}
                         onBlur={e => atualizarPreco(c, e.target.value)}
-                        className="w-24 text-center border border-gray-200 rounded-lg px-2 py-1 text-sm outline-none focus:border-[#5C0F0F]"
+                        className="w-24 text-center border border-gray-200 rounded-lg px-2 py-1 text-sm outline-none focus:border-[#072740]"
                         placeholder="—"
                       />
                     </td>
@@ -262,7 +262,7 @@ export default function CardapioPage() {
                   const sel = addSelecionados.has(p.id)
                   const cat = CATEGORIAS[p.categoria]
                   return (
-                    <label key={p.id} className={`flex items-center gap-3 py-3 cursor-pointer hover:bg-gray-50 -mx-1 px-1 rounded ${sel ? 'bg-[#F5EFEF]' : ''}`}>
+                    <label key={p.id} className={`flex items-center gap-3 py-3 cursor-pointer hover:bg-gray-50 -mx-1 px-1 rounded ${sel ? 'bg-[#eef6fc]' : ''}`}>
                       <input type="checkbox" checked={sel}
                         onChange={() => {
                           const s = new Set(addSelecionados)
@@ -282,8 +282,7 @@ export default function CardapioPage() {
               </div>
               <div className="pt-2 border-t border-gray-100">
                 <button onClick={adicionarAoCardapio} disabled={addSelecionados.size === 0 || salvando}
-                  className="w-full text-white rounded-lg py-2 text-sm font-medium disabled:opacity-50"
-                  style={{ background: PRIMARY }}>
+                  className="w-full rounded-lg py-2 text-sm font-medium disabled:opacity-50 btn-brand">
                   {salvando ? 'Adicionando…' : `Adicionar ${addSelecionados.size > 0 ? `(${addSelecionados.size})` : ''}`}
                 </button>
               </div>
@@ -299,12 +298,12 @@ export default function CardapioPage() {
             <label className="block text-xs font-medium text-gray-600 mb-1">Nome *</label>
             <input type="text" value={formProd.nome} onChange={setP('nome')} required autoFocus
               placeholder="ex: Alface crespa, Mel de abelha…"
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#5C0F0F]" />
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#072740]" />
           </div>
           <div>
             <label className="block text-xs font-medium text-gray-600 mb-1">Categoria *</label>
             <select value={formProd.categoria} onChange={setP('categoria')}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#5C0F0F]">
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#072740]">
               {Object.entries(CATEGORIAS).map(([k, v]) => (
                 <option key={k} value={k}>{v.label}</option>
               ))}
@@ -314,13 +313,13 @@ export default function CardapioPage() {
             <label className="block text-xs font-medium text-gray-600 mb-1">Unidade</label>
             <input type="text" value={formProd.unidade} onChange={setP('unidade')}
               placeholder="unidade, kg, maço, cx…"
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#5C0F0F]" />
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#072740]" />
           </div>
           <div>
             <label className="block text-xs font-medium text-gray-600 mb-1">Preço padrão (R$)</label>
             <input type="number" min="0" step="0.01" value={formProd.preco_unitario} onChange={setP('preco_unitario')}
               placeholder="0,00"
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#5C0F0F]" />
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#072740]" />
           </div>
           {erro && <p className="text-xs text-red-600 bg-red-50 border border-red-200 rounded-lg p-2">{erro}</p>}
           <div className="flex gap-2 pt-2">
@@ -329,8 +328,7 @@ export default function CardapioPage() {
               Cancelar
             </button>
             <button type="submit" disabled={salvando}
-              className="flex-1 text-white rounded-lg py-2 text-sm font-medium disabled:opacity-50"
-              style={{ background: PRIMARY }}>
+              className="flex-1 rounded-lg py-2 text-sm font-medium disabled:opacity-50 btn-brand">
               {salvando ? 'Salvando…' : 'Salvar'}
             </button>
           </div>

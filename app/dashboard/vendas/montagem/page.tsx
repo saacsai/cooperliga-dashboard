@@ -4,7 +4,7 @@ import { useEffect, useState, useMemo } from 'react'
 import { getSupabase } from '@/lib/supabase'
 import type { CeafPedido, CeafCiclo } from '@/lib/supabase'
 
-const PRIMARY = '#5C0F0F'
+const PRIMARY = '#072740'
 
 function fmtDate(s: string) {
   return new Date(s).toLocaleDateString('pt-BR')
@@ -111,7 +111,7 @@ export default function MontagemPage() {
         <select
           value={cicloSel}
           onChange={e => setCicloSel(e.target.value)}
-          className="border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#5C0F0F] bg-white"
+          className="border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#072740] bg-white"
         >
           {ciclos.map(c => (
             <option key={c.id} value={c.id}>

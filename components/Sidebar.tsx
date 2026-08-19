@@ -7,8 +7,8 @@ import { getSupabase } from '@/lib/supabase'
 import AvatarMenu from './AvatarMenu'
 import type { Perfil } from '@/lib/supabase'
 
-const PRIMARY   = '#5C0F0F'
-const ACCENT    = '#D4A0A0'
+const PRIMARY   = '#072740'
+const ACCENT    = '#e8f4ff'
 const SIDEBAR_W = '224px'
 
 function Icon({ d, d2, d3, circle }: { d: string; d2?: string; d3?: string; circle?: { cx: number; cy: number; r: number } }) {
@@ -139,8 +139,8 @@ export default function Sidebar({ nome, email, perfil, onEditarPerfil, mobileAbe
       >
       {/* Logo */}
       <div className="px-4 pt-5 pb-4">
-        <div className="rounded-lg overflow-hidden flex items-center justify-center" style={{ background: PRIMARY, height: 54 }}>
-          <Image src="/cooperliga_logo.jpg" alt="CooperLiga" width={180} height={54} className="object-contain" priority />
+        <div className="rounded-lg overflow-hidden flex items-center justify-center px-2" style={{ background: PRIMARY, height: 54 }}>
+          <Image src="/cooperliga_logo_dark.png" alt="CooperLiga" width={180} height={54} className="object-contain" priority />
         </div>
         <p className="text-center mt-2 text-xs" style={{ color: ACCENT }}>Gestão Logística</p>
       </div>

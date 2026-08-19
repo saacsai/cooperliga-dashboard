@@ -30,7 +30,7 @@ const STATUS_LABEL: Record<string, { label: string; cor: string }> = {
   pago:          { label: 'Pago',          cor: 'bg-teal-50 text-teal-600'     },
 }
 
-const PRIMARY = '#5C0F0F'
+const PRIMARY = '#072740'
 
 function fmtMoeda(v: number) {
   return v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
@@ -161,7 +161,7 @@ export default function PortalAgregado({ params }: { params: { token: string } }
       <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 px-6">
         <div className="w-full max-w-sm">
           <div className="flex justify-center mb-8">
-            <Image src="/logo_fonte.jpg" alt="CooperLiga" width={140} height={36} className="object-contain" />
+            <Image src="/cooperliga_logo.png" alt="CooperLiga" width={140} height={36} className="object-contain" />
           </div>
 
           <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
@@ -181,7 +181,7 @@ export default function PortalAgregado({ params }: { params: { token: string } }
                 onChange={e => setOtpInput(e.target.value.replace(/\D/g, ''))}
                 placeholder="000 000"
                 autoFocus
-                className="w-full text-center text-3xl font-mono tracking-[0.5em] border border-gray-300 rounded-xl px-4 py-3 outline-none focus:border-[#5C0F0F]"
+                className="w-full text-center text-3xl font-mono tracking-[0.5em] border border-gray-300 rounded-xl px-4 py-3 outline-none focus:border-[#072740]"
               />
 
               {errOtp && (
@@ -191,8 +191,7 @@ export default function PortalAgregado({ params }: { params: { token: string } }
               <button
                 type="submit"
                 disabled={verificando || otpInput.length < 6}
-                className="w-full py-3 rounded-xl text-white font-medium text-sm disabled:opacity-40"
-                style={{ background: PRIMARY }}
+                className="w-full py-3 rounded-xl font-medium text-sm disabled:opacity-40 btn-brand"
               >
                 {verificando ? 'Verificando…' : 'Entrar'}
               </button>
@@ -221,7 +220,7 @@ export default function PortalAgregado({ params }: { params: { token: string } }
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="sticky top-0 z-10 px-4 py-3 flex items-center" style={{ background: PRIMARY }}>
-        <Image src="/logo_fonte.jpg" alt="CooperLiga" width={110} height={28} className="object-contain brightness-0 invert" />
+        <Image src="/cooperliga_logo_dark.png" alt="CooperLiga" width={110} height={28} className="object-contain" />
         {nome && <span className="text-white/70 text-sm ml-auto">{nome.split(' ')[0]}</span>}
       </div>
 
@@ -268,7 +267,7 @@ export default function PortalAgregado({ params }: { params: { token: string } }
                       </div>
                     ) : (
                       <div className="space-y-3">
-                        <label className="flex items-center gap-3 border-2 border-dashed border-gray-200 rounded-xl px-4 py-3 cursor-pointer hover:border-[#5C0F0F]/30 transition-colors">
+                        <label className="flex items-center gap-3 border-2 border-dashed border-gray-200 rounded-xl px-4 py-3 cursor-pointer hover:border-[#072740]/30 transition-colors">
                           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={PRIMARY} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                             <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
                             <polyline points="17 8 12 3 7 8"/>
@@ -298,7 +297,7 @@ export default function PortalAgregado({ params }: { params: { token: string } }
                           placeholder="Número da NF (opcional)"
                           value={nfNumInput[p.id] || ''}
                           onChange={e => setNfNumInput(prev => ({ ...prev, [p.id]: e.target.value }))}
-                          className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-[#5C0F0F] font-mono"
+                          className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-[#072740] font-mono"
                         />
 
                         {st === 'erro' && (

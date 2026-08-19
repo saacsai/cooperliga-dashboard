@@ -4,7 +4,7 @@ import { useEffect, useState, useMemo } from 'react'
 import { getSupabase } from '@/lib/supabase'
 import type { CeafPedido, CeafCiclo, CeafEmpresa } from '@/lib/supabase'
 
-const PRIMARY = '#5C0F0F'
+const PRIMARY = '#072740'
 
 const STATUS_CONFIG: Record<string, { label: string; badge: string }> = {
   pendente:  { label: 'Pendente',  badge: 'bg-yellow-100 text-yellow-700' },
@@ -103,7 +103,7 @@ export default function PedidosPage() {
         <select
           value={cicloSel}
           onChange={e => setCicloSel(e.target.value)}
-          className="border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#5C0F0F] bg-white min-w-[220px]"
+          className="border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#072740] bg-white min-w-[220px]"
         >
           <option value="">Selecione um ciclo</option>
           {ciclos.map(c => (

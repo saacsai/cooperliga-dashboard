@@ -21,7 +21,7 @@ import {
 } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 
-const PRIMARY = '#5C0F0F'
+const PRIMARY = '#072740'
 
 const AVISO_MOTORISTA = `SR. MOTORISTA: SE HOUVER QUALQUER IMPREVISTO NA ENTREGA COMO:
 *RECUSA DE BANANA POR ESTAR MUITO MADURA, VERDE OU QUALQUER OUTRO PROBLEMA.
@@ -569,7 +569,7 @@ function Manifesto({ manifesto, onVoltar, onDuplicado }: {
                     onFocus={() => setShowSugestoes(true)}
                     onBlur={() => setTimeout(() => setShowSugestoes(false), 150)}
                     placeholder="Buscar escola por nome ou código…"
-                    className="w-full border border-gray-300 rounded-lg pl-8 pr-3 py-2 text-sm outline-none focus:border-[#5C0F0F]"
+                    className="w-full border border-gray-300 rounded-lg pl-8 pr-3 py-2 text-sm outline-none focus:border-[#072740]"
                   />
                 </div>
                 {showSugestoes && sugestoes.length > 0 && (

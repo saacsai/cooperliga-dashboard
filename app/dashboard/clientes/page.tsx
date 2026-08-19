@@ -8,7 +8,7 @@ import Drawer from '@/components/Drawer'
 import ImportarLote from '@/components/ImportarLote'
 import type { Cliente } from '@/lib/supabase'
 
-const PRIMARY = '#5C0F0F'
+const PRIMARY = '#072740'
 
 const VAZIO = {
   nome: '', tipo: 'cooperativa' as 'cooperativa' | 'associacao' | 'oscip' | 'empresa_privada' | 'orgao_publico' | 'outro',
@@ -197,7 +197,7 @@ export default function ClientesPage() {
         </div>
         <div className="flex items-center gap-3">
           <ImportarLote colunas={COLUNAS_IMPORT} onImportar={handleImportar} primaryColor={PRIMARY} />
-          <button onClick={abrirNovo} className="text-white text-xs font-medium px-3 py-1.5 rounded-lg hover:opacity-90 transition-opacity" style={{ background: PRIMARY }}>
+          <button onClick={abrirNovo} className="text-xs font-medium px-3 py-1.5 rounded-lg transition-opacity btn-brand">
             + Novo cliente
           </button>
         </div>
@@ -210,7 +210,7 @@ export default function ClientesPage() {
           </svg>
           <input type="text" value={busca} onChange={e => setBusca(e.target.value)}
             placeholder="Buscar por nome, CNPJ ou município…"
-            className="w-full border border-gray-300 rounded-lg pl-8 pr-3 py-2 text-sm outline-none focus:border-[#5C0F0F]" />
+            className="w-full border border-gray-300 rounded-lg pl-8 pr-3 py-2 text-sm outline-none focus:border-[#072740]" />
         </div>
         {busca && <button onClick={() => setBusca('')} className="text-xs text-gray-400 hover:text-gray-700">Limpar</button>}
         {!loading && (
@@ -277,13 +277,13 @@ export default function ClientesPage() {
               <label className="block text-xs font-medium text-gray-600 mb-1">CNPJ</label>
               <input type="text" value={form.cnpj} onChange={set('cnpj')} onBlur={handleCNPJBlur}
                 placeholder="00.000.000/0000-00"
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#5C0F0F]" />
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#072740]" />
               {buscandoCNPJ && <p className="text-xs text-gray-400 mt-0.5">Buscando CNPJ…</p>}
             </div>
             <div>
               <label className="block text-xs font-medium text-gray-600 mb-1">Tipo</label>
               <select value={form.tipo} onChange={set('tipo')}
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#5C0F0F] bg-white">
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#072740] bg-white">
                 <option value="cooperativa">Cooperativa</option>
                 <option value="associacao">Associação</option>
                 <option value="oscip">OSCIP</option>
@@ -297,25 +297,25 @@ export default function ClientesPage() {
           <div>
             <label className="block text-xs font-medium text-gray-600 mb-1">Razão Social</label>
             <input type="text" value={form.razao_social} onChange={set('razao_social')}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#5C0F0F]" />
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#072740]" />
           </div>
 
           <div>
             <label className="block text-xs font-medium text-gray-600 mb-1">Nome / Fantasia *</label>
             <input type="text" value={form.nome} onChange={set('nome')} required autoFocus
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#5C0F0F]" />
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#072740]" />
           </div>
 
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block text-xs font-medium text-gray-600 mb-1">Município</label>
               <input type="text" value={form.municipio} onChange={set('municipio')}
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#5C0F0F]" />
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#072740]" />
             </div>
             <div>
               <label className="block text-xs font-medium text-gray-600 mb-1">CEP</label>
               <input type="text" value={form.cep} onChange={set('cep')} onBlur={handleCEPBlur} placeholder="00000-000"
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#5C0F0F]" />
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#072740]" />
               {buscandoCEP && <p className="text-xs text-gray-400 mt-0.5">Buscando CEP…</p>}
             </div>
           </div>
@@ -323,19 +323,19 @@ export default function ClientesPage() {
           <div>
             <label className="block text-xs font-medium text-gray-600 mb-1">Endereço</label>
             <input type="text" value={form.endereco} onChange={set('endereco')}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#5C0F0F]" />
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#072740]" />
           </div>
 
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block text-xs font-medium text-gray-600 mb-1">Telefone</label>
               <input type="tel" value={form.telefone} onChange={set('telefone')} placeholder="(11) 3333-4444"
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#5C0F0F]" />
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#072740]" />
             </div>
             <div>
               <label className="block text-xs font-medium text-gray-600 mb-1">E-mail</label>
               <input type="email" value={form.email} onChange={set('email')}
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#5C0F0F]" />
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#072740]" />
             </div>
           </div>
 
@@ -345,12 +345,12 @@ export default function ClientesPage() {
               <div>
                 <label className="block text-xs font-medium text-gray-600 mb-1">Nome</label>
                 <input type="text" value={form.contato_nome} onChange={set('contato_nome')}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#5C0F0F]" />
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#072740]" />
               </div>
               <div>
                 <label className="block text-xs font-medium text-gray-600 mb-1">WhatsApp</label>
                 <input type="tel" value={form.contato_whatsapp} onChange={set('contato_whatsapp')} placeholder="(11) 99999-9999"
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#5C0F0F]" />
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#072740]" />
               </div>
             </div>
           </div>
@@ -358,13 +358,13 @@ export default function ClientesPage() {
           <div>
             <label className="block text-xs font-medium text-gray-600 mb-1">Código interno</label>
             <input type="text" value={form.codigo} onChange={set('codigo')} placeholder="ex: 01"
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#5C0F0F]" />
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#072740]" />
           </div>
 
           {erro && <p className="text-xs text-red-600 bg-red-50 border border-red-200 rounded-lg p-2">{erro}</p>}
           <div className="flex gap-2 pt-2">
             <button type="button" onClick={() => setDrawer(false)} className="flex-1 border border-gray-200 rounded-lg py-1.5 text-xs text-gray-600 hover:bg-gray-50">Cancelar</button>
-            <button type="submit" disabled={salvando} className="flex-1 text-white rounded-lg py-1.5 text-xs font-medium disabled:opacity-50" style={{ background: PRIMARY }}>
+            <button type="submit" disabled={salvando} className="flex-1 rounded-lg py-1.5 text-xs font-medium disabled:opacity-50 btn-brand">
               {salvando ? 'Salvando…' : 'Salvar'}
             </button>
           </div>

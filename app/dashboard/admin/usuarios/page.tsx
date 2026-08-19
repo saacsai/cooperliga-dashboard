@@ -6,7 +6,7 @@ import { buscarCEP } from '@/lib/useCEPLookup'
 import Drawer from '@/components/Drawer'
 import type { Usuario, Perfil } from '@/lib/supabase'
 
-const PRIMARY = '#5C0F0F'
+const PRIMARY = '#072740'
 const PERFIS: Perfil[] = ['admin', 'gestor', 'analista', 'financeiro', 'operador']
 
 const BADGE: Record<Perfil, string> = {
@@ -197,8 +197,7 @@ export default function UsuariosPage() {
         </div>
         <button
           onClick={abrirCriar}
-          className="text-white text-xs font-medium px-3 py-1.5 rounded-lg transition-opacity hover:opacity-90"
-          style={{ background: PRIMARY }}
+          className="text-xs font-medium px-3 py-1.5 rounded-lg transition-opacity btn-brand"
         >
           + Novo usuário
         </button>
@@ -211,7 +210,7 @@ export default function UsuariosPage() {
           </svg>
           <input type="text" value={busca} onChange={e => setBusca(e.target.value)}
             placeholder="Buscar por nome, email ou WhatsApp…"
-            className="w-full border border-gray-300 rounded-lg pl-8 pr-3 py-2 text-sm outline-none focus:border-[#5C0F0F]" />
+            className="w-full border border-gray-300 rounded-lg pl-8 pr-3 py-2 text-sm outline-none focus:border-[#072740]" />
         </div>
         {busca && <button onClick={() => setBusca('')} className="text-xs text-gray-400 hover:text-gray-700">Limpar</button>}
         {!loading && (
@@ -298,14 +297,14 @@ export default function UsuariosPage() {
           <div>
             <label className="block text-xs font-medium text-gray-600 mb-1">Nome completo</label>
             <input type="text" value={form.nome} onChange={set('nome')} required autoFocus
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#5C0F0F]" />
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#072740]" />
           </div>
 
           <div>
             <label className="block text-xs font-medium text-gray-600 mb-1">Email</label>
             {modo === 'criar' ? (
               <input type="email" value={form.email} onChange={set('email')} required
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#5C0F0F]" />
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#072740]" />
             ) : (
               <input type="email" value={form.email} disabled
                 className="w-full border border-gray-100 rounded-lg px-3 py-2 text-sm bg-gray-50 text-gray-400 cursor-not-allowed" />
@@ -315,19 +314,19 @@ export default function UsuariosPage() {
           <div>
             <label className="block text-xs font-medium text-gray-600 mb-1">WhatsApp</label>
             <input type="tel" value={form.whatsapp} onChange={set('whatsapp')} placeholder="(11) 99999-9999"
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#5C0F0F]" />
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#072740]" />
           </div>
 
           <div>
             <label className="block text-xs font-medium text-gray-600 mb-1">Cargo / Função</label>
             <input type="text" value={form.cargo} onChange={set('cargo')} placeholder="ex: Coordenador de Logística"
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#5C0F0F]" />
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#072740]" />
           </div>
 
           <div>
             <label className="block text-xs font-medium text-gray-600 mb-1">Perfil</label>
             <select value={form.perfil} onChange={set('perfil')}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#5C0F0F] bg-white">
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#072740] bg-white">
               {PERFIS.map(p => (
                 <option key={p} value={p}>{PERFIL_LABEL[p]}</option>
               ))}
@@ -347,36 +346,36 @@ export default function UsuariosPage() {
                 <div>
                   <label className="block text-xs font-medium text-gray-600 mb-1">CPF</label>
                   <input type="text" value={form.cpf} onChange={set('cpf')} placeholder="000.000.000-00"
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#5C0F0F]" />
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#072740]" />
                 </div>
                 <div>
                   <label className="block text-xs font-medium text-gray-600 mb-1">RG</label>
                   <input type="text" value={form.rg} onChange={set('rg')}
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#5C0F0F]" />
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#072740]" />
                 </div>
               </div>
               <div>
                 <label className="block text-xs font-medium text-gray-600 mb-1">Data de nascimento</label>
                 <input type="date" value={form.data_nascimento} onChange={set('data_nascimento')}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#5C0F0F]" />
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#072740]" />
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-medium text-gray-600 mb-1">Município</label>
                   <input type="text" value={form.municipio} onChange={set('municipio')}
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#5C0F0F]" />
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#072740]" />
                 </div>
                 <div>
                   <label className="block text-xs font-medium text-gray-600 mb-1">CEP</label>
                   <input type="text" value={form.cep} onChange={set('cep')} onBlur={handleCEPBlur} placeholder="00000-000"
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#5C0F0F]" />
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#072740]" />
                   {buscandoCEP && <p className="text-xs text-gray-400 mt-0.5">Buscando CEP…</p>}
                 </div>
               </div>
               <div>
                 <label className="block text-xs font-medium text-gray-600 mb-1">Endereço</label>
                 <input type="text" value={form.endereco} onChange={set('endereco')}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#5C0F0F]" />
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#072740]" />
               </div>
             </div>
           </div>
@@ -389,8 +388,7 @@ export default function UsuariosPage() {
               Cancelar
             </button>
             <button type="submit" disabled={salvando}
-              className="flex-1 text-white rounded-lg py-1.5 text-xs font-medium disabled:opacity-50"
-              style={{ background: PRIMARY }}>
+              className="flex-1 rounded-lg py-1.5 text-xs font-medium disabled:opacity-50 btn-brand">
               {salvando ? 'Salvando…' : modo === 'criar' ? 'Criar usuário' : 'Salvar'}
             </button>
           </div>

@@ -6,7 +6,7 @@ import { getSupabase } from '@/lib/supabase'
 
 const MapaPontos = dynamic(() => import('@/components/MapaPontos'), { ssr: false })
 
-const PRIMARY = '#5C0F0F'
+const PRIMARY = '#072740'
 const WORKER  = 'https://guias.cooperliga.saacs.com.br'
 
 type Tipo = 'estado' | 'municipal'
@@ -421,7 +421,7 @@ export default function RoteirizacaoPage() {
               {(['municipal', 'estado'] as Tipo[]).map(t => (
                 <button key={t} onClick={() => { setTipo(t); setArquivo(null) }}
                   className="flex-1 py-2 text-sm font-medium rounded-lg border transition-colors"
-                  style={{ background: tipo === t ? PRIMARY : '#FAF5F5', color: tipo === t ? '#fff' : '#6b7280', borderColor: tipo === t ? PRIMARY : '#e5e7eb' }}>
+                  style={{ background: tipo === t ? PRIMARY : '#eef6fc', color: tipo === t ? '#fff' : '#6b7280', borderColor: tipo === t ? PRIMARY : '#e5e7eb' }}>
                   {t === 'municipal' ? 'Prefeitura (XLSX)' : 'Estado (ZIP de PDFs)'}
                 </button>
               ))}
@@ -452,8 +452,7 @@ export default function RoteirizacaoPage() {
             {erro && <p className="text-xs text-red-600 bg-red-50 border border-red-200 rounded-lg p-2 mb-4">{erro}</p>}
 
             <button onClick={handleExtrair} disabled={carregando || !arquivo}
-              className="w-full py-2.5 rounded-lg text-sm font-medium text-white disabled:opacity-50"
-              style={{ background: PRIMARY }}>
+              className="w-full py-2.5 rounded-lg text-sm font-medium disabled:opacity-50 btn-brand">
               {carregando ? 'Extraindo…' : 'Extrair pontos'}
             </button>
           </>
@@ -636,13 +635,13 @@ export default function RoteirizacaoPage() {
                   <label className="block text-xs font-medium text-gray-600 mb-1">Região / Diretoria</label>
                   <input type="text" value={regiao} onChange={e => setRegiao(e.target.value)}
                     placeholder="Ex: SUL 2 ou VILA YOLANDA II"
-                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#5C0F0F]" />
+                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#072740]" />
                 </div>
                 <div>
                   <label className="block text-xs font-medium text-gray-600 mb-1">Ciclo (DDMM)</label>
                   <input type="text" value={dataCiclo} onChange={e => setDataCiclo(e.target.value)} maxLength={4}
                     placeholder="0603"
-                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#5C0F0F]" />
+                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#072740]" />
                 </div>
               </div>
 
@@ -650,13 +649,13 @@ export default function RoteirizacaoPage() {
                 <div>
                   <label className="block text-xs font-medium text-gray-600 mb-1">Quantos produtos?</label>
                   <input type="number" min={1} max={6} value={numProd} onChange={e => setNumProd(+e.target.value)}
-                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#5C0F0F]" />
+                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#072740]" />
                   <p className="text-[10px] text-gray-400 mt-0.5">Fator de tempo: {(1 + (numProd - 1) * 0.25).toFixed(2)}×</p>
                 </div>
                 <div>
                   <label className="block text-xs font-medium text-gray-600 mb-1">Máx. entregas / motorista</label>
                   <input type="number" min={5} max={50} value={maxEntregas} onChange={e => setMaxEnt(+e.target.value)}
-                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#5C0F0F]" />
+                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#072740]" />
                   <p className="text-[10px] text-gray-400 mt-0.5">Efetivas: {Math.floor(maxEntregas / (1 + (numProd - 1) * 0.25))} entregas</p>
                 </div>
                 <div>
@@ -665,7 +664,7 @@ export default function RoteirizacaoPage() {
                     {[false, true].map(v => (
                       <label key={String(v)} className="flex items-center gap-1.5 cursor-pointer">
                         <input type="radio" name="carga" checked={cargaDobr === v} onChange={() => setCargaDobr(v)}
-                          className="accent-[#5C0F0F]" />
+                          className="accent-[#072740]" />
                         <span className="text-sm text-gray-700">{v ? 'Sim' : 'Não'}</span>
                       </label>
                     ))}
@@ -693,8 +692,7 @@ export default function RoteirizacaoPage() {
               {erro && <p className="text-xs text-red-600 bg-red-50 border border-red-200 rounded-lg p-2 mb-4">{erro}</p>}
 
               <button onClick={handleCalcular} disabled={carregando}
-                className="w-full py-2.5 rounded-lg text-sm font-medium text-white disabled:opacity-50"
-                style={{ background: PRIMARY }}>
+                className="w-full py-2.5 rounded-lg text-sm font-medium disabled:opacity-50 btn-brand">
                 {carregando ? 'Calculando…' : 'Gerar sugestão de rotas'}
               </button>
             </>
@@ -732,7 +730,7 @@ export default function RoteirizacaoPage() {
                       <label className="block text-xs font-medium text-gray-600 mb-1">Veículo</label>
                       <select value={veiculos[i] || rota.veiculo_sugerido}
                         onChange={e => setVeiculos(v => { const n = [...v]; n[i] = e.target.value; return n })}
-                        className="w-full border border-gray-200 rounded-lg px-3 py-1.5 text-sm outline-none focus:border-[#5C0F0F]">
+                        className="w-full border border-gray-200 rounded-lg px-3 py-1.5 text-sm outline-none focus:border-[#072740]">
                         {VEICULOS.map(v => <option key={v} value={v}>{v.charAt(0).toUpperCase() + v.slice(1)}</option>)}
                       </select>
                     </div>
@@ -759,8 +757,7 @@ export default function RoteirizacaoPage() {
               {erro && <p className="text-xs text-red-600 bg-red-50 border border-red-200 rounded-lg p-2 mb-4">{erro}</p>}
 
               <button onClick={handleConfirmar} disabled={confirmando}
-                className="w-full py-2.5 rounded-lg text-sm font-medium text-white disabled:opacity-50"
-                style={{ background: PRIMARY }}>
+                className="w-full py-2.5 rounded-lg text-sm font-medium disabled:opacity-50 btn-brand">
                 {confirmando ? 'Salvando…' : `Confirmar ${rotas.length} rota${rotas.length !== 1 ? 's' : ''}`}
               </button>
             </>
@@ -790,7 +787,7 @@ export default function RoteirizacaoPage() {
                   if (parts.length >= 2) { setLatInput(parts[0]); setLngInput(parts[1]) }
                   else { setLatInput(v); setLngInput('') }
                 }}
-                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#5C0F0F]"
+                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#072740]"
               />
               <p className="text-[10px] text-gray-400 mt-1">Cole as coordenadas do Google Maps</p>
             </div>
@@ -800,13 +797,13 @@ export default function RoteirizacaoPage() {
                 <label className="block text-xs text-gray-500 mb-1">CEP</label>
                 <input type="text" placeholder="04872-210" value={cepInput}
                   onChange={e => setCepInput(e.target.value)}
-                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#5C0F0F] font-mono" />
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#072740] font-mono" />
               </div>
               <div>
                 <label className="block text-xs text-gray-500 mb-1">Município</label>
                 <input type="text" placeholder="São Paulo" value={municipioInput}
                   onChange={e => setMunicipioInput(e.target.value)}
-                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#5C0F0F]" />
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#072740]" />
               </div>
             </div>
 
@@ -814,7 +811,7 @@ export default function RoteirizacaoPage() {
               <label className="block text-xs text-gray-500 mb-1">Bairro</label>
               <input type="text" placeholder="Borore" value={bairroInput}
                 onChange={e => setBairroInput(e.target.value)}
-                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#5C0F0F]" />
+                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#072740]" />
             </div>
 
             <div className="flex gap-2 pt-1">

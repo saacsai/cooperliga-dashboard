@@ -21,7 +21,7 @@ import {
 } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 
-const PRIMARY = '#5C0F0F'
+const PRIMARY = '#072740'
 
 type AgregadoItem  = { id: string; nome: string }
 type ContratoItem  = { id: string; codigo: string | null; orgao: string }
@@ -313,7 +313,7 @@ export default function RotaEditPage() {
           <div>
             <label className="block text-xs font-medium text-gray-600 mb-1">Contrato</label>
             <select value={form.contrato_id} onChange={setField('contrato_id')}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#5C0F0F] bg-white">
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#072740] bg-white">
               <option value="">Sem contrato</option>
               {contratos.map(c => (
                 <option key={c.id} value={c.id}>
@@ -325,28 +325,28 @@ export default function RotaEditPage() {
           <div>
             <label className="block text-xs font-medium text-gray-600 mb-1">Código *</label>
             <input type="text" value={form.codigo} onChange={setField('codigo')}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#5C0F0F] font-mono" />
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#072740] font-mono" />
           </div>
           <div>
             <label className="block text-xs font-medium text-gray-600 mb-1">Nome *</label>
             <input type="text" value={form.nome} onChange={setField('nome')}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#5C0F0F]" />
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#072740]" />
           </div>
           <div>
             <label className="block text-xs font-medium text-gray-600 mb-1">Região</label>
             <input type="text" value={form.regiao} onChange={setField('regiao')}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#5C0F0F]" />
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#072740]" />
           </div>
           <div>
             <label className="block text-xs font-medium text-gray-600 mb-1">CEP de referência</label>
             <input type="text" value={form.cep_referencia} onChange={setField('cep_referencia')}
               placeholder="ex: 08400" maxLength={9}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#5C0F0F] font-mono" />
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#072740] font-mono" />
           </div>
           <div>
             <label className="block text-xs font-medium text-gray-600 mb-1">Agregado</label>
             <select value={form.agregado_id} onChange={setField('agregado_id')}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#5C0F0F] bg-white">
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#072740] bg-white">
               <option value="">Sem agregado</option>
               {agregados.map(a => <option key={a.id} value={a.id}>{a.nome}</option>)}
             </select>
@@ -354,7 +354,7 @@ export default function RotaEditPage() {
           <div>
             <label className="block text-xs font-medium text-gray-600 mb-1">Valor do frete (R$)</label>
             <input type="number" step="0.01" value={form.valor_frete} onChange={setField('valor_frete')} placeholder="0,00"
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#5C0F0F]" />
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#072740]" />
           </div>
         </div>
 
@@ -372,8 +372,7 @@ export default function RotaEditPage() {
           <button
             onClick={handleSalvar}
             disabled={salvando || !dirty}
-            className="w-full text-white rounded-lg py-2.5 text-sm font-medium disabled:opacity-40 transition-opacity"
-            style={{ background: PRIMARY }}
+            className="w-full rounded-lg py-2.5 text-sm font-medium disabled:opacity-40 transition-opacity btn-brand"
           >
             {salvando ? 'Salvando…' : 'Salvar alterações'}
           </button>
@@ -429,7 +428,7 @@ export default function RotaEditPage() {
                 onFocus={() => setShowSuggestions(true)}
                 onBlur={() => setTimeout(() => setShowSuggestions(false), 150)}
                 placeholder="Buscar ponto de entrega para adicionar…"
-                className="w-full border border-gray-300 rounded-lg pl-8 pr-3 py-2 text-sm outline-none focus:border-[#5C0F0F]"
+                className="w-full border border-gray-300 rounded-lg pl-8 pr-3 py-2 text-sm outline-none focus:border-[#072740]"
               />
             </div>
 

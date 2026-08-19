@@ -2,7 +2,7 @@
 
 import { useState, useCallback } from 'react'
 
-const PRIMARY  = '#5C0F0F'
+const PRIMARY  = '#072740'
 const WORKER   = 'https://guias.cooperliga.saacs.com.br'
 
 type Tab = 'estado' | 'municipal'
@@ -159,7 +159,7 @@ export default function GuiasPage() {
           <button key={t} onClick={() => { setTab(t); setStatus('idle'); setErro('') }}
             className="flex-1 py-2.5 text-sm font-semibold transition-colors border"
             style={{
-              background:   tab === t ? PRIMARY : '#FAF5F5',
+              background:   tab === t ? PRIMARY : '#eef6fc',
               color:        tab === t ? '#fff' : '#6b7280',
               borderColor:  tab === t ? PRIMARY : '#e5e7eb',
               borderBottom: tab === t ? `2px solid ${PRIMARY}` : '1px solid #e5e7eb',
@@ -210,7 +210,7 @@ export default function GuiasPage() {
             placeholder={tab === 'estado' ? '0506' : '2503'}
             maxLength={4}
             pattern="[0-9]{4}"
-            className="border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none w-28 tracking-widest font-mono focus:border-[#5C0F0F]"
+            className="border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none w-28 tracking-widest font-mono focus:border-[#072740]"
           />
         </div>
 
@@ -239,7 +239,7 @@ function Step({ n, children }: { n: number; children: React.ReactNode }) {
   return (
     <div className="flex items-start gap-2.5 text-sm text-gray-500">
       <span className="flex-shrink-0 w-5 h-5 rounded-full flex items-center justify-center text-[11px] font-bold mt-0.5"
-        style={{ background: '#F5EFEF', color: PRIMARY }}>{n}</span>
+        style={{ background: 'linear-gradient(160deg, #ffffff 0%, #e8f4ff 100%)', color: PRIMARY }}>{n}</span>
       <span>{children}</span>
     </div>
   )

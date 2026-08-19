@@ -51,7 +51,7 @@ export default function MapaPontos({ pontos, onRegeocodificar, onEditarGeo }: Pr
           <div style="font-size:12px;min-width:180px">
             <strong>${p.nome}</strong><br>
             <span style="color:#666;font-size:11px">${p.endereco}</span><br>
-            <span style="color:#5C0F0F;font-size:11px">${p.qtde_caixas} caixas</span><br>
+            <span style="color:#072740;font-size:11px">${p.qtde_caixas} caixas</span><br>
             <span style="color:#999;font-size:10px">${p.lat.toFixed(5)}, ${p.lng.toFixed(5)}</span>
             <div style="display:flex;gap:6px;margin-top:6px;">
               ${onRegeocodificar ? `<button data-action="regeo" data-ponto-id="${p.ponto_id}" style="${btnStyle}">↺ Regeocodificar</button>` : ''}
@@ -61,8 +61,8 @@ export default function MapaPontos({ pontos, onRegeocodificar, onEditarGeo }: Pr
 
         const marker = L.circleMarker([p.lat, p.lng], {
           radius: 7,
-          color: '#5C0F0F',
-          fillColor: '#5C0F0F',
+          color: '#072740',
+          fillColor: '#072740',
           fillOpacity: 0.75,
           weight: 1.5,
         }).bindPopup(popupHtml).addTo(map!)

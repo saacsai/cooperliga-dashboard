@@ -10,7 +10,7 @@ import type { Rota } from '@/lib/supabase'
 type AgregadoDropdown  = { id: string; nome: string }
 type ContratoDropdown  = { id: string; codigo: string | null; orgao: string }
 
-const PRIMARY = '#5C0F0F'
+const PRIMARY = '#072740'
 
 const VAZIO = { contrato_id: '', codigo: '', nome: '', regiao: '', subprefeitura: '', agregado_id: '', valor_frete: '' }
 
@@ -134,7 +134,7 @@ export default function RotasPage() {
         </div>
         <div className="flex items-center gap-3">
           <ImportarLote colunas={COLUNAS_IMPORT} onImportar={handleImportar} primaryColor={PRIMARY} />
-          <button onClick={abrirNovo} className="text-white text-xs font-medium px-3 py-1.5 rounded-lg hover:opacity-90 transition-opacity" style={{ background: PRIMARY }}>
+          <button onClick={abrirNovo} className="text-xs font-medium px-3 py-1.5 rounded-lg transition-opacity btn-brand">
             + Nova rota
           </button>
         </div>
@@ -147,7 +147,7 @@ export default function RotasPage() {
           </svg>
           <input type="text" value={busca} onChange={e => setBusca(e.target.value)}
             placeholder="Buscar por nome, código, região ou agregado…"
-            className="w-full border border-gray-300 rounded-lg pl-8 pr-3 py-2 text-sm outline-none focus:border-[#5C0F0F]" />
+            className="w-full border border-gray-300 rounded-lg pl-8 pr-3 py-2 text-sm outline-none focus:border-[#072740]" />
         </div>
         {busca && <button onClick={() => setBusca('')} className="text-xs text-gray-400 hover:text-gray-700">Limpar</button>}
         {!loading && (
@@ -211,7 +211,7 @@ export default function RotasPage() {
           <div>
             <label className="block text-xs font-medium text-gray-600 mb-1">Contrato</label>
             <select value={form.contrato_id} onChange={set('contrato_id')}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#5C0F0F]">
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#072740]">
               <option value="">Sem contrato</option>
               {contratos.map(c => (
                 <option key={c.id} value={c.id}>
@@ -226,7 +226,7 @@ export default function RotasPage() {
             <div>
               <label className="block text-xs font-medium text-gray-600 mb-1">Subprefeitura (sigla)</label>
               <input type="text" value={form.subprefeitura} onChange={set('subprefeitura')} placeholder="ex: CT" maxLength={6}
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#5C0F0F] font-mono uppercase" />
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#072740] font-mono uppercase" />
             </div>
             <div>
               <div className="flex items-center justify-between mb-1">
@@ -242,24 +242,24 @@ export default function RotasPage() {
                 </button>
               </div>
               <input type="text" value={form.codigo} onChange={set('codigo')} required placeholder="ex: MUN01-08400-R1"
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#5C0F0F] font-mono" />
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#072740] font-mono" />
             </div>
           </div>
 
           <div>
             <label className="block text-xs font-medium text-gray-600 mb-1">Região</label>
             <input type="text" value={form.regiao} onChange={set('regiao')} placeholder="ex: Cid. Tiradentes / Guaianazes"
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#5C0F0F]" />
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#072740]" />
           </div>
           <div>
             <label className="block text-xs font-medium text-gray-600 mb-1">Nome *</label>
             <input type="text" value={form.nome} onChange={set('nome')} required autoFocus placeholder="ex: Rota Santo André Norte"
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#5C0F0F]" />
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#072740]" />
           </div>
           <div>
             <label className="block text-xs font-medium text-gray-600 mb-1">Agregado</label>
             <select value={form.agregado_id} onChange={set('agregado_id')}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#5C0F0F]">
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#072740]">
               <option value="">Sem agregado</option>
               {agregados.map(a => <option key={a.id} value={a.id}>{a.nome}</option>)}
             </select>
@@ -267,12 +267,12 @@ export default function RotasPage() {
           <div>
             <label className="block text-xs font-medium text-gray-600 mb-1">Valor do frete (R$)</label>
             <input type="number" step="0.01" value={form.valor_frete} onChange={set('valor_frete')} placeholder="0,00"
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#5C0F0F]" />
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#072740]" />
           </div>
           {erro && <p className="text-xs text-red-600 bg-red-50 border border-red-200 rounded-lg p-2">{erro}</p>}
           <div className="flex gap-2 pt-2">
             <button type="button" onClick={() => setDrawer(false)} className="flex-1 border border-gray-200 rounded-lg py-1.5 text-xs text-gray-600 hover:bg-gray-50">Cancelar</button>
-            <button type="submit" disabled={salvando} className="flex-1 text-white rounded-lg py-1.5 text-xs font-medium disabled:opacity-50" style={{ background: PRIMARY }}>
+            <button type="submit" disabled={salvando} className="flex-1 rounded-lg py-1.5 text-xs font-medium disabled:opacity-50 btn-brand">
               {salvando ? 'Salvando…' : 'Salvar'}
             </button>
           </div>

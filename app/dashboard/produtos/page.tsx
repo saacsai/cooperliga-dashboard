@@ -6,7 +6,7 @@ import Drawer from '@/components/Drawer'
 import ImportarLote from '@/components/ImportarLote'
 import type { Produto } from '@/lib/supabase'
 
-const PRIMARY = '#5C0F0F'
+const PRIMARY = '#072740'
 
 const VAZIO = { nome: '', unidade_padrao: 'UNIDADE' as 'UNIDADE' | 'CAIXA' | 'PACOTE', capacidade_por_caixa: '', categoria: '' }
 
@@ -99,7 +99,7 @@ export default function ProdutosPage() {
         </div>
         <div className="flex items-center gap-3">
           <ImportarLote colunas={COLUNAS_IMPORT} onImportar={handleImportar} primaryColor={PRIMARY} />
-          <button onClick={abrirNovo} className="text-white text-xs font-medium px-3 py-1.5 rounded-lg hover:opacity-90 transition-opacity" style={{ background: PRIMARY }}>
+          <button onClick={abrirNovo} className="text-xs font-medium px-3 py-1.5 rounded-lg transition-opacity btn-brand">
             + Novo produto
           </button>
         </div>
@@ -155,12 +155,12 @@ export default function ProdutosPage() {
             <label className="block text-xs font-medium text-gray-600 mb-1">Nome *</label>
             <input type="text" value={form.nome} onChange={e => setForm(p => ({ ...p, nome: e.target.value }))} required autoFocus
               placeholder="ex: BANANA PRATA AF"
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#5C0F0F]" />
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#072740]" />
           </div>
           <div>
             <label className="block text-xs font-medium text-gray-600 mb-1">Unidade padrão *</label>
             <select value={form.unidade_padrao} onChange={e => setForm(p => ({ ...p, unidade_padrao: e.target.value as typeof form.unidade_padrao }))}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#5C0F0F]">
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#072740]">
               <option value="UNIDADE">Unidade</option>
               <option value="CAIXA">Caixa</option>
               <option value="PACOTE">Pacote</option>
@@ -170,18 +170,18 @@ export default function ProdutosPage() {
             <label className="block text-xs font-medium text-gray-600 mb-1">Capacidade por caixa</label>
             <input type="number" value={form.capacidade_por_caixa} onChange={e => setForm(p => ({ ...p, capacidade_por_caixa: e.target.value }))}
               placeholder="ex: 180 (para banana)"
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#5C0F0F]" />
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#072740]" />
           </div>
           <div>
             <label className="block text-xs font-medium text-gray-600 mb-1">Categoria</label>
             <input type="text" value={form.categoria} onChange={e => setForm(p => ({ ...p, categoria: e.target.value }))}
               placeholder="ex: Fruta, Verdura, Grão"
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#5C0F0F]" />
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#072740]" />
           </div>
           {erro && <p className="text-xs text-red-600 bg-red-50 border border-red-200 rounded-lg p-2">{erro}</p>}
           <div className="flex gap-2 pt-2">
             <button type="button" onClick={() => setDrawer(false)} className="flex-1 border border-gray-200 rounded-lg py-1.5 text-xs text-gray-600 hover:bg-gray-50">Cancelar</button>
-            <button type="submit" disabled={salvando} className="flex-1 text-white rounded-lg py-1.5 text-xs font-medium disabled:opacity-50" style={{ background: PRIMARY }}>
+            <button type="submit" disabled={salvando} className="flex-1 rounded-lg py-1.5 text-xs font-medium disabled:opacity-50 btn-brand">
               {salvando ? 'Salvando…' : 'Salvar'}
             </button>
           </div>

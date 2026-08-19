@@ -6,7 +6,7 @@ import Image from 'next/image'
 import { BrowserMultiFormatReader } from '@zxing/browser'
 import { getSupabase } from '@/lib/supabase'
 
-const PRIMARY = '#5C0F0F'
+const PRIMARY = '#072740'
 const HOJE = new Date().toISOString().split('T')[0]
 
 type Cliente = { id: string; nome: string }
@@ -453,7 +453,7 @@ function EstoqueInner() {
             </button>
           )}
           <div>
-            <Image src="/logo_fonte.jpg" alt="CooperLiga" width={130} height={24} className="object-contain" priority />
+            <Image src="/cooperliga_logo_dark.png" alt="CooperLiga" width={130} height={24} className="object-contain" priority />
             {titulo !== 'Estoque de Caixas' && (
               <p className="text-xs text-white/70 mt-0.5">{titulo}</p>
             )}
@@ -495,7 +495,7 @@ function EstoqueInner() {
           <p className="text-lg font-bold text-gray-900">{titulo}</p>
           <p className="text-sm text-gray-500 mt-1">{subtitulo}</p>
         </div>
-        <button onClick={voltarHub} className="w-full py-3 rounded-xl text-white font-semibold text-sm" style={{ background: PRIMARY }}>
+        <button onClick={voltarHub} className="w-full py-3 rounded-xl font-semibold text-sm btn-brand">
           Voltar ao início
         </button>
         <button onClick={onNovo} className="text-sm text-gray-400">{labelNovo}</button>
@@ -645,8 +645,7 @@ function EstoqueInner() {
               {!scanning && (
                 <>
                   <button onClick={iniciarScan}
-                    className="w-full py-4 rounded-xl text-white font-semibold text-sm flex items-center justify-center gap-2"
-                    style={{ background: PRIMARY }}>
+                    className="w-full py-4 rounded-xl font-semibold text-sm flex items-center justify-center gap-2 btn-brand">
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                       <rect x="3" y="3" width="5" height="5" rx="1"/><rect x="16" y="3" width="5" height="5" rx="1"/>
                       <rect x="3" y="16" width="5" height="5" rx="1"/>
@@ -663,7 +662,7 @@ function EstoqueInner() {
                     <input type="text" value={manifestoTexto}
                       onChange={e => { setManifestoTexto(e.target.value); setErroManif('') }}
                       placeholder="ex: 42A"
-                      className="flex-1 border border-gray-300 rounded-xl px-4 py-3 text-sm font-mono outline-none focus:border-[#5C0F0F]"
+                      className="flex-1 border border-gray-300 rounded-xl px-4 py-3 text-sm font-mono outline-none focus:border-[#072740]"
                     />
                     <button onClick={() => buscarManifesto(manifestoTexto)} disabled={loadingManif}
                       className="px-4 py-3 rounded-xl text-white text-sm font-semibold disabled:opacity-50"
@@ -696,7 +695,7 @@ function EstoqueInner() {
                         const nome = clientes.find(c => c.id === e.target.value)?.nome ?? ''
                         setLinhas(p => p.map((l, j) => j === i ? { ...l, cliente_id: e.target.value, nome } : l))
                       }}
-                      className="w-full border border-gray-200 rounded-xl px-3 py-3 text-sm outline-none focus:border-[#5C0F0F] bg-white">
+                      className="w-full border border-gray-200 rounded-xl px-3 py-3 text-sm outline-none focus:border-[#072740] bg-white">
                       <option value="">Selecione…</option>
                       {clientes.map(c => <option key={c.id} value={c.id}>{c.nome}</option>)}
                     </select>
@@ -704,7 +703,7 @@ function EstoqueInner() {
                       <input type="number" min="1" value={linha.quantidade || ''}
                         onChange={e => setLinhas(p => p.map((l, j) => j === i ? { ...l, quantidade: parseInt(e.target.value) || 0 } : l))}
                         placeholder="Quantidade (cx)"
-                        className="flex-1 border border-gray-200 rounded-xl px-3 py-3 text-sm outline-none focus:border-[#5C0F0F]"
+                        className="flex-1 border border-gray-200 rounded-xl px-3 py-3 text-sm outline-none focus:border-[#072740]"
                       />
                       {i > 0 && (
                         <button onClick={() => setLinhas(p => p.filter((_, j) => j !== i))} className="text-gray-400 hover:text-red-500">
@@ -730,7 +729,7 @@ function EstoqueInner() {
                 )}
                 {erroSaida && <p className="text-xs text-red-500 bg-red-50 rounded-lg p-2">{erroSaida}</p>}
                 <button onClick={handleSalvarSaida} disabled={salvando}
-                  className="w-full py-4 rounded-xl text-white font-semibold text-sm disabled:opacity-50" style={{ background: PRIMARY }}>
+                  className="w-full py-4 rounded-xl font-semibold text-sm disabled:opacity-50 btn-brand">
                   {salvando ? 'Salvando…' : 'Confirmar saída'}
                 </button>
               </div>
@@ -758,7 +757,7 @@ function EstoqueInner() {
                       <div className="flex items-center gap-3">
                         <input type="number" min="0" max={d.saida} value={qtd}
                           onChange={e => setQtdesRetorno(p => ({ ...p, [d.id]: parseInt(e.target.value) || 0 }))}
-                          className="flex-1 border border-gray-200 rounded-xl px-3 py-3 text-sm outline-none focus:border-[#5C0F0F]"
+                          className="flex-1 border border-gray-200 rounded-xl px-3 py-3 text-sm outline-none focus:border-[#072740]"
                         />
                         <span className="text-xs text-gray-400">cx retornando</span>
                       </div>
@@ -810,7 +809,7 @@ function EstoqueInner() {
             <p className="text-lg font-bold text-gray-900">Recebimento registrado!</p>
             <p className="text-sm text-gray-500 mt-1">{qty} cx — {nomeCliente}</p>
           </div>
-          <button onClick={voltarHub} className="w-full py-3 rounded-xl text-white font-semibold text-sm" style={{ background: PRIMARY }}>
+          <button onClick={voltarHub} className="w-full py-3 rounded-xl font-semibold text-sm btn-brand">
             Voltar ao início
           </button>
           <button
@@ -882,7 +881,7 @@ function EstoqueInner() {
             <div>
               <label className="text-xs font-medium text-gray-500 mb-1 block">Cliente *</label>
               <select value={recForm.cliente_id} onChange={e => setRecForm(p => ({ ...p, cliente_id: e.target.value }))}
-                className="w-full border border-gray-200 rounded-xl px-3 py-3 text-sm outline-none focus:border-[#5C0F0F] bg-white">
+                className="w-full border border-gray-200 rounded-xl px-3 py-3 text-sm outline-none focus:border-[#072740] bg-white">
                 <option value="">Selecione…</option>
                 {clientes.map(c => <option key={c.id} value={c.id}>{c.nome}</option>)}
               </select>
@@ -891,21 +890,21 @@ function EstoqueInner() {
               <label className="text-xs font-medium text-gray-500 mb-1 block">Quantidade (cx) *</label>
               <input type="number" min="1" value={recForm.quantidade} placeholder="0"
                 onChange={e => setRecForm(p => ({ ...p, quantidade: e.target.value }))}
-                className="w-full border border-gray-200 rounded-xl px-3 py-3 text-sm outline-none focus:border-[#5C0F0F]"
+                className="w-full border border-gray-200 rounded-xl px-3 py-3 text-sm outline-none focus:border-[#072740]"
               />
             </div>
             <div>
               <label className="text-xs font-medium text-gray-500 mb-1 block">Data *</label>
               <input type="date" value={recForm.data} max={HOJE}
                 onChange={e => setRecForm(p => ({ ...p, data: e.target.value }))}
-                className="w-full border border-gray-200 rounded-xl px-3 py-3 text-sm outline-none focus:border-[#5C0F0F]"
+                className="w-full border border-gray-200 rounded-xl px-3 py-3 text-sm outline-none focus:border-[#072740]"
               />
             </div>
             <div>
               <label className="text-xs font-medium text-gray-500 mb-1 block">Observação</label>
               <textarea value={recForm.observacao} rows={2} placeholder="Ex: 4 cx a mais do pedido…"
                 onChange={e => setRecForm(p => ({ ...p, observacao: e.target.value }))}
-                className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-[#5C0F0F] resize-none"
+                className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-[#072740] resize-none"
               />
             </div>
             {erroRec && <p className="text-xs text-red-500 bg-red-50 rounded-lg p-2">{erroRec}</p>}
@@ -947,7 +946,7 @@ function EstoqueInner() {
             <div>
               <label className="text-xs font-medium text-gray-500 mb-1 block">Cliente *</label>
               <select value={saidaForm.cliente_id} onChange={e => setSaidaForm(p => ({ ...p, cliente_id: e.target.value }))}
-                className="w-full border border-gray-200 rounded-xl px-3 py-3 text-sm outline-none focus:border-[#5C0F0F] bg-white">
+                className="w-full border border-gray-200 rounded-xl px-3 py-3 text-sm outline-none focus:border-[#072740] bg-white">
                 <option value="">Selecione…</option>
                 {clientes.map(c => <option key={c.id} value={c.id}>{c.nome}</option>)}
               </select>
@@ -956,21 +955,21 @@ function EstoqueInner() {
               <label className="text-xs font-medium text-gray-500 mb-1 block">Quantidade (cx) *</label>
               <input type="number" min="1" value={saidaForm.quantidade} placeholder="0"
                 onChange={e => setSaidaForm(p => ({ ...p, quantidade: e.target.value }))}
-                className="w-full border border-gray-200 rounded-xl px-3 py-3 text-sm outline-none focus:border-[#5C0F0F]"
+                className="w-full border border-gray-200 rounded-xl px-3 py-3 text-sm outline-none focus:border-[#072740]"
               />
             </div>
             <div>
               <label className="text-xs font-medium text-gray-500 mb-1 block">Data *</label>
               <input type="date" value={saidaForm.data} max={HOJE}
                 onChange={e => setSaidaForm(p => ({ ...p, data: e.target.value }))}
-                className="w-full border border-gray-200 rounded-xl px-3 py-3 text-sm outline-none focus:border-[#5C0F0F]"
+                className="w-full border border-gray-200 rounded-xl px-3 py-3 text-sm outline-none focus:border-[#072740]"
               />
             </div>
             <div>
               <label className="text-xs font-medium text-gray-500 mb-1 block">Observação</label>
               <textarea value={saidaForm.observacao} rows={2} placeholder="Ex: vendido para unidade 12176…"
                 onChange={e => setSaidaForm(p => ({ ...p, observacao: e.target.value }))}
-                className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-[#5C0F0F] resize-none"
+                className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-[#072740] resize-none"
               />
             </div>
             {erroSaidaSimp && <p className="text-xs text-red-500 bg-red-50 rounded-lg p-2">{erroSaidaSimp}</p>}
@@ -1008,7 +1007,7 @@ function EstoqueInner() {
             <div>
               <label className="text-xs font-medium text-gray-500 mb-1 block">Cliente *</label>
               <select value={ajForm.cliente_id} onChange={e => setAjForm(p => ({ ...p, cliente_id: e.target.value }))}
-                className="w-full border border-gray-200 rounded-xl px-3 py-3 text-sm outline-none focus:border-[#5C0F0F] bg-white">
+                className="w-full border border-gray-200 rounded-xl px-3 py-3 text-sm outline-none focus:border-[#072740] bg-white">
                 <option value="">Selecione…</option>
                 {clientes.map(c => <option key={c.id} value={c.id}>{c.nome}</option>)}
               </select>
@@ -1019,7 +1018,7 @@ function EstoqueInner() {
                 {(['entrada', 'saida'] as const).map(d => (
                   <button key={d} type="button"
                     onClick={() => setAjForm(p => ({ ...p, direcao: d }))}
-                    className={`py-3 rounded-xl text-sm font-medium border-2 transition-colors ${ajForm.direcao === d ? 'border-[#5C0F0F] text-[#5C0F0F] bg-[#5C0F0F]/5' : 'border-gray-200 text-gray-500'}`}>
+                    className={`py-3 rounded-xl text-sm font-medium border-2 transition-colors ${ajForm.direcao === d ? 'border-[#072740] text-[#072740] bg-[#072740]/5' : 'border-gray-200 text-gray-500'}`}>
                     {d === 'entrada' ? '+ Entrada' : '− Saída'}
                   </button>
                 ))}
@@ -1029,21 +1028,21 @@ function EstoqueInner() {
               <label className="text-xs font-medium text-gray-500 mb-1 block">Quantidade (cx) *</label>
               <input type="number" min="1" value={ajForm.quantidade} placeholder="0"
                 onChange={e => setAjForm(p => ({ ...p, quantidade: e.target.value }))}
-                className="w-full border border-gray-200 rounded-xl px-3 py-3 text-sm outline-none focus:border-[#5C0F0F]"
+                className="w-full border border-gray-200 rounded-xl px-3 py-3 text-sm outline-none focus:border-[#072740]"
               />
             </div>
             <div>
               <label className="text-xs font-medium text-gray-500 mb-1 block">Data *</label>
               <input type="date" value={ajForm.data} max={HOJE}
                 onChange={e => setAjForm(p => ({ ...p, data: e.target.value }))}
-                className="w-full border border-gray-200 rounded-xl px-3 py-3 text-sm outline-none focus:border-[#5C0F0F]"
+                className="w-full border border-gray-200 rounded-xl px-3 py-3 text-sm outline-none focus:border-[#072740]"
               />
             </div>
             <div>
               <label className="text-xs font-medium text-gray-500 mb-1 block">Motivo do ajuste *</label>
               <textarea value={ajForm.observacao} rows={2} placeholder="Ex: contagem física revelou 3 cx extras…"
                 onChange={e => setAjForm(p => ({ ...p, observacao: e.target.value }))}
-                className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-[#5C0F0F] resize-none"
+                className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-[#072740] resize-none"
               />
             </div>
             {erroAj && <p className="text-xs text-red-500 bg-red-50 rounded-lg p-2">{erroAj}</p>}
@@ -1087,7 +1086,7 @@ function EstoqueInner() {
           {/* Filtro */}
           <div className="flex gap-2">
             <select value={filtroExtCliente} onChange={e => setFiltroExtCliente(e.target.value)}
-              className="flex-1 border border-gray-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#5C0F0F] bg-white">
+              className="flex-1 border border-gray-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#072740] bg-white">
               <option value="">Todos os clientes</option>
               {clientes.map(c => <option key={c.id} value={c.id}>{c.nome}</option>)}
             </select>
