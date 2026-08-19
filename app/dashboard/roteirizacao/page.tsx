@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import dynamic from 'next/dynamic'
 import { getSupabase } from '@/lib/supabase'
 
@@ -8,9 +8,10 @@ const MapaPontos = dynamic(() => import('@/components/MapaPontos'), { ssr: false
 
 const PRIMARY = '#072740'
 const WORKER  = 'https://guias.cooperliga.saacs.com.br'
+const MAX_PRODUTOS = 10
 
 type Tipo = 'estado' | 'municipal'
-type Fase = 'upload' | 'pontos' | 'setup' | 'rotas'
+type Fase = 'parametros' | 'upload' | 'pontos' | 'rotas'
 
 interface PontoExtraido {
   codigo_prefeitura?: string
@@ -28,6 +29,8 @@ interface PontoExtraido {
   qtde_fracionada?: number
 }
 
+type Qtde = { inteira: number; fracionada: number }
+
 interface PontoComGeo {
   ponto_id: string
   codigo: string
@@ -36,9 +39,8 @@ interface PontoComGeo {
   municipio?: string
   lat?: number
   lng?: number
-  qtde_caixas: number
+  qtdes: Record<string, Qtde> // produto_id -> quantidade
   geo_status?: string
-  produto?: string
   diretoria?: string
 }
 
@@ -47,8 +49,13 @@ interface RotaSugerida {
   veiculo_sugerido: string
   total_entregas: number
   total_caixas: number
-  pontos: Array<{ponto_id: string; nome: string; ordem: number; qtde_caixas: number}>
+  pontos: Array<{ ponto_id: string; nome: string; ordem: number; lat?: number; lng?: number; qtdes: Record<string, Qtde> }>
 }
+
+type Produto = { id: string; nome: string; capacidade_por_caixa: number | null }
+type ProdutoSlot = { produtoId: string; arquivo: File | null }
+type RotaExistente = { id: string; codigo: string; nome: string }
+type RotaEscolha = { modo: 'existente' | 'nova'; rotaId: string; codigo: string; nome: string }
 
 const VEICULOS = ['fiorino', 'hr', 'iveco', 'outro']
 
@@ -73,32 +80,58 @@ function PassoHeader({ n, label, ativo }: { n: number; label: string; ativo: boo
   )
 }
 
+// Arredonda a fracionada pra caixa UMA VEZ (soma primeiro, arredonda depois) —
+// espelha exatamente o que o worker faz em /roteirizar, usado aqui só pra
+// recalcular o total na tela depois que a pessoa move um ponto entre rotas
+// (sem precisar chamar o worker de novo).
+function calcularTotalCaixas(pontos: RotaSugerida['pontos'], capacidades: Record<string, number>): number {
+  const somas: Record<string, Qtde> = {}
+  for (const p of pontos) {
+    for (const [prodId, q] of Object.entries(p.qtdes)) {
+      if (!somas[prodId]) somas[prodId] = { inteira: 0, fracionada: 0 }
+      somas[prodId].inteira    += q.inteira
+      somas[prodId].fracionada += q.fracionada
+    }
+  }
+  let total = 0
+  for (const [prodId, q] of Object.entries(somas)) {
+    const capacidade = capacidades[prodId] || 12
+    total += q.inteira + Math.ceil(q.fracionada / capacidade)
+  }
+  return total
+}
+
 export default function RoteirizacaoPage() {
-  const [fase,      setFase]     = useState<Fase>('upload')
+  const [fase,      setFase]     = useState<Fase>('parametros')
   const [tipo,      setTipo]     = useState<Tipo>('municipal')
-  const [arquivo,   setArquivo]  = useState<File | null>(null)
   const [carregando, setCarreg]  = useState(false)
   const [erro,      setErro]     = useState('')
   const [avisos,    setAvisos]   = useState<string[]>([])
 
-  // Fase pontos
-  const [pontosExt, setPontosExt]   = useState<PontoExtraido[]>([])
+  // Passo 1 — Parâmetros (agora vem antes do upload, porque o nº de
+  // produtos já define quanto tempo cada entrega leva e quantos slots de
+  // planilha aparecem no passo seguinte).
+  const [regiao,      setRegiao]      = useState('')
+  const [dataCiclo,   setDataCiclo]   = useState('') // YYYY-MM-DD
+  const [numProd,     setNumProd]     = useState(1)
+  const [maxEntregas, setMaxEnt]      = useState(25)
+
+  // Passo 2 — Upload: um slot (arquivo + produto) por produto declarado.
+  const [produtos,     setProdutos]     = useState<Produto[]>([])
+  const [produtoSlots, setProdutoSlots] = useState<ProdutoSlot[]>([{ produtoId: '', arquivo: null }])
+  const [numerosPedido, setNumerosPedido] = useState<Record<string, string>>({}) // produto_id -> numero_pedido (pra virar ciclo)
+
+  // Fase pontos (conferência)
   const [pontosGeo, setPontosGeo]   = useState<PontoComGeo[]>([])
   const [geocodando, setGeocodando] = useState(false)
-  const [regiao,    setRegiao]      = useState('')
-  const [pacotesPorCaixa, setPacotesPorCaixa] = useState(12)
-
-  // Fase setup
-  const [numProd,    setNumProd]   = useState(1)
-  const [cargaDobr, setCargaDobr] = useState(false)
-  const [maxEntregas, setMaxEnt]  = useState(25)
-  const [dataCiclo,   setDataCiclo] = useState('')
 
   // Fase rotas
   const [rotas,      setRotas]    = useState<RotaSugerida[]>([])
   const [veiculos,   setVeiculos] = useState<string[]>([])
   const [confirmando, setConf]    = useState(false)
   const [confirmado,  setConfirm] = useState(false)
+  const [rotasCadastro, setRotasCadastro] = useState<RotaExistente[]>([])
+  const [rotaEscolhas,  setRotaEscolhas]  = useState<Record<number, RotaEscolha>>({})
 
   // Mapa
   const [mostraMapa, setMostraMapa] = useState(false)
@@ -113,6 +146,30 @@ export default function RoteirizacaoPage() {
   const [municipioInput, setMunicipioInput] = useState('')
   const [salvandoGeo,  setSalvandoGeo]  = useState(false)
 
+  useEffect(() => {
+    getSupabase().from('produtos').select('id, nome, capacidade_por_caixa').eq('ativo', true).order('nome')
+      .then(({ data }) => setProdutos((data || []) as Produto[]))
+  }, [])
+
+  // Capacidades por produto usado nesta sessão — usadas tanto pra mandar
+  // pro worker quanto pra recalcular total na tela depois de mover ponto.
+  const capacidadesPorProduto: Record<string, number> = {}
+  for (const p of produtos) capacidadesPorProduto[p.id] = p.capacidade_por_caixa || 12
+
+  function ajustarNumProd(n: number) {
+    const v = Math.max(1, Math.min(MAX_PRODUTOS, n))
+    setNumProd(v)
+    setProdutoSlots(prev => {
+      const next = [...prev]
+      while (next.length < v) next.push({ produtoId: '', arquivo: null })
+      return next.slice(0, v)
+    })
+  }
+
+  function setSlot(i: number, patch: Partial<ProdutoSlot>) {
+    setProdutoSlots(prev => prev.map((s, idx) => idx === i ? { ...s, ...patch } : s))
+  }
+
   function abrirModal(pontoId: string) {
     const p = pontosGeo.find(x => x.ponto_id === pontoId)
     setEditandoGeo(pontoId)
@@ -124,36 +181,43 @@ export default function RoteirizacaoPage() {
     setMunicipioInput(p?.municipio || '')
   }
 
-  // ── Passo 1: upload e extração ──────────────────────────────────────────────
+  // ── Passo 2: upload e extração (N planilhas) ────────────────────────────────
   async function handleExtrair() {
-    if (!arquivo) { setErro('Selecione um arquivo'); return }
+    const slotsAtivos = produtoSlots.filter(s => s.arquivo)
+    if (!slotsAtivos.length) { setErro('Selecione ao menos uma planilha'); return }
+    if (slotsAtivos.some(s => !s.produtoId)) { setErro('Selecione o produto de cada planilha enviada'); return }
+
     setCarreg(true); setErro(''); setAvisos([])
     try {
-      const fd  = new FormData()
-      const url = tipo === 'municipal'
-        ? `${WORKER}/extrair-prefeitura`
-        : `${WORKER}/extrair-estado`
-      fd.append(tipo === 'municipal' ? 'xls' : 'zip_grs', arquivo)
+      const extraidosPorProduto: { produtoId: string; pontos: PontoExtraido[] }[] = []
+      const novosNumeros: Record<string, string> = {}
 
-      const res  = await fetch(url, { method: 'POST', body: fd })
-      const json = await res.json()
-      if (!res.ok) throw new Error(json.detail || JSON.stringify(json))
+      for (const slot of slotsAtivos) {
+        const fd  = new FormData()
+        const url = tipo === 'municipal' ? `${WORKER}/extrair-prefeitura` : `${WORKER}/extrair-estado`
+        fd.append(tipo === 'municipal' ? 'xls' : 'zip_grs', slot.arquivo!)
 
-      const pontos: PontoExtraido[] = json.pontos || []
-      setPontosExt(pontos)
-      setAvisos(json.avisos || [])
+        const res  = await fetch(url, { method: 'POST', body: fd })
+        const json = await res.json()
+        if (!res.ok) throw new Error(json.detail || JSON.stringify(json))
 
-      // detectar região automaticamente
-      const dirs = new Set(pontos.map(p => p.diretoria).filter(Boolean))
-      if (dirs.size === 1) setRegiao(Array.from(dirs)[0] as string)
+        extraidosPorProduto.push({ produtoId: slot.produtoId, pontos: json.pontos || [] })
+        if (json.avisos?.length) setAvisos(prev => [...prev, ...json.avisos])
 
-      // calcular pacotes_por_caixa a partir das embalagens da planilha
-      const embInt  = json.embalagem_inteira_un  || 0
-      const embFrac = json.embalagem_fracionada_un || 0
-      const ppc = embInt > 0 && embFrac > 0 ? Math.round(embInt / embFrac) : 12
-      setPacotesPorCaixa(ppc)
+        const produtoNome = produtos.find(p => p.id === slot.produtoId)?.nome || slot.produtoId
+        novosNumeros[slot.produtoId] = json.numero_solicitacao
+          ? String(json.numero_solicitacao)
+          : `ESTADO-${dataCiclo || 'sem-data'}-${produtoNome}`
+      }
+      setNumerosPedido(novosNumeros)
 
-      await enriquecerComGeo(pontos, ppc)
+      // detectar região automaticamente a partir do primeiro arquivo
+      if (!regiao) {
+        const dirs = new Set(extraidosPorProduto[0]?.pontos.map(p => p.diretoria).filter(Boolean))
+        if (dirs.size === 1) setRegiao(Array.from(dirs)[0] as string)
+      }
+
+      await consolidarEGeocodificar(extraidosPorProduto)
       setFase('pontos')
     } catch (e) {
       setErro(e instanceof Error ? e.message : 'Erro ao extrair')
@@ -162,18 +226,49 @@ export default function RoteirizacaoPage() {
     }
   }
 
-  async function enriquecerComGeo(pontos: PontoExtraido[], ppc = pacotesPorCaixa) {
+  // Consolida os pontos de todas as planilhas (por código) num único
+  // registro por ponto, com as quantidades de cada produto separadas —
+  // e só então geocodifica/casa com pontos_de_entrega, uma vez por ponto.
+  async function consolidarEGeocodificar(extraidosPorProduto: { produtoId: string; pontos: PontoExtraido[] }[]) {
     const sb = getSupabase()
+
+    type Consolidado = { nome: string; endereco: string; municipio?: string; diretoria?: string; qtdes: Record<string, Qtde> }
+    const porCodigo = new Map<string, Consolidado>()
+
+    for (const { produtoId, pontos } of extraidosPorProduto) {
+      for (const p of pontos) {
+        const codigo = p.codigo_prefeitura || p.cie || ''
+        if (!codigo) continue
+        const nome = p.nome || p.nome_escola || `Ponto ${codigo}`
+
+        let entry = porCodigo.get(codigo)
+        if (!entry) {
+          entry = { nome, endereco: p.endereco || '', municipio: p.municipio, diretoria: p.diretoria, qtdes: {} }
+          porCodigo.set(codigo, entry)
+        }
+
+        const inteira    = tipo === 'municipal' ? (p.qtde_inteira || 0) : 0
+        const fracionada = tipo === 'municipal' ? (p.qtde_fracionada || 0) : (p.quantidade || 0)
+        entry.qtdes[produtoId] = { inteira, fracionada }
+      }
+    }
+
+    // Aviso não-bloqueante: ponto que não pediu algum dos produtos selecionados
+    const produtoIdsUsados = extraidosPorProduto.map(e => e.produtoId)
+    const novosAvisos: string[] = []
+    for (const [codigo, entry] of Array.from(porCodigo.entries())) {
+      const faltando = produtoIdsUsados.filter(pid => !entry.qtdes[pid])
+      if (faltando.length) {
+        const nomes = faltando.map(pid => produtos.find(pr => pr.id === pid)?.nome || pid).join(', ')
+        novosAvisos.push(`${entry.nome} (${codigo}) não pediu: ${nomes}`)
+      }
+    }
+    if (novosAvisos.length) setAvisos(prev => [...prev, ...novosAvisos])
+
+    const col = tipo === 'municipal' ? 'codigo_prefeitura' : 'codigo_estado'
     const resultado: PontoComGeo[] = []
 
-    for (const p of pontos) {
-      const codigo = p.codigo_prefeitura || p.cie || ''
-      const col    = p.codigo_prefeitura ? 'codigo_prefeitura' : 'codigo_estado'
-      const nome   = p.nome || p.nome_escola || `Ponto ${codigo}`
-      const qtde   = tipo === 'municipal'
-        ? (p.qtde_inteira || 0) + Math.ceil((p.qtde_fracionada || 0) / ppc)
-        : Math.ceil((p.quantidade || 0) / 144)
-
+    for (const [codigo, entry] of Array.from(porCodigo.entries())) {
       const { data } = await sb
         .from('pontos_de_entrega')
         .select('id, lat, lng, geo_status, municipio')
@@ -185,28 +280,24 @@ export default function RoteirizacaoPage() {
         resultado.push({
           ponto_id:  data.id,
           codigo,
-          nome,
-          endereco:  p.endereco || '',
-          municipio: data.municipio ?? undefined,
+          nome:      entry.nome,
+          endereco:  entry.endereco,
+          municipio: data.municipio ?? entry.municipio,
           lat:       data.lat ?? undefined,
           lng:       data.lng ?? undefined,
-          qtde_caixas: qtde,
+          qtdes:     entry.qtdes,
           geo_status: data.geo_status || 'pendente',
-          produto:   p.produto,
-          diretoria: p.diretoria,
+          diretoria: entry.diretoria,
         })
       } else {
-        // Ponto não existe — registrar automaticamente
         const { data: novo } = await sb
           .from('pontos_de_entrega')
           .insert({
-            nome,
-            endereco:          p.endereco          || null,
-            municipio:         p.municipio         || (tipo === 'municipal' ? 'São Paulo' : null),
-            cep:               p.cep               || null,
-            codigo_prefeitura: p.codigo_prefeitura || null,
-            codigo_estado:     p.cie               || null,
-            origem:            tipo === 'municipal' ? 'prefeitura' : 'estado',
+            nome: entry.nome,
+            endereco:  entry.endereco || null,
+            municipio: entry.municipio || (tipo === 'municipal' ? 'São Paulo' : null),
+            [col]: codigo,
+            origem: tipo === 'municipal' ? 'prefeitura' : 'estado',
             geo_status: 'pendente',
           })
           .select('id')
@@ -215,16 +306,31 @@ export default function RoteirizacaoPage() {
         resultado.push({
           ponto_id: novo?.id || '',
           codigo,
-          nome,
-          endereco: p.endereco || '',
-          qtde_caixas: qtde,
+          nome: entry.nome,
+          endereco: entry.endereco,
+          qtdes: entry.qtdes,
           geo_status: 'pendente',
-          produto: p.produto,
-          diretoria: p.diretoria,
+          diretoria: entry.diretoria,
         })
       }
     }
     setPontosGeo(resultado)
+  }
+
+  // Re-busca lat/lng/geo_status atualizados pros pontos já consolidados —
+  // usado depois de geocodificar em lote, regeocodificar 1 ponto ou salvar
+  // coordenadas manuais. Não precisa reprocessar as planilhas de novo.
+  async function recarregarGeo() {
+    const sb  = getSupabase()
+    const ids = pontosGeo.map(p => p.ponto_id).filter(Boolean)
+    if (!ids.length) return
+    const { data } = await sb.from('pontos_de_entrega').select('id, lat, lng, geo_status, municipio').in('id', ids)
+    const byId = new Map((data || []).map(d => [d.id, d]))
+    setPontosGeo(prev => prev.map(p => {
+      const d = byId.get(p.ponto_id)
+      if (!d) return p
+      return { ...p, lat: d.lat ?? undefined, lng: d.lng ?? undefined, geo_status: d.geo_status || p.geo_status, municipio: d.municipio ?? p.municipio }
+    }))
   }
 
   // ── Geocodificar pontos pendentes ───────────────────────────────────────────
@@ -239,8 +345,7 @@ export default function RoteirizacaoPage() {
         body: JSON.stringify({ ids }),
       })
       const json = await res.json()
-      // recarregar geo dos pontos atualizados
-      await enriquecerComGeo(pontosExt)
+      await recarregarGeo()
       setAvisos(prev => [...prev, `Geocodificados: ${json.processados} pontos`])
     } catch {
       setErro('Erro ao geocodificar')
@@ -260,7 +365,7 @@ export default function RoteirizacaoPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ ids: [pontoId] }),
       })
-      await enriquecerComGeo(pontosExt)
+      await recarregarGeo()
     } finally {
       setRegeocodando(null)
     }
@@ -279,14 +384,14 @@ export default function RoteirizacaoPage() {
       if (bairroInput.trim())   update.bairro   = bairroInput.trim()
       if (municipioInput.trim()) update.municipio = municipioInput.trim()
       await sb.from('pontos_de_entrega').update(update).eq('id', pontoId)
-      await enriquecerComGeo(pontosExt)
+      await recarregarGeo()
       setEditandoGeo(null)
     } finally {
       setSalvandoGeo(false)
     }
   }
 
-  // ── Passo 3: calcular rotas ─────────────────────────────────────────────────
+  // ── Gerar sugestão de rotas ─────────────────────────────────────────────────
   async function handleCalcular() {
     setCarreg(true); setErro('')
     try {
@@ -294,15 +399,15 @@ export default function RoteirizacaoPage() {
         pontos: pontosGeo
           .filter(p => p.ponto_id && p.lat && p.lng)
           .map(p => ({
-            ponto_id:    p.ponto_id,
-            lat:         p.lat,
-            lng:         p.lng,
-            qtde_caixas: p.qtde_caixas,
-            nome:        p.nome,
+            ponto_id: p.ponto_id,
+            lat:      p.lat,
+            lng:      p.lng,
+            nome:     p.nome,
+            qtdes:    p.qtdes,
           })),
-        num_produtos:  numProd,
-        carga_dobrada: cargaDobr,
-        max_entregas:  maxEntregas,
+        capacidades:  capacidadesPorProduto,
+        num_produtos: numProd,
+        max_entregas: maxEntregas,
       }
       const res  = await fetch(`${WORKER}/roteirizar`, {
         method: 'POST',
@@ -315,6 +420,11 @@ export default function RoteirizacaoPage() {
       setRotas(rs)
       setVeiculos(rs.map((r: RotaSugerida) => r.veiculo_sugerido))
       if (json.avisos?.length) setAvisos(prev => [...prev, ...json.avisos])
+
+      const { data: cadastro } = await getSupabase().from('rotas').select('id, codigo, nome').order('codigo')
+      setRotasCadastro((cadastro || []) as RotaExistente[])
+      setRotaEscolhas(Object.fromEntries(rs.map(r => [r.ordem, { modo: 'nova' as const, rotaId: '', codigo: '', nome: '' }])))
+
       setFase('rotas')
     } catch (e) {
       setErro(e instanceof Error ? e.message : 'Erro ao calcular rotas')
@@ -323,52 +433,124 @@ export default function RoteirizacaoPage() {
     }
   }
 
-  // ── Passo 4: confirmar e salvar ─────────────────────────────────────────────
+  // Move um ponto de uma rota sugerida pra outra e recalcula os totais das duas.
+  function moverPonto(pontoId: string, deOrdem: number, paraOrdem: number) {
+    if (deOrdem === paraOrdem) return
+    setRotas(prev => {
+      const next = prev.map(r => ({ ...r, pontos: [...r.pontos] }))
+      const origem  = next.find(r => r.ordem === deOrdem)
+      const destino = next.find(r => r.ordem === paraOrdem)
+      if (!origem || !destino) return prev
+
+      const idx = origem.pontos.findIndex(p => p.ponto_id === pontoId)
+      if (idx === -1) return prev
+      const [ponto] = origem.pontos.splice(idx, 1)
+      destino.pontos.push(ponto)
+
+      origem.pontos  = origem.pontos.map((p, i) => ({ ...p, ordem: i + 1 }))
+      destino.pontos = destino.pontos.map((p, i) => ({ ...p, ordem: i + 1 }))
+      origem.total_entregas  = origem.pontos.length
+      destino.total_entregas = destino.pontos.length
+      origem.total_caixas  = calcularTotalCaixas(origem.pontos, capacidadesPorProduto)
+      destino.total_caixas = calcularTotalCaixas(destino.pontos, capacidadesPorProduto)
+
+      return next
+    })
+  }
+
+  // ── Confirmar: grava direto como rota(s) + ciclo(s) + manifesto(s) reais ───
   async function handleConfirmar() {
     if (!regiao) { setErro('Informe a região antes de confirmar'); return }
+
+    const semEscolha = rotas.find(r => {
+      const esc = rotaEscolhas[r.ordem]
+      if (!esc) return true
+      return esc.modo === 'existente' ? !esc.rotaId : (!esc.codigo.trim() || !esc.nome.trim())
+    })
+    if (semEscolha) { setErro(`Defina a rota (existente ou nova) da Rota ${semEscolha.ordem} antes de confirmar`); return }
+
     setConf(true); setErro('')
     const sb = getSupabase()
 
     try {
-      const { data: sess, error: errSess } = await sb
-        .from('roteirizacao_sessoes')
-        .insert({
-          regiao,
-          tipo_gr:       tipo === 'municipal' ? 'municipal' : 'estado',
-          num_produtos:  numProd,
-          carga_dobrada: cargaDobr,
-          max_entregas:  maxEntregas,
-          data_ciclo:    dataCiclo || null,
-          status:        'confirmado',
-        })
-        .select('id')
-        .single()
+      // 1. Resolve rota_id por rota sugerida (reaproveita cadastro existente ou cria nova)
+      const rotaIdPorOrdem: Record<number, string> = {}
+      for (const r of rotas) {
+        const esc = rotaEscolhas[r.ordem]
+        if (esc.modo === 'existente') {
+          rotaIdPorOrdem[r.ordem] = esc.rotaId
+          continue
+        }
+        const { data: existente } = await sb.from('rotas').select('id').eq('codigo', esc.codigo.trim()).maybeSingle()
+        if (existente) {
+          rotaIdPorOrdem[r.ordem] = existente.id
+        } else {
+          const { data: nova, error } = await sb.from('rotas')
+            .insert({ codigo: esc.codigo.trim(), nome: esc.nome.trim(), regiao })
+            .select('id').single()
+          if (error || !nova) throw new Error(error?.message || 'Erro ao criar rota')
+          rotaIdPorOrdem[r.ordem] = nova.id
+        }
+      }
 
-      if (errSess || !sess) throw new Error(errSess?.message || 'Erro ao criar sessão')
+      // 2. Upsert 1 ciclo por produto usado nesta roteirização
+      const cicloIdPorProduto: Record<string, string> = {}
+      for (const [produtoId, numeroPedido] of Object.entries(numerosPedido)) {
+        const { data: ciclo, error } = await sb.from('ciclos')
+          .upsert({ numero_pedido: numeroPedido, data_entrega: dataCiclo }, { onConflict: 'numero_pedido' })
+          .select('id').single()
+        if (error || !ciclo) throw new Error(error?.message || 'Erro ao criar ciclo')
+        cicloIdPorProduto[produtoId] = ciclo.id
+      }
 
-      for (let i = 0; i < rotas.length; i++) {
-        const rota = rotas[i]
-        const { data: rotaRow, error: errR } = await sb
-          .from('roteirizacao_rotas')
-          .insert({
-            sessao_id:     sess.id,
-            ordem:         rota.ordem,
-            veiculo_tipo:  veiculos[i] || rota.veiculo_sugerido,
-            total_entregas: rota.total_entregas,
-            total_caixas:  rota.total_caixas,
-          })
-          .select('id')
-          .single()
+      // 3. Por rota: rota_pontos (best-effort — quem manda no manifesto de
+      // verdade é manifesto_pontos, independente) + ciclo_entregas por ponto×produto
+      for (const r of rotas) {
+        const rotaId = rotaIdPorOrdem[r.ordem]
 
-        if (errR || !rotaRow) continue
+        for (let i = 0; i < r.pontos.length; i++) {
+          const p = r.pontos[i]
+          try {
+            await sb.from('rota_pontos').upsert(
+              { rota_id: rotaId, ponto_de_entrega_id: p.ponto_id, sequencia: i + 1 },
+              { onConflict: 'rota_id,ponto_de_entrega_id' }
+            )
+          } catch { /* não bloqueia — manifesto_pontos é quem manda na sequência de impressão */ }
 
-        const pontoRows = rota.pontos.map((p, j) => ({
-          rota_id:     rotaRow.id,
-          ponto_id:    p.ponto_id,
-          ordem:       j + 1,
-          qtde_caixas: p.qtde_caixas,
-        }))
-        await sb.from('roteirizacao_pontos').insert(pontoRows)
+          for (const [produtoId, q] of Object.entries(p.qtdes)) {
+            const cicloId = cicloIdPorProduto[produtoId]
+            if (!cicloId) continue
+            await sb.from('ciclo_entregas').upsert({
+              ciclo_id: cicloId,
+              rota_id:  rotaId,
+              ponto_de_entrega_id: p.ponto_id,
+              produto_id: produtoId,
+              qtde_inteira:    q.inteira,
+              qtde_fracionada: q.fracionada,
+            }, { onConflict: 'ciclo_id,ponto_de_entrega_id,produto_id' })
+          }
+        }
+
+        // 4. ciclo_manifestos — reaproveita se já existe pra essa (data, rota)
+        let manifestoId: string
+        const { data: manifestoExistente } = await sb.from('ciclo_manifestos')
+          .select('id').eq('data_entrega', dataCiclo).eq('rota_id', rotaId).eq('letra', '').maybeSingle()
+        if (manifestoExistente) {
+          manifestoId = manifestoExistente.id
+        } else {
+          const { data: novoManifesto, error } = await sb.from('ciclo_manifestos')
+            .insert({ data_entrega: dataCiclo, rota_id: rotaId }).select('id').single()
+          if (error || !novoManifesto) throw new Error(error?.message || 'Erro ao criar manifesto')
+          manifestoId = novoManifesto.id
+        }
+
+        // 5. manifesto_pontos — sequência de impressão de verdade
+        for (let i = 0; i < r.pontos.length; i++) {
+          await sb.from('manifesto_pontos').upsert(
+            { manifesto_id: manifestoId, pde_id: r.pontos[i].ponto_id, sequencia: i + 1 },
+            { onConflict: 'manifesto_id,pde_id' }
+          )
+        }
       }
 
       setConfirm(true)
@@ -392,15 +574,26 @@ export default function RoteirizacaoPage() {
               <polyline points="20 6 9 17 4 12"/>
             </svg>
           </div>
-          <h2 className="text-lg font-bold text-gray-900 mb-2">Roteirização confirmada</h2>
+          <h2 className="text-lg font-bold text-gray-900 mb-2">Manifestos gerados</h2>
           <p className="text-sm text-gray-500 mb-6">
-            {rotas.length} rota{rotas.length !== 1 ? 's' : ''} salva{rotas.length !== 1 ? 's' : ''} na sessão.
+            {rotas.length} manifesto{rotas.length !== 1 ? 's' : ''} pronto{rotas.length !== 1 ? 's' : ''} pra imprimir em Manifestos.
           </p>
-          <button onClick={() => { setFase('upload'); setConfirm(false); setRotas([]); setPontosExt([]); setPontosGeo([]); setArquivo(null) }}
-            className="px-6 py-2 rounded-lg text-sm font-medium text-white"
-            style={{ background: PRIMARY }}>
-            Nova roteirização
-          </button>
+          <div className="flex gap-2 justify-center">
+            <a href="/dashboard/manifestos"
+              className="px-6 py-2 rounded-lg text-sm font-medium btn-brand">
+              Ver manifestos
+            </a>
+            <button
+              onClick={() => {
+                setFase('parametros'); setConfirm(false); setRotas([]); setPontosGeo([])
+                setProdutoSlots([{ produtoId: '', arquivo: null }]); setNumProd(1)
+                setRegiao(''); setDataCiclo(''); setAvisos([])
+              }}
+              className="px-6 py-2 rounded-lg text-sm font-medium border border-gray-200 text-gray-600 hover:bg-gray-50"
+            >
+              Nova roteirização
+            </button>
+          </div>
         </div>
       </div>
     )
@@ -409,17 +602,17 @@ export default function RoteirizacaoPage() {
   return (
     <div className="max-w-3xl pt-4">
       <h1 className="text-xl font-bold text-gray-900 mb-1">Roteirização</h1>
-      <p className="text-sm text-gray-500 mb-6">Gera sugestão de rotas a partir das GRs do ciclo</p>
+      <p className="text-sm text-gray-500 mb-6">Sugere e salva rotas/manifestos a partir das planilhas do ciclo</p>
 
-      {/* ── Passo 1: Upload ── */}
+      {/* ── Passo 1: Parâmetros ── */}
       <div className="bg-white rounded-xl border border-gray-200 p-6 mb-4">
-        <PassoHeader n={1} label="Upload das GRs" ativo={fase === 'upload'} />
+        <PassoHeader n={1} label="Parâmetros da operação" ativo={fase === 'parametros'} />
 
-        {fase === 'upload' ? (
+        {fase === 'parametros' ? (
           <>
             <div className="flex gap-2 mb-5">
               {(['municipal', 'estado'] as Tipo[]).map(t => (
-                <button key={t} onClick={() => { setTipo(t); setArquivo(null) }}
+                <button key={t} onClick={() => setTipo(t)}
                   className="flex-1 py-2 text-sm font-medium rounded-lg border transition-colors"
                   style={{ background: tipo === t ? PRIMARY : '#eef6fc', color: tipo === t ? '#fff' : '#6b7280', borderColor: tipo === t ? PRIMARY : '#e5e7eb' }}>
                   {t === 'municipal' ? 'Prefeitura (XLSX)' : 'Estado (ZIP de PDFs)'}
@@ -427,50 +620,116 @@ export default function RoteirizacaoPage() {
               ))}
             </div>
 
-            <div className="mb-4">
-              <p className="text-xs font-medium text-gray-600 mb-2">
-                {tipo === 'municipal' ? 'Planilha XLSX de solicitação' : 'ZIP com todos os PDFs das GRs'}
-              </p>
-              <label htmlFor="roteir-file"
-                className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium text-white cursor-pointer"
-                style={{ background: PRIMARY }}>
-                {arquivo ? arquivo.name : 'Selecionar arquivo'}
-                <input
-                  id="roteir-file"
-                  type="file"
-                  accept={tipo === 'municipal' ? '.xlsx,.xls' : '.zip'}
-                  className="sr-only"
-                  onChange={e => setArquivo(e.target.files?.[0] || null)}
-                />
-              </label>
-              {arquivo && (
-                <button type="button" onClick={() => setArquivo(null)}
-                  className="ml-2 text-xs text-gray-400 hover:text-red-500">trocar</button>
-              )}
+            <div className="grid grid-cols-2 gap-4 mb-5">
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1">Região / Diretoria</label>
+                <input type="text" value={regiao} onChange={e => setRegiao(e.target.value)}
+                  placeholder="Ex: SUL 2 ou VILA YOLANDA II"
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#072740]" />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1">Data de entrega</label>
+                <input type="date" value={dataCiclo} onChange={e => setDataCiclo(e.target.value)}
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#072740]" />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4 mb-5">
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1">Quantos produtos?</label>
+                <input type="number" min={1} max={MAX_PRODUTOS} value={numProd} onChange={e => ajustarNumProd(+e.target.value)}
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#072740]" />
+                <p className="text-[10px] text-gray-400 mt-0.5">Fator de tempo: {(1 + (numProd - 1) * 0.25).toFixed(2)}× · até {MAX_PRODUTOS} produtos</p>
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1">Máx. entregas / motorista</label>
+                <input type="number" min={5} max={50} value={maxEntregas} onChange={e => setMaxEnt(+e.target.value)}
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#072740]" />
+                <p className="text-[10px] text-gray-400 mt-0.5">Efetivas: {Math.floor(maxEntregas / (1 + (numProd - 1) * 0.25))} entregas</p>
+              </div>
             </div>
 
             {erro && <p className="text-xs text-red-600 bg-red-50 border border-red-200 rounded-lg p-2 mb-4">{erro}</p>}
 
-            <button onClick={handleExtrair} disabled={carregando || !arquivo}
+            <button onClick={() => { setErro(''); setFase('upload') }}
+              disabled={!regiao.trim() || !dataCiclo}
               className="w-full py-2.5 rounded-lg text-sm font-medium disabled:opacity-50 btn-brand">
-              {carregando ? 'Extraindo…' : 'Extrair pontos'}
+              Continuar para upload das planilhas
             </button>
           </>
         ) : (
-          <div className="flex items-center gap-3 text-sm text-gray-600">
-            <span className="font-medium">{pontosGeo.length} pontos extraídos</span>
-            <span className="text-gray-300">·</span>
-            <button onClick={() => setFase('upload')} className="text-xs underline" style={{ color: PRIMARY }}>
-              Alterar arquivo
-            </button>
+          <div className="flex items-center gap-3 text-sm text-gray-600 flex-wrap">
+            <span>{regiao} · {dataCiclo.split('-').reverse().join('/')} · {numProd} produto{numProd !== 1 ? 's' : ''} · {maxEntregas} entregas/motorista</span>
+            {fase !== 'rotas' && (
+              <button onClick={() => setFase('parametros')} className="text-xs underline" style={{ color: PRIMARY }}>
+                Alterar
+              </button>
+            )}
           </div>
         )}
       </div>
 
-      {/* ── Passo 2: Pontos ── */}
-      {fase !== 'upload' && (
+      {/* ── Passo 2: Upload (N planilhas, uma por produto) ── */}
+      {(fase === 'upload' || fase === 'pontos' || fase === 'rotas') && (
         <div className="bg-white rounded-xl border border-gray-200 p-6 mb-4">
-          <PassoHeader n={2} label="Conferência dos pontos" ativo={fase === 'pontos'} />
+          <PassoHeader n={2} label="Upload das planilhas" ativo={fase === 'upload'} />
+
+          {fase === 'upload' ? (
+            <>
+              <p className="text-xs text-gray-500 mb-4">
+                Uma planilha por produto — deixe o slot vazio se não tiver a planilha desse produto ainda.
+              </p>
+              <div className="space-y-3 mb-5">
+                {produtoSlots.map((slot, i) => (
+                  <div key={i} className="flex items-center gap-2">
+                    <select value={slot.produtoId} onChange={e => setSlot(i, { produtoId: e.target.value })}
+                      className="w-40 flex-shrink-0 border border-gray-200 rounded-lg px-2 py-2 text-xs outline-none focus:border-[#072740]">
+                      <option value="">Produto…</option>
+                      {produtos.map(p => <option key={p.id} value={p.id}>{p.nome}</option>)}
+                    </select>
+                    <label className="flex-1 flex items-center gap-2 border border-gray-200 rounded-lg px-3 py-2 text-xs text-gray-500 cursor-pointer hover:border-gray-300 min-w-0">
+                      <span className="truncate">{slot.arquivo ? slot.arquivo.name : `Selecionar planilha ${i + 1}…`}</span>
+                      <input
+                        type="file"
+                        accept={tipo === 'municipal' ? '.xlsx,.xls' : '.zip'}
+                        className="sr-only"
+                        onChange={e => setSlot(i, { arquivo: e.target.files?.[0] || null })}
+                      />
+                    </label>
+                    {slot.arquivo && (
+                      <button type="button" onClick={() => setSlot(i, { arquivo: null })}
+                        className="text-xs text-gray-300 hover:text-red-500 flex-shrink-0">✕</button>
+                    )}
+                  </div>
+                ))}
+              </div>
+
+              {erro && <p className="text-xs text-red-600 bg-red-50 border border-red-200 rounded-lg p-2 mb-4">{erro}</p>}
+
+              <button onClick={handleExtrair} disabled={carregando}
+                className="w-full py-2.5 rounded-lg text-sm font-medium disabled:opacity-50 btn-brand">
+                {carregando ? 'Extraindo…' : 'Extrair pontos'}
+              </button>
+            </>
+          ) : (
+            <div className="flex items-center gap-3 text-sm text-gray-600">
+              <span className="font-medium">{pontosGeo.length} pontos extraídos</span>
+              <span className="text-gray-300">·</span>
+              <span>{produtoSlots.filter(s => s.arquivo).length} planilha{produtoSlots.filter(s => s.arquivo).length !== 1 ? 's' : ''}</span>
+              {fase !== 'rotas' && (
+                <button onClick={() => setFase('upload')} className="text-xs underline" style={{ color: PRIMARY }}>
+                  Alterar
+                </button>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ── Passo 3: Conferência ── */}
+      {(fase === 'pontos' || fase === 'rotas') && (
+        <div className="bg-white rounded-xl border border-gray-200 p-6 mb-4">
+          <PassoHeader n={3} label="Conferência dos pontos" ativo={fase === 'pontos'} />
 
           {fase === 'pontos' ? (
             <>
@@ -498,36 +757,42 @@ export default function RoteirizacaoPage() {
 
               <div className="border border-gray-100 rounded-lg overflow-hidden mb-4">
                 <div className="grid grid-cols-[1fr_2fr_1fr_auto_auto] text-xs font-semibold text-gray-500 bg-gray-50 px-3 py-2 gap-2">
-                  <span>Código</span><span>Nome</span><span>Qtde cx</span><span>Geo</span><span></span>
+                  <span>Código</span><span>Nome</span><span>Qtde</span><span>Geo</span><span></span>
                 </div>
                 <div className="divide-y divide-gray-50 max-h-72 overflow-y-auto">
-                  {pontosGeo.map((p, i) => (
-                    <div key={i}>
-                      <div className="grid grid-cols-[1fr_2fr_1fr_auto_auto] px-3 py-2 gap-2 text-xs items-center">
-                        <span className="text-gray-500 font-mono">{p.codigo}</span>
-                        <span className="text-gray-800 truncate">{p.nome}</span>
-                        <span className="text-gray-700">{p.qtde_caixas}</span>
-                        <span title={p.lat && p.lng ? `${p.lat?.toFixed(4)}, ${p.lng?.toFixed(4)}` : 'Sem coordenadas'}>
-                          {p.lat && p.lng ? '🟢' : p.geo_status === 'nao_encontrado' ? '🔴' : p.geo_status === 'sem_endereco' ? '⚫' : '🟡'}
-                        </span>
-                        {p.ponto_id && p.lat && p.lng && (
-                          <div className="flex items-center gap-1">
-                            <button
-                              onClick={() => regeocodificar(p.ponto_id)}
-                              disabled={regeocodando === p.ponto_id}
-                              className="text-[10px] text-gray-300 hover:text-blue-400 leading-none disabled:opacity-50"
-                              title="Regeocodificar (busca novamente no Google Maps)"
-                            >{regeocodando === p.ponto_id ? '…' : '↺'}</button>
-                            <button
-                              onClick={() => abrirModal(p.ponto_id)}
-                              className="text-[10px] text-gray-300 hover:text-gray-500 leading-none"
-                              title="Corrigir coordenadas manualmente"
-                            >✎</button>
-                          </div>
-                        )}
+                  {pontosGeo.map((p, i) => {
+                    const totalCx = calcularTotalCaixas([{ ponto_id: p.ponto_id, nome: p.nome, ordem: 0, qtdes: p.qtdes }], capacidadesPorProduto)
+                    const tooltip = Object.entries(p.qtdes)
+                      .map(([pid, q]) => `${produtos.find(pr => pr.id === pid)?.nome || pid}: ${q.inteira}cx + ${q.fracionada}pc`)
+                      .join(' · ')
+                    return (
+                      <div key={i}>
+                        <div className="grid grid-cols-[1fr_2fr_1fr_auto_auto] px-3 py-2 gap-2 text-xs items-center">
+                          <span className="text-gray-500 font-mono">{p.codigo}</span>
+                          <span className="text-gray-800 truncate">{p.nome}</span>
+                          <span className="text-gray-700" title={tooltip}>~{totalCx}cx</span>
+                          <span title={p.lat && p.lng ? `${p.lat?.toFixed(4)}, ${p.lng?.toFixed(4)}` : 'Sem coordenadas'}>
+                            {p.lat && p.lng ? '🟢' : p.geo_status === 'nao_encontrado' ? '🔴' : p.geo_status === 'sem_endereco' ? '⚫' : '🟡'}
+                          </span>
+                          {p.ponto_id && p.lat && p.lng && (
+                            <div className="flex items-center gap-1">
+                              <button
+                                onClick={() => regeocodificar(p.ponto_id)}
+                                disabled={regeocodando === p.ponto_id}
+                                className="text-[10px] text-gray-300 hover:text-blue-400 leading-none disabled:opacity-50"
+                                title="Regeocodificar (busca novamente no Google Maps)"
+                              >{regeocodando === p.ponto_id ? '…' : '↺'}</button>
+                              <button
+                                onClick={() => abrirModal(p.ponto_id)}
+                                className="text-[10px] text-gray-300 hover:text-gray-500 leading-none"
+                                title="Corrigir coordenadas manualmente"
+                              >✎</button>
+                            </div>
+                          )}
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    )
+                  })}
                 </div>
               </div>
 
@@ -590,7 +855,7 @@ export default function RoteirizacaoPage() {
                             nome: p.nome,
                             codigo: p.codigo,
                             endereco: p.endereco,
-                            qtde_caixas: p.qtde_caixas,
+                            qtde_caixas: calcularTotalCaixas([{ ponto_id: p.ponto_id, nome: p.nome, ordem: 0, qtdes: p.qtdes }], capacidadesPorProduto),
                           }))}
                         onRegeocodificar={regeocodificar}
                         onEditarGeo={abrirModal}
@@ -611,67 +876,6 @@ export default function RoteirizacaoPage() {
 
               {erro && <p className="text-xs text-red-600 bg-red-50 border border-red-200 rounded-lg p-2 mb-4">{erro}</p>}
 
-              <button onClick={() => setFase('setup')}
-                className="w-full py-2.5 rounded-lg text-sm font-medium text-white"
-                style={{ background: PRIMARY }}>
-                Continuar para configuração
-              </button>
-            </>
-          ) : (
-            <p className="text-sm text-gray-500">{comGeo} com geo · {semGeo} sem geo</p>
-          )}
-        </div>
-      )}
-
-      {/* ── Passo 3: Setup ── */}
-      {(fase === 'setup' || fase === 'rotas') && (
-        <div className="bg-white rounded-xl border border-gray-200 p-6 mb-4">
-          <PassoHeader n={3} label="Parâmetros da operação" ativo={fase === 'setup'} />
-
-          {fase === 'setup' ? (
-            <>
-              <div className="grid grid-cols-2 gap-4 mb-5">
-                <div>
-                  <label className="block text-xs font-medium text-gray-600 mb-1">Região / Diretoria</label>
-                  <input type="text" value={regiao} onChange={e => setRegiao(e.target.value)}
-                    placeholder="Ex: SUL 2 ou VILA YOLANDA II"
-                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#072740]" />
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-gray-600 mb-1">Ciclo (DDMM)</label>
-                  <input type="text" value={dataCiclo} onChange={e => setDataCiclo(e.target.value)} maxLength={4}
-                    placeholder="0603"
-                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#072740]" />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-3 gap-4 mb-5">
-                <div>
-                  <label className="block text-xs font-medium text-gray-600 mb-1">Quantos produtos?</label>
-                  <input type="number" min={1} max={6} value={numProd} onChange={e => setNumProd(+e.target.value)}
-                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#072740]" />
-                  <p className="text-[10px] text-gray-400 mt-0.5">Fator de tempo: {(1 + (numProd - 1) * 0.25).toFixed(2)}×</p>
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-gray-600 mb-1">Máx. entregas / motorista</label>
-                  <input type="number" min={5} max={50} value={maxEntregas} onChange={e => setMaxEnt(+e.target.value)}
-                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#072740]" />
-                  <p className="text-[10px] text-gray-400 mt-0.5">Efetivas: {Math.floor(maxEntregas / (1 + (numProd - 1) * 0.25))} entregas</p>
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-gray-600 mb-1">Carga dobrada?</label>
-                  <div className="flex gap-3 mt-2.5">
-                    {[false, true].map(v => (
-                      <label key={String(v)} className="flex items-center gap-1.5 cursor-pointer">
-                        <input type="radio" name="carga" checked={cargaDobr === v} onChange={() => setCargaDobr(v)}
-                          className="accent-[#072740]" />
-                        <span className="text-sm text-gray-700">{v ? 'Sim' : 'Não'}</span>
-                      </label>
-                    ))}
-                  </div>
-                </div>
-              </div>
-
               {comGeo === 0 && (
                 <div className="mb-4 p-3 bg-amber-50 border border-amber-200 rounded-lg">
                   <p className="text-xs text-amber-700">
@@ -689,63 +893,96 @@ export default function RoteirizacaoPage() {
                 </div>
               )}
 
-              {erro && <p className="text-xs text-red-600 bg-red-50 border border-red-200 rounded-lg p-2 mb-4">{erro}</p>}
-
               <button onClick={handleCalcular} disabled={carregando}
                 className="w-full py-2.5 rounded-lg text-sm font-medium disabled:opacity-50 btn-brand">
                 {carregando ? 'Calculando…' : 'Gerar sugestão de rotas'}
               </button>
             </>
           ) : (
-            <div className="flex items-center gap-3 text-sm text-gray-500">
-              <span>{numProd} produto{numProd !== 1 ? 's' : ''} · {maxEntregas} entregas/motorista{cargaDobr ? ' · carga dobrada' : ''}</span>
-              <button onClick={() => { setFase('setup'); setRotas([]) }} className="text-xs underline" style={{ color: PRIMARY }}>
-                Alterar
-              </button>
-            </div>
+            <p className="text-sm text-gray-500">{comGeo} com geo · {semGeo} sem geo</p>
           )}
         </div>
       )}
 
-      {/* ── Passo 4: Rotas ── */}
+      {/* ── Passo 4: Rotas sugeridas → manifestos ── */}
       {fase === 'rotas' && (
         <div className="bg-white rounded-xl border border-gray-200 p-6">
-          <PassoHeader n={4} label="Ajuste e confirmação das rotas" ativo />
+          <PassoHeader n={4} label="Ajuste e confirmação" ativo />
 
           {rotas.length === 0 ? (
             <p className="text-sm text-gray-500">Nenhuma rota sugerida. Verifique os dados e tente novamente.</p>
           ) : (
             <>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
-                {rotas.map((rota, i) => (
-                  <div key={i} className="border border-gray-200 rounded-xl p-4">
-                    <div className="flex items-center justify-between mb-3">
-                      <span className="text-xs font-bold text-gray-500 uppercase tracking-wide">Rota {rota.ordem}</span>
-                      <div className="flex items-center gap-2">
+                {rotas.map((rota, i) => {
+                  const esc = rotaEscolhas[rota.ordem]
+                  return (
+                    <div key={i} className="border border-gray-200 rounded-xl p-4">
+                      <div className="flex items-center justify-between mb-3">
+                        <span className="text-xs font-bold text-gray-500 uppercase tracking-wide">Rota {rota.ordem}</span>
                         <span className="text-xs text-gray-400">{rota.total_entregas} entregas · {rota.total_caixas} cx</span>
                       </div>
-                    </div>
 
-                    <div className="mb-3">
-                      <label className="block text-xs font-medium text-gray-600 mb-1">Veículo</label>
-                      <select value={veiculos[i] || rota.veiculo_sugerido}
-                        onChange={e => setVeiculos(v => { const n = [...v]; n[i] = e.target.value; return n })}
-                        className="w-full border border-gray-200 rounded-lg px-3 py-1.5 text-sm outline-none focus:border-[#072740]">
-                        {VEICULOS.map(v => <option key={v} value={v}>{v.charAt(0).toUpperCase() + v.slice(1)}</option>)}
-                      </select>
-                    </div>
-
-                    <div className="space-y-1 max-h-48 overflow-y-auto">
-                      {rota.pontos.map((p, j) => (
-                        <div key={j} className="flex items-center gap-2 text-xs">
-                          <span className="text-gray-400 w-4 text-right flex-shrink-0">{j + 1}.</span>
-                          <span className="text-gray-700 flex-1 truncate">{p.nome}</span>
-                          <span className="text-gray-400 flex-shrink-0">{p.qtde_caixas}cx</span>
+                      <div className="grid grid-cols-2 gap-2 mb-3">
+                        <div>
+                          <label className="block text-xs font-medium text-gray-600 mb-1">Veículo</label>
+                          <select value={veiculos[i] || rota.veiculo_sugerido}
+                            onChange={e => setVeiculos(v => { const n = [...v]; n[i] = e.target.value; return n })}
+                            className="w-full border border-gray-200 rounded-lg px-2 py-1.5 text-xs outline-none focus:border-[#072740]">
+                            {VEICULOS.map(v => <option key={v} value={v}>{v.charAt(0).toUpperCase() + v.slice(1)}</option>)}
+                          </select>
                         </div>
-                      ))}
+                        <div>
+                          <label className="block text-xs font-medium text-gray-600 mb-1">Rota</label>
+                          <select
+                            value={esc?.modo === 'existente' ? esc.rotaId : '__nova__'}
+                            onChange={e => {
+                              const v = e.target.value
+                              if (v === '__nova__') {
+                                setRotaEscolhas(prev => ({ ...prev, [rota.ordem]: { modo: 'nova', rotaId: '', codigo: '', nome: '' } }))
+                              } else {
+                                setRotaEscolhas(prev => ({ ...prev, [rota.ordem]: { modo: 'existente', rotaId: v, codigo: '', nome: '' } }))
+                              }
+                            }}
+                            className="w-full border border-gray-200 rounded-lg px-2 py-1.5 text-xs outline-none focus:border-[#072740]">
+                            <option value="__nova__">+ Nova rota</option>
+                            {rotasCadastro.map(r => <option key={r.id} value={r.id}>{r.codigo} — {r.nome}</option>)}
+                          </select>
+                        </div>
+                      </div>
+
+                      {esc?.modo === 'nova' && (
+                        <div className="grid grid-cols-2 gap-2 mb-3">
+                          <input type="text" placeholder="Código *" value={esc.codigo}
+                            onChange={e => setRotaEscolhas(prev => ({ ...prev, [rota.ordem]: { ...prev[rota.ordem], codigo: e.target.value } }))}
+                            className="w-full border border-gray-200 rounded-lg px-2 py-1.5 text-xs outline-none focus:border-[#072740] font-mono" />
+                          <input type="text" placeholder="Nome *" value={esc.nome}
+                            onChange={e => setRotaEscolhas(prev => ({ ...prev, [rota.ordem]: { ...prev[rota.ordem], nome: e.target.value } }))}
+                            className="w-full border border-gray-200 rounded-lg px-2 py-1.5 text-xs outline-none focus:border-[#072740]" />
+                        </div>
+                      )}
+
+                      <div className="space-y-1 max-h-48 overflow-y-auto">
+                        {rota.pontos.map((p, j) => (
+                          <div key={j} className="flex items-center gap-2 text-xs">
+                            <span className="text-gray-400 w-4 text-right flex-shrink-0">{j + 1}.</span>
+                            <span className="text-gray-700 flex-1 truncate">{p.nome}</span>
+                            {rotas.length > 1 && (
+                              <select
+                                value={rota.ordem}
+                                onChange={e => moverPonto(p.ponto_id, rota.ordem, +e.target.value)}
+                                className="text-[10px] border border-gray-200 rounded px-1 py-0.5 outline-none flex-shrink-0"
+                                title="Mover pra outra rota"
+                              >
+                                {rotas.map(r2 => <option key={r2.ordem} value={r2.ordem}>Rota {r2.ordem}</option>)}
+                              </select>
+                            )}
+                          </div>
+                        ))}
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  )
+                })}
               </div>
 
               {avisos.length > 0 && (
@@ -758,7 +995,7 @@ export default function RoteirizacaoPage() {
 
               <button onClick={handleConfirmar} disabled={confirmando}
                 className="w-full py-2.5 rounded-lg text-sm font-medium disabled:opacity-50 btn-brand">
-                {confirmando ? 'Salvando…' : `Confirmar ${rotas.length} rota${rotas.length !== 1 ? 's' : ''}`}
+                {confirmando ? 'Salvando…' : `Confirmar e gerar ${rotas.length} manifesto${rotas.length !== 1 ? 's' : ''}`}
               </button>
             </>
           )}
@@ -818,8 +1055,7 @@ export default function RoteirizacaoPage() {
               <button
                 onClick={() => salvarCoordenadas(editandoGeo)}
                 disabled={salvandoGeo || !latInput || !lngInput}
-                className="flex-1 py-2 rounded-lg text-sm font-medium text-white disabled:opacity-50"
-                style={{ background: PRIMARY }}
+                className="flex-1 py-2 rounded-lg text-sm font-medium disabled:opacity-50 btn-brand"
               >
                 {salvandoGeo ? 'Salvando…' : 'Salvar'}
               </button>
