@@ -24,12 +24,10 @@ function Icon({ d, d2, d3, circle }: { d: string; d2?: string; d3?: string; circ
 
 const ICONS: Record<string, React.ReactNode> = {
   manifestos: <Icon d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2" d2="M9 3h6a1 1 0 0 1 1 1v2a1 1 0 0 1-1 1H9a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z" d3="M9 12h6M9 16h4" />,
-  guias:      <Icon d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 2 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" d2="M3.27 6.96 12 12.01l8.73-5.05M12 22.08V12" />,
   clientes:   <Icon d="M6 22V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v18H6z" d2="M6 12H4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h2M18 9h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-2" d3="M10 7h4M10 11h4M10 15h4" />,
   contratos:  <Icon d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" d2="M14 2v6h6M16 13H8M16 17H8M10 9H8" />,
   pontos:     <Icon d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0z" circle={{ cx: 12, cy: 10, r: 3 }} />,
   produtos:   <Icon d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z" d2="M7 7h.01" />,
-  rotas:      <Icon d="M5 17H3a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11v14H5zM9 17h6M13 3h5l3 3v6h-8V3z" d2="M6.5 19a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3zM17.5 19a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3z" />,
   roteirizacao: <Icon d="M3 3h7v7H3zM14 3h7v7h-7zM14 14h7v7h-7zM3 14h7v7H3z" d2="M10 6.5h4M6.5 10v4M17.5 10v4M10 17.5h4" />,
   agregados:  <Icon d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" circle={{ cx: 12, cy: 7, r: 4 }} />,
   estoque:    <Icon d="M5 8h14M5 8a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v1a2 2 0 0 1-2 2M5 8v10a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8M10 12h4" />,
@@ -60,7 +58,6 @@ const NAV_SECTIONS: NavSection[] = [
     label: 'OPERACIONAL',
     items: [
       { href: '/dashboard/manifestos', label: 'Manifestos',  iconKey: 'manifestos', perfis: ['admin','gestor','analista','operador'] },
-      { href: '/dashboard/guias',         label: 'Guias (GRs)',    iconKey: 'guias',         perfis: ['admin','gestor','analista','operador'] },
       { href: '/dashboard/roteirizacao', label: 'Roteirização',   iconKey: 'roteirizacao',  perfis: ['admin','gestor','analista'] },
       { href: '/dashboard/estoque',    label: 'Estoque',     iconKey: 'estoque',    perfis: ['admin','gestor','analista','operador','financeiro'] },
     ],
@@ -72,7 +69,6 @@ const NAV_SECTIONS: NavSection[] = [
       { href: '/dashboard/contratos',         label: 'Contratos',         iconKey: 'contratos', perfis: ['admin','gestor'] },
       { href: '/dashboard/pontos-de-entrega', label: 'Pontos de Entrega', iconKey: 'pontos',    perfis: ['admin','gestor'] },
       { href: '/dashboard/produtos',          label: 'Produtos',          iconKey: 'produtos',  perfis: ['admin','gestor'] },
-      { href: '/dashboard/rotas',             label: 'Rotas',             iconKey: 'rotas',     perfis: ['admin','gestor'] },
       { href: '/dashboard/agregados',         label: 'Agregados',         iconKey: 'agregados', perfis: ['admin','gestor'] },
     ],
   },

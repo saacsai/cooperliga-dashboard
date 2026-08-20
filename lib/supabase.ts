@@ -75,6 +75,7 @@ export interface PontoDeEntrega {
   endereco: string | null
   municipio: string | null
   bairro: string | null
+  regiao: string | null
   cep: string | null
   contato_nome: string | null
   lat: number | null
@@ -234,6 +235,7 @@ export interface Agregado {
   endereco: string | null
   municipio: string | null
   cep: string | null
+  valor_frete_padrao: number | null
   ativo: boolean
   created_at: string
   access_token: string | null

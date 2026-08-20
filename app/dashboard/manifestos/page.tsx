@@ -36,22 +36,20 @@ OBSERVAÇÕES:
 *QUALQUER PROBLEMA PODE LIGAR A COBRAR, PARA QUE POSSAMOS RESOLVER AINDA NO LOCAL.
 CENTRAL: (11) 4996-3311  CELULAR: (11) 97475-7456`
 
-type Rota = {
-  id: string
-  codigo: string
-  nome: string
-  agregados: { nome: string } | null
-}
-
 type ManifestoRow = {
   id: string
   numero: number
   numero_base: number
   letra: string
   data_entrega: string
-  rota: Rota
+  regiao: string | null
+  agregado_id: string | null
+  agregado_nome: string | null
+  valor_frete: number | null
   pontos: number
 }
+
+type AgregadoOpcao = { id: string; nome: string; valor_frete_padrao: number | null }
 
 type PontoManifesto = {
   mp_id: string
@@ -166,7 +164,7 @@ function Manifesto({ manifesto, onVoltar, onDuplicado }: {
   onVoltar: () => void
   onDuplicado: (nova: ManifestoRow) => void
 }) {
-  const { id, numero_base, letra, data_entrega, rota } = manifesto
+  const { id, numero_base, letra, data_entrega, regiao } = manifesto
 
   const [pontos,       setPontos]       = useState<PontoManifesto[]>([])
   const [produtos,     setProdutos]     = useState<string[]>([])
@@ -182,6 +180,51 @@ function Manifesto({ manifesto, onVoltar, onDuplicado }: {
   const [showSugestoes,setShowSugestoes]= useState(false)
   const [adicionando,  setAdicionando]  = useState(false)
   const [duplicando,   setDuplicando]   = useState(false)
+
+  // Agregado (motorista/veículo) — atribuído aqui, depois que o manifesto já
+  // existe (no carregamento), não mais como pré-requisito via "rota".
+  const [agregadoId,    setAgregadoId]    = useState(manifesto.agregado_id)
+  const [agregadoNome,  setAgregadoNome]  = useState(manifesto.agregado_nome)
+  const [valorFrete,    setValorFrete]    = useState(manifesto.valor_frete)
+  const [agregados,     setAgregados]     = useState<AgregadoOpcao[]>([])
+  const [editandoAgregado, setEditandoAgregado] = useState(false)
+  const [agregadoSel,   setAgregadoSel]   = useState('')
+  const [valorInput,    setValorInput]    = useState('')
+  const [salvandoAgregado, setSalvandoAgregado] = useState(false)
+
+  async function abrirEdicaoAgregado() {
+    if (!agregados.length) {
+      const { data } = await getSupabase().from('agregados').select('id, nome, valor_frete_padrao').eq('ativo', true).order('nome')
+      setAgregados((data || []) as AgregadoOpcao[])
+    }
+    setAgregadoSel(agregadoId || '')
+    setValorInput(valorFrete != null ? String(valorFrete) : '')
+    setEditandoAgregado(true)
+  }
+
+  function onEscolherAgregado(novoId: string) {
+    setAgregadoSel(novoId)
+    if (!valorInput) {
+      const ag = agregados.find(a => a.id === novoId)
+      if (ag?.valor_frete_padrao != null) setValorInput(String(ag.valor_frete_padrao))
+    }
+  }
+
+  async function salvarAgregado() {
+    setSalvandoAgregado(true)
+    const sb = getSupabase()
+    const valor = valorInput ? parseFloat(valorInput.replace(',', '.')) : null
+    const { error } = await sb.from('ciclo_manifestos')
+      .update({ agregado_id: agregadoSel || null, valor_frete: valor })
+      .eq('id', id)
+    if (!error) {
+      setAgregadoId(agregadoSel || null)
+      setAgregadoNome(agregados.find(a => a.id === agregadoSel)?.nome ?? null)
+      setValorFrete(valor)
+      setEditandoAgregado(false)
+    }
+    setSalvandoAgregado(false)
+  }
 
   const sensors = useSensors(
     useSensor(PointerSensor),
@@ -269,7 +312,7 @@ function Manifesto({ manifesto, onVoltar, onDuplicado }: {
     }
 
     setLoading(false)
-  }, [id, data_entrega, rota.id])
+  }, [id, data_entrega, numero_base])
 
   useEffect(() => { carregar() }, [carregar])
 
@@ -300,7 +343,7 @@ function Manifesto({ manifesto, onVoltar, onDuplicado }: {
 
     // Detectar duplicatas: quais pontos deste manifesto também estão em outras variantes
     const { data: varianteIds } = await sb
-      .from('ciclo_manifestos').select('id').eq('rota_id', rota.id)
+      .from('ciclo_manifestos').select('id').eq('numero_base', numero_base)
     const outrosIds = (varianteIds || []).map((m: any) => m.id as string).filter(mid => mid !== id)
     if (outrosIds.length && emAtual.size) {
       const { data: outrosPts } = await sb
@@ -408,13 +451,12 @@ function Manifesto({ manifesto, onVoltar, onDuplicado }: {
     const { data: ex } = await sb
       .from('ciclo_manifestos')
       .select('letra')
-      .eq('data_entrega', data_entrega)
-      .eq('rota_id', rota.id)
+      .eq('numero_base', numero_base)
     const usadas       = new Set((ex || []).map((e: any) => e.letra as string))
     const proximaLetra = 'BCDEFGHIJKLMNOPQRSTUVWXYZ'.split('').find(l => !usadas.has(l)) ?? 'B'
     const { data: novo } = await sb
       .from('ciclo_manifestos')
-      .insert({ data_entrega, rota_id: rota.id, letra: proximaLetra, numero_base })
+      .insert({ data_entrega, letra: proximaLetra, numero_base, regiao })
       .select('id, numero, numero_base, letra')
       .single()
     if (novo && pontos.length > 0) {
@@ -429,7 +471,10 @@ function Manifesto({ manifesto, onVoltar, onDuplicado }: {
         numero_base:  novo.numero_base as number,
         letra:        novo.letra as string,
         data_entrega,
-        rota,
+        regiao,
+        agregado_id:   null,
+        agregado_nome: null,
+        valor_frete:   null,
         pontos:       pontos.length,
       })
     }
@@ -491,8 +536,7 @@ function Manifesto({ manifesto, onVoltar, onDuplicado }: {
       <div className="bg-white rounded-xl border border-gray-200 p-5 mb-4 print:rounded-none print:border-0 print:p-0 print:mb-2">
         <div className="flex items-start justify-between gap-3 flex-wrap">
           <div>
-            <h2 className="text-base font-bold text-gray-900">{rota.nome}</h2>
-            <p className="text-xs text-gray-500 mt-0.5">{rota.codigo}</p>
+            <h2 className="text-base font-bold text-gray-900">{regiao || 'Manifesto'}</h2>
           </div>
           <div className="flex items-center gap-2 flex-wrap">
             {sinal && (
@@ -506,12 +550,49 @@ function Manifesto({ manifesto, onVoltar, onDuplicado }: {
             </span>
           </div>
         </div>
-        <div className="mt-3 flex flex-wrap gap-6 text-xs text-gray-600">
+        <div className="mt-3 flex flex-wrap gap-6 text-xs text-gray-600 items-center">
           <span><span className="font-medium">Entrega:</span> {fmtDate(data_entrega)}</span>
           {dataReceber && <span><span className="font-medium">Recebimento:</span> {fmtDate(dataReceber)}</span>}
-          {rota.agregados && <span><span className="font-medium">Motorista:</span> {rota.agregados.nome}</span>}
           <span><span className="font-medium">Paradas:</span> {pontos.length}</span>
+          {agregadoNome ? (
+            <span>
+              <span className="font-medium">Motorista:</span> {agregadoNome}
+              {valorFrete != null && <span className="text-gray-400"> · R$ {valorFrete.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>}
+              <button onClick={abrirEdicaoAgregado} className="print:hidden ml-1.5 text-[10px] underline" style={{ color: PRIMARY }}>editar</button>
+            </span>
+          ) : (
+            <button onClick={abrirEdicaoAgregado}
+              className="print:hidden text-xs font-medium px-2.5 py-1 rounded-full bg-amber-50 border border-amber-200 text-amber-700 hover:bg-amber-100">
+              Atribuir motorista/veículo
+            </button>
+          )}
         </div>
+
+        {editandoAgregado && (
+          <div className="print:hidden mt-3 pt-3 border-t border-gray-100 flex items-end gap-2 flex-wrap">
+            <div>
+              <label className="block text-[10px] font-medium text-gray-500 mb-1">Agregado</label>
+              <select value={agregadoSel} onChange={e => onEscolherAgregado(e.target.value)}
+                className="border border-gray-300 rounded-lg px-2 py-1.5 text-xs outline-none focus:border-[#072740]">
+                <option value="">Selecione…</option>
+                {agregados.map(a => <option key={a.id} value={a.id}>{a.nome}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="block text-[10px] font-medium text-gray-500 mb-1">Valor do frete (R$)</label>
+              <input type="number" step="0.01" value={valorInput} onChange={e => setValorInput(e.target.value)}
+                placeholder="0,00"
+                className="w-28 border border-gray-300 rounded-lg px-2 py-1.5 text-xs outline-none focus:border-[#072740]" />
+            </div>
+            <button onClick={salvarAgregado} disabled={salvandoAgregado || !agregadoSel}
+              className="text-xs font-medium px-3 py-1.5 rounded-lg disabled:opacity-50 btn-brand">
+              {salvandoAgregado ? 'Salvando…' : 'Salvar'}
+            </button>
+            <button onClick={() => setEditandoAgregado(false)}
+              className="text-xs text-gray-400 hover:text-gray-700 px-2 py-1.5">Cancelar</button>
+          </div>
+        )}
+
         <div className="hidden print:flex mt-3 pt-3 border-t border-gray-200 items-center gap-4">
           <QRCode
             value={`${typeof window !== 'undefined' ? window.location.origin : ''}/mobile/estoque?manifesto=${numero_base}${letra}`}
@@ -709,7 +790,7 @@ export default function ManifestosPage() {
     const sb = getSupabase()
     const { data: mData } = await sb
       .from('ciclo_manifestos')
-      .select('id, numero, numero_base, letra, data_entrega, rota_id, rotas(id, codigo, nome, agregados(nome))')
+      .select('id, numero, numero_base, letra, data_entrega, regiao, agregado_id, valor_frete, agregados(nome)')
       .order('numero_base', { ascending: false })
       .order('letra',       { ascending: true  })
 
@@ -730,10 +811,10 @@ export default function ManifestosPage() {
       numero_base:  m.numero_base as number,
       letra:        m.letra       as string,
       data_entrega: m.data_entrega as string,
-      rota: {
-        ...(m.rotas as any),
-        agregados: (m.rotas as any)?.agregados ?? null,
-      } as Rota,
+      regiao:        (m.regiao as string | null) ?? null,
+      agregado_id:   (m.agregado_id as string | null) ?? null,
+      agregado_nome: (m.agregados as any)?.nome ?? null,
+      valor_frete:   (m.valor_frete as number | null) ?? null,
       pontos: cnt[m.id] || 0,
     })))
     setLoading(false)
@@ -770,7 +851,7 @@ export default function ManifestosPage() {
             <thead>
               <tr className="border-b border-gray-100">
                 <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 w-16">Nº</th>
-                <th className="text-left px-4 py-3 text-xs font-medium text-gray-500">Rota</th>
+                <th className="text-left px-4 py-3 text-xs font-medium text-gray-500">Região</th>
                 <th className="text-left px-4 py-3 text-xs font-medium text-gray-500">Motorista</th>
                 <th className="text-left px-4 py-3 text-xs font-medium text-gray-500">Entrega</th>
                 <th className="text-left px-4 py-3 text-xs font-medium text-gray-500">Paradas</th>
@@ -786,15 +867,16 @@ export default function ManifestosPage() {
                     {numDisplay(m.numero_base, m.letra)}
                   </td>
                   <td className="px-4 py-3">
-                    <span className="font-mono text-xs text-gray-500 mr-2">{m.rota.codigo}</span>
-                    <span className="text-gray-800">{m.rota.nome}</span>
+                    <span className="text-gray-800">{m.regiao || '—'}</span>
                     {m.letra && (
                       <span className="ml-2 text-[10px] font-semibold px-1.5 py-0.5 rounded bg-orange-100 text-orange-700">
                         cópia {m.letra}
                       </span>
                     )}
                   </td>
-                  <td className="px-4 py-3 text-gray-500">{m.rota.agregados?.nome || '—'}</td>
+                  <td className="px-4 py-3 text-gray-500">
+                    {m.agregado_nome || <span className="text-amber-500 text-xs">não atribuído</span>}
+                  </td>
                   <td className="px-4 py-3 text-gray-600">{fmtDate(m.data_entrega)}</td>
                   <td className="px-4 py-3 text-gray-500">{m.pontos}</td>
                   <td className="px-4 py-3 text-right">

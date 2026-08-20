@@ -17,10 +17,8 @@ const STATUS_CONFIG: Record<Status, { label: string; badge: string }> = {
 type PagamentoItem = {
   id: string
   manifesto_id: string
-  rota_id: string | null
   valor: number
-  ciclo_manifestos: { numero_base: number; letra: string; data_entrega: string } | null
-  rotas: { nome: string; codigo: string } | null
+  ciclo_manifestos: { numero_base: number; letra: string; data_entrega: string; regiao: string | null } | null
 }
 
 type Pagamento = {
@@ -113,9 +111,8 @@ export default function FinanceiroPage() {
         status, nf_numero, observacao, data_pagamento,
         agregados(nome),
         pagamentos_itens(
-          id, manifesto_id, rota_id, valor,
-          ciclo_manifestos(numero_base, letra, data_entrega),
-          rotas(nome, codigo)
+          id, manifesto_id, valor,
+          ciclo_manifestos(numero_base, letra, data_entrega, regiao)
         )
       `)
       .order('data_vencimento', { ascending: true })
@@ -131,12 +128,12 @@ export default function FinanceiroPage() {
     setGerando(true); setMsg('')
     const sb = getSupabase()
 
-    // Manifestos com rota tendo agregado + valor_frete
+    // Manifestos com agregado + valor_frete atribuídos diretamente
     const { data: manifestos } = await sb
       .from('ciclo_manifestos')
-      .select('id, data_entrega, rota_id, rotas!inner(id, agregado_id, valor_frete)')
-      .not('rotas.agregado_id', 'is', null)
-      .not('rotas.valor_frete', 'is', null)
+      .select('id, data_entrega, agregado_id, valor_frete')
+      .not('agregado_id', 'is', null)
+      .not('valor_frete', 'is', null)
 
     if (!manifestos?.length) { setGerando(false); setMsg('Nenhum manifesto elegível encontrado.'); return }
 
@@ -147,25 +144,24 @@ export default function FinanceiroPage() {
     // Agrupa novos por (agregado_id, semana_ref)
     type Grupo = {
       agregado_id: string; semana_ref: string; data_vencimento: string
-      itens: Array<{ manifesto_id: string; rota_id: string; valor: number }>
+      itens: Array<{ manifesto_id: string; valor: number }>
     }
     const grupos = new Map<string, Grupo>()
 
     for (const m of manifestos) {
       if (existentesSet.has(m.id)) continue
-      const rota = (m as any).rotas
-      if (!rota?.agregado_id || !rota?.valor_frete) continue
+      if (!m.agregado_id || !m.valor_frete) continue
       const semana_ref = getMondayOfWeek(m.data_entrega)
-      const key = `${rota.agregado_id}__${semana_ref}`
+      const key = `${m.agregado_id}__${semana_ref}`
       if (!grupos.has(key)) {
         grupos.set(key, {
-          agregado_id: rota.agregado_id,
+          agregado_id: m.agregado_id,
           semana_ref,
           data_vencimento: addDays(semana_ref, 25),
           itens: [],
         })
       }
-      grupos.get(key)!.itens.push({ manifesto_id: m.id, rota_id: m.rota_id, valor: rota.valor_frete })
+      grupos.get(key)!.itens.push({ manifesto_id: m.id, valor: m.valor_frete })
     }
 
     if (!grupos.size) { setGerando(false); setMsg('Todos os manifestos já foram processados.'); return }
@@ -503,7 +499,7 @@ export default function FinanceiroPage() {
                                   {item.ciclo_manifestos ? fmtDate(item.ciclo_manifestos.data_entrega) : '—'}
                                 </span>
                                 <span className="flex-1 truncate text-gray-500">
-                                  {item.rotas?.nome ?? '—'}
+                                  {item.ciclo_manifestos?.regiao ?? '—'}
                                 </span>
                                 <span className="font-medium tabular-nums text-gray-800">{fmtMoeda(item.valor)}</span>
                               </div>

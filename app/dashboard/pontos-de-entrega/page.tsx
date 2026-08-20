@@ -134,9 +134,9 @@ export default function PontosDeEntregaPage() {
 
   // ── Carregar opções de filtro (bairros + regiões) ───────────────────────────
   async function carregarOpcoes() {
-    const [{ data: bairrosData }, { data: rotasData }] = await Promise.all([
+    const [{ data: bairrosData }, { data: regioesData }] = await Promise.all([
       getSupabase().from('pontos_de_entrega').select('bairro').not('bairro', 'is', null).neq('bairro', '').eq('ativo', true),
-      getSupabase().from('rotas').select('regiao').not('regiao', 'is', null).neq('regiao', '').eq('ativo', true),
+      getSupabase().from('pontos_de_entrega').select('regiao').not('regiao', 'is', null).neq('regiao', '').eq('ativo', true),
     ])
 
     const contagemBairro: Record<string, number> = {}
@@ -149,7 +149,7 @@ export default function PontosDeEntregaPage() {
         .sort((a, b) => b.count! - a.count!)
     )
 
-    const regioes = Array.from(new Set((rotasData || []).map((r: any) => r.regiao).filter(Boolean))) as string[]
+    const regioes = Array.from(new Set((regioesData || []).map((r: any) => r.regiao).filter(Boolean))) as string[]
     setOpcoesRegiao(regioes.sort().map(r => ({ value: r, label: r })))
   }
 
@@ -158,25 +158,6 @@ export default function PontosDeEntregaPage() {
     pag: number, q: string, bairros: string[], regioes: string[]
   ) => {
     setLoading(true)
-
-    // Resolver IDs de PDEs a partir das regiões selecionadas
-    let pdeIdsRegiao: string[] | null = null
-    if (regioes.length > 0) {
-      const { data: rotasData } = await getSupabase()
-        .from('rotas').select('id').in('regiao', regioes)
-      const rotaIds = (rotasData || []).map((r: any) => r.id)
-      if (rotaIds.length > 0) {
-        const { data: rpData } = await getSupabase()
-          .from('rota_pontos').select('ponto_de_entrega_id').in('rota_id', rotaIds)
-        pdeIdsRegiao = Array.from(new Set((rpData || []).map((r: any) => r.ponto_de_entrega_id as string)))
-      } else {
-        pdeIdsRegiao = []
-      }
-    }
-
-    if (pdeIdsRegiao !== null && pdeIdsRegiao.length === 0) {
-      setPontos([]); setTotal(0); setLoading(false); return
-    }
 
     const from = pag * POR_PAGINA
     const to   = from + POR_PAGINA - 1
@@ -192,8 +173,8 @@ export default function PontosDeEntregaPage() {
         `nome.ilike.%${term}%,codigo_estado.ilike.%${term}%,codigo_prefeitura.ilike.%${term}%,municipio.ilike.%${term}%,bairro.ilike.%${term}%`
       )
     }
-    if (bairros.length > 0)       query = query.in('bairro', bairros)
-    if (pdeIdsRegiao !== null)     query = query.in('id', pdeIdsRegiao)
+    if (bairros.length > 0) query = query.in('bairro', bairros)
+    if (regioes.length > 0) query = query.in('regiao', regioes)
 
     const { data, count } = await query
     setPontos((data || []) as unknown as PontoDeEntrega[])
@@ -296,7 +277,7 @@ export default function PontosDeEntregaPage() {
     const { error } = await getSupabase().from('pontos_de_entrega').delete().eq('id', p.id)
     if (error) {
       alert(error.message.includes('foreign key')
-        ? `Não é possível excluir "${p.nome}" pois existem rotas ou entregas vinculadas.`
+        ? `Não é possível excluir "${p.nome}" pois existem manifestos ou entregas vinculadas.`
         : `Erro ao excluir: ${error.message}`)
       return
     }

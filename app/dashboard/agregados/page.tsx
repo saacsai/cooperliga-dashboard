@@ -23,6 +23,7 @@ const VAZIO = {
   nome: '', cpf_cnpj: '', chave_pix: '', whatsapp: '',
   veiculo_placa: '', veiculo_tipo: '',
   razao_social: '', endereco: '', municipio: '', cep: '',
+  valor_frete_padrao: '',
 }
 
 const COLUNAS_IMPORT = [
@@ -112,6 +113,7 @@ export default function AgregadosPage() {
       endereco:      a.endereco      || '',
       municipio:     a.municipio     || '',
       cep:           a.cep           || '',
+      valor_frete_padrao: a.valor_frete_padrao != null ? String(a.valor_frete_padrao) : '',
     })
     setErro(''); setDrawer(true)
   }
@@ -164,6 +166,7 @@ export default function AgregadosPage() {
       endereco:      form.endereco      || null,
       municipio:     form.municipio     || null,
       cep:           form.cep           || null,
+      valor_frete_padrao: form.valor_frete_padrao ? parseFloat(form.valor_frete_padrao.replace(',', '.')) : null,
     }
     const { error } = editId
       ? await getSupabase().from('agregados').update(payload).eq('id', editId)
@@ -294,6 +297,7 @@ export default function AgregadosPage() {
                           {linkCopiado === a.id ? '✓ Copiado' : 'Portal'}
                         </button>
                       )}
+                      <a href={`/dashboard/agregados/${a.id}`} className="text-xs text-gray-400 hover:text-gray-700">Histórico</a>
                       <button onClick={() => abrirEditar(a)} className="text-xs font-medium hover:opacity-80" style={{ color: PRIMARY }}>Editar</button>
                       <button onClick={() => toggleAtivo(a)} className="text-xs text-gray-400 hover:text-gray-700">{a.ativo ? 'Desativar' : 'Ativar'}</button>
                       <button onClick={() => handleExcluir(a)} className="text-xs text-red-400 hover:text-red-600">Excluir</button>
@@ -378,6 +382,13 @@ export default function AgregadosPage() {
             <label className="block text-xs font-medium text-gray-600 mb-1">Chave PIX</label>
             <input type="text" value={form.chave_pix} onChange={set('chave_pix')} placeholder="CPF, e-mail ou chave aleatória"
               className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#072740]" />
+          </div>
+
+          <div>
+            <label className="block text-xs font-medium text-gray-600 mb-1">Valor padrão do frete (R$)</label>
+            <input type="number" step="0.01" value={form.valor_frete_padrao} onChange={set('valor_frete_padrao')} placeholder="0,00"
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#072740]" />
+            <p className="text-[10px] text-gray-400 mt-0.5">Preenche sozinho quando esse agregado for atribuído a um manifesto — pode ser ajustado por manifesto se precisar.</p>
           </div>
 
           {erro && <p className="text-xs text-red-600 bg-red-50 border border-red-200 rounded-lg p-2">{erro}</p>}

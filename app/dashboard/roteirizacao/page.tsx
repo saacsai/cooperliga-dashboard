@@ -29,7 +29,7 @@ interface PontoExtraido {
   qtde_fracionada?: number
 }
 
-type Qtde = { inteira: number; fracionada: number }
+type Qtde = { inteira: number; fracionada: number; gr_numero?: string }
 
 interface PontoComGeo {
   ponto_id: string
@@ -53,9 +53,9 @@ interface RotaSugerida {
 }
 
 type Produto = { id: string; nome: string; capacidade_por_caixa: number | null }
-type ProdutoSlot = { produtoId: string; arquivo: File | null }
-type RotaExistente = { id: string; codigo: string; nome: string }
-type RotaEscolha = { modo: 'existente' | 'nova'; rotaId: string; codigo: string; nome: string }
+// grFiles: PDFs de GR crus dessa mesma planilha (só Municipal — Estado já
+// manda a GR dentro do próprio zip usado na extração, reaproveitado depois).
+type ProdutoSlot = { produtoId: string; arquivo: File | null; grFiles: File[] }
 
 const VEICULOS = ['fiorino', 'hr', 'iveco', 'outro']
 
@@ -118,7 +118,7 @@ export default function RoteirizacaoPage() {
 
   // Passo 2 — Upload: um slot (arquivo + produto) por produto declarado.
   const [produtos,     setProdutos]     = useState<Produto[]>([])
-  const [produtoSlots, setProdutoSlots] = useState<ProdutoSlot[]>([{ produtoId: '', arquivo: null }])
+  const [produtoSlots, setProdutoSlots] = useState<ProdutoSlot[]>([{ produtoId: '', arquivo: null, grFiles: [] }])
   const [numerosPedido, setNumerosPedido] = useState<Record<string, string>>({}) // produto_id -> numero_pedido (pra virar ciclo)
 
   // Fase pontos (conferência)
@@ -130,8 +130,7 @@ export default function RoteirizacaoPage() {
   const [veiculos,   setVeiculos] = useState<string[]>([])
   const [confirmando, setConf]    = useState(false)
   const [confirmado,  setConfirm] = useState(false)
-  const [rotasCadastro, setRotasCadastro] = useState<RotaExistente[]>([])
-  const [rotaEscolhas,  setRotaEscolhas]  = useState<Record<number, RotaEscolha>>({})
+  const [manifestoIds, setManifestoIds] = useState<string[]>([]) // ciclo_manifestos.id gerados, pra alinhar as GRs depois
 
   // Mapa
   const [mostraMapa, setMostraMapa] = useState(false)
@@ -161,7 +160,7 @@ export default function RoteirizacaoPage() {
     setNumProd(v)
     setProdutoSlots(prev => {
       const next = [...prev]
-      while (next.length < v) next.push({ produtoId: '', arquivo: null })
+      while (next.length < v) next.push({ produtoId: '', arquivo: null, grFiles: [] })
       return next.slice(0, v)
     })
   }
@@ -249,7 +248,7 @@ export default function RoteirizacaoPage() {
 
         const inteira    = tipo === 'municipal' ? (p.qtde_inteira || 0) : 0
         const fracionada = tipo === 'municipal' ? (p.qtde_fracionada || 0) : (p.quantidade || 0)
-        entry.qtdes[produtoId] = { inteira, fracionada }
+        entry.qtdes[produtoId] = { inteira, fracionada, gr_numero: p.gr_numero }
       }
     }
 
@@ -421,10 +420,6 @@ export default function RoteirizacaoPage() {
       setVeiculos(rs.map((r: RotaSugerida) => r.veiculo_sugerido))
       if (json.avisos?.length) setAvisos(prev => [...prev, ...json.avisos])
 
-      const { data: cadastro } = await getSupabase().from('rotas').select('id, codigo, nome').order('codigo')
-      setRotasCadastro((cadastro || []) as RotaExistente[])
-      setRotaEscolhas(Object.fromEntries(rs.map(r => [r.ordem, { modo: 'nova' as const, rotaId: '', codigo: '', nome: '' }])))
-
       setFase('rotas')
     } catch (e) {
       setErro(e instanceof Error ? e.message : 'Erro ao calcular rotas')
@@ -458,42 +453,17 @@ export default function RoteirizacaoPage() {
     })
   }
 
-  // ── Confirmar: grava direto como rota(s) + ciclo(s) + manifesto(s) reais ───
+  // ── Confirmar: grava ciclo(s) + manifesto(s) reais, sem rota nenhuma —
+  // agregado/motorista fica pra atribuir depois, direto no manifesto, no
+  // momento do carregamento (não é mais pré-requisito daqui). ───────────────
   async function handleConfirmar() {
     if (!regiao) { setErro('Informe a região antes de confirmar'); return }
-
-    const semEscolha = rotas.find(r => {
-      const esc = rotaEscolhas[r.ordem]
-      if (!esc) return true
-      return esc.modo === 'existente' ? !esc.rotaId : (!esc.codigo.trim() || !esc.nome.trim())
-    })
-    if (semEscolha) { setErro(`Defina a rota (existente ou nova) da Rota ${semEscolha.ordem} antes de confirmar`); return }
 
     setConf(true); setErro('')
     const sb = getSupabase()
 
     try {
-      // 1. Resolve rota_id por rota sugerida (reaproveita cadastro existente ou cria nova)
-      const rotaIdPorOrdem: Record<number, string> = {}
-      for (const r of rotas) {
-        const esc = rotaEscolhas[r.ordem]
-        if (esc.modo === 'existente') {
-          rotaIdPorOrdem[r.ordem] = esc.rotaId
-          continue
-        }
-        const { data: existente } = await sb.from('rotas').select('id').eq('codigo', esc.codigo.trim()).maybeSingle()
-        if (existente) {
-          rotaIdPorOrdem[r.ordem] = existente.id
-        } else {
-          const { data: nova, error } = await sb.from('rotas')
-            .insert({ codigo: esc.codigo.trim(), nome: esc.nome.trim(), regiao })
-            .select('id').single()
-          if (error || !nova) throw new Error(error?.message || 'Erro ao criar rota')
-          rotaIdPorOrdem[r.ordem] = nova.id
-        }
-      }
-
-      // 2. Upsert 1 ciclo por produto usado nesta roteirização
+      // 1. Upsert 1 ciclo por produto usado nesta roteirização
       const cicloIdPorProduto: Record<string, string> = {}
       for (const [produtoId, numeroPedido] of Object.entries(numerosPedido)) {
         const { data: ciclo, error } = await sb.from('ciclos')
@@ -503,61 +473,91 @@ export default function RoteirizacaoPage() {
         cicloIdPorProduto[produtoId] = ciclo.id
       }
 
-      // 3. Por rota: rota_pontos (best-effort — quem manda no manifesto de
-      // verdade é manifesto_pontos, independente) + ciclo_entregas por ponto×produto
+      // 2. Por rota sugerida: ciclo_entregas por ponto×produto + manifesto
+      // próprio (nasce solto, sem rota — cada rota sugerida vira 1 manifesto novo)
+      const novosManifestoIds: string[] = []
+      const todosPdeIds = new Set<string>()
       for (const r of rotas) {
-        const rotaId = rotaIdPorOrdem[r.ordem]
-
-        for (let i = 0; i < r.pontos.length; i++) {
-          const p = r.pontos[i]
-          try {
-            await sb.from('rota_pontos').upsert(
-              { rota_id: rotaId, ponto_de_entrega_id: p.ponto_id, sequencia: i + 1 },
-              { onConflict: 'rota_id,ponto_de_entrega_id' }
-            )
-          } catch { /* não bloqueia — manifesto_pontos é quem manda na sequência de impressão */ }
-
+        for (const p of r.pontos) {
           for (const [produtoId, q] of Object.entries(p.qtdes)) {
             const cicloId = cicloIdPorProduto[produtoId]
             if (!cicloId) continue
             await sb.from('ciclo_entregas').upsert({
               ciclo_id: cicloId,
-              rota_id:  rotaId,
               ponto_de_entrega_id: p.ponto_id,
               produto_id: produtoId,
               qtde_inteira:    q.inteira,
               qtde_fracionada: q.fracionada,
+              gr_numero:       q.gr_numero || null,
             }, { onConflict: 'ciclo_id,ponto_de_entrega_id,produto_id' })
           }
         }
 
-        // 4. ciclo_manifestos — reaproveita se já existe pra essa (data, rota)
-        let manifestoId: string
-        const { data: manifestoExistente } = await sb.from('ciclo_manifestos')
-          .select('id').eq('data_entrega', dataCiclo).eq('rota_id', rotaId).eq('letra', '').maybeSingle()
-        if (manifestoExistente) {
-          manifestoId = manifestoExistente.id
-        } else {
-          const { data: novoManifesto, error } = await sb.from('ciclo_manifestos')
-            .insert({ data_entrega: dataCiclo, rota_id: rotaId }).select('id').single()
-          if (error || !novoManifesto) throw new Error(error?.message || 'Erro ao criar manifesto')
-          manifestoId = novoManifesto.id
-        }
+        const { data: novoManifesto, error } = await sb.from('ciclo_manifestos')
+          .insert({ data_entrega: dataCiclo, regiao })
+          .select('id').single()
+        if (error || !novoManifesto) throw new Error(error?.message || 'Erro ao criar manifesto')
 
-        // 5. manifesto_pontos — sequência de impressão de verdade
         for (let i = 0; i < r.pontos.length; i++) {
-          await sb.from('manifesto_pontos').upsert(
-            { manifesto_id: manifestoId, pde_id: r.pontos[i].ponto_id, sequencia: i + 1 },
-            { onConflict: 'manifesto_id,pde_id' }
+          await sb.from('manifesto_pontos').insert(
+            { manifesto_id: novoManifesto.id, pde_id: r.pontos[i].ponto_id, sequencia: i + 1 }
           )
+          todosPdeIds.add(r.pontos[i].ponto_id)
         }
+        novosManifestoIds.push(novoManifesto.id)
       }
+      setManifestoIds(novosManifestoIds)
+
+      // 2b. Marca a região em cada ponto de entrega tocado nesta roteirização —
+      // substitui o antigo agrupamento por `rotas`, mantendo o filtro por
+      // região em Pontos de Entrega funcionando sem a tabela `rotas`.
+      if (todosPdeIds.size) {
+        await sb.from('pontos_de_entrega').update({ regiao }).in('id', Array.from(todosPdeIds))
+      }
+
+      // 3. Alinha as guias de remessa contra os manifestos recém-criados e
+      // já baixa o PDF pronto — não bloqueia a confirmação se falhar (os
+      // manifestos já estão salvos; dá pra tentar alinhar de novo depois).
+      await alinharGuias(novosManifestoIds)
 
       setConfirm(true)
     } catch (e) {
       setErro(e instanceof Error ? e.message : 'Erro ao confirmar')
     } finally {
       setConf(false)
+    }
+  }
+
+  async function alinharGuias(ids: string[]) {
+    const fd = new FormData()
+    fd.append('manifesto_ids', ids.join(','))
+    fd.append('tipo', tipo)
+
+    if (tipo === 'municipal') {
+      const grFiles = produtoSlots.flatMap(s => s.grFiles)
+      if (!grFiles.length) return // ninguém subiu GR ainda — pula alinhamento por agora
+      for (const f of grFiles) fd.append('pdf_grs', f)
+    } else {
+      const zip = produtoSlots.find(s => s.arquivo)?.arquivo
+      if (!zip) return
+      fd.append('zip_grs', zip)
+    }
+
+    try {
+      const res = await fetch(`${WORKER}/alinhar-manifesto`, { method: 'POST', body: fd })
+      if (!res.ok) {
+        const json = await res.json().catch(() => ({}))
+        setAvisos(prev => [...prev, `Alinhamento das guias falhou: ${json.detail || res.statusText}`])
+        return
+      }
+      const blob = await res.blob()
+      const a = document.createElement('a')
+      a.href = URL.createObjectURL(blob)
+      a.download = 'guias_alinhadas.zip'
+      a.click()
+      URL.revokeObjectURL(a.href)
+    } catch (e) {
+      setAvisos(prev => [...prev, `Alinhamento das guias falhou: ${e instanceof Error ? e.message : 'erro desconhecido'}`])
     }
   }
 
@@ -576,8 +576,22 @@ export default function RoteirizacaoPage() {
           </div>
           <h2 className="text-lg font-bold text-gray-900 mb-2">Manifestos gerados</h2>
           <p className="text-sm text-gray-500 mb-6">
-            {rotas.length} manifesto{rotas.length !== 1 ? 's' : ''} pronto{rotas.length !== 1 ? 's' : ''} pra imprimir em Manifestos.
+            {rotas.length} manifesto{rotas.length !== 1 ? 's' : ''} pronto{rotas.length !== 1 ? 's' : ''}.
+            {avisos.some(a => a.startsWith('Alinhamento'))
+              ? ' As guias não puderam ser alinhadas automaticamente — veja o aviso abaixo, ainda dá pra tentar de novo depois.'
+              : ' As guias já foram baixadas alinhadas — atribua o motorista/veículo em Manifestos quando for carregar.'}
           </p>
+          {avisos.length > 0 && (
+            <div className="mb-4 p-3 bg-amber-50 border border-amber-200 rounded-lg text-left max-h-32 overflow-y-auto">
+              {avisos.map((a, i) => <p key={i} className="text-xs text-amber-700">{a}</p>)}
+              {avisos.some(a => a.startsWith('Alinhamento')) && manifestoIds.length > 0 && (
+                <button onClick={() => alinharGuias(manifestoIds)} disabled={carregando}
+                  className="mt-2 text-xs font-medium underline text-amber-800">
+                  Tentar alinhar as guias de novo
+                </button>
+              )}
+            </div>
+          )}
           <div className="flex gap-2 justify-center">
             <a href="/dashboard/manifestos"
               className="px-6 py-2 rounded-lg text-sm font-medium btn-brand">
@@ -586,8 +600,8 @@ export default function RoteirizacaoPage() {
             <button
               onClick={() => {
                 setFase('parametros'); setConfirm(false); setRotas([]); setPontosGeo([])
-                setProdutoSlots([{ produtoId: '', arquivo: null }]); setNumProd(1)
-                setRegiao(''); setDataCiclo(''); setAvisos([])
+                setProdutoSlots([{ produtoId: '', arquivo: null, grFiles: [] }]); setNumProd(1)
+                setRegiao(''); setDataCiclo(''); setAvisos([]); setManifestoIds([])
               }}
               className="px-6 py-2 rounded-lg text-sm font-medium border border-gray-200 text-gray-600 hover:bg-gray-50"
             >
@@ -677,28 +691,46 @@ export default function RoteirizacaoPage() {
           {fase === 'upload' ? (
             <>
               <p className="text-xs text-gray-500 mb-4">
-                Uma planilha por produto — deixe o slot vazio se não tiver a planilha desse produto ainda.
+                Uma planilha por produto{tipo === 'municipal' ? ' — sobe junto os PDFs de GR dessa mesma remessa' : ''} — deixe o slot vazio se não tiver a planilha desse produto ainda.
               </p>
               <div className="space-y-3 mb-5">
                 {produtoSlots.map((slot, i) => (
-                  <div key={i} className="flex items-center gap-2">
-                    <select value={slot.produtoId} onChange={e => setSlot(i, { produtoId: e.target.value })}
-                      className="w-40 flex-shrink-0 border border-gray-200 rounded-lg px-2 py-2 text-xs outline-none focus:border-[#072740]">
-                      <option value="">Produto…</option>
-                      {produtos.map(p => <option key={p.id} value={p.id}>{p.nome}</option>)}
-                    </select>
-                    <label className="flex-1 flex items-center gap-2 border border-gray-200 rounded-lg px-3 py-2 text-xs text-gray-500 cursor-pointer hover:border-gray-300 min-w-0">
-                      <span className="truncate">{slot.arquivo ? slot.arquivo.name : `Selecionar planilha ${i + 1}…`}</span>
-                      <input
-                        type="file"
-                        accept={tipo === 'municipal' ? '.xlsx,.xls' : '.zip'}
-                        className="sr-only"
-                        onChange={e => setSlot(i, { arquivo: e.target.files?.[0] || null })}
-                      />
-                    </label>
-                    {slot.arquivo && (
-                      <button type="button" onClick={() => setSlot(i, { arquivo: null })}
-                        className="text-xs text-gray-300 hover:text-red-500 flex-shrink-0">✕</button>
+                  <div key={i} className="border border-gray-100 rounded-lg p-2 space-y-2">
+                    <div className="flex items-center gap-2">
+                      <select value={slot.produtoId} onChange={e => setSlot(i, { produtoId: e.target.value })}
+                        className="w-40 flex-shrink-0 border border-gray-200 rounded-lg px-2 py-2 text-xs outline-none focus:border-[#072740]">
+                        <option value="">Produto…</option>
+                        {produtos.map(p => <option key={p.id} value={p.id}>{p.nome}</option>)}
+                      </select>
+                      <label className="flex-1 flex items-center gap-2 border border-gray-200 rounded-lg px-3 py-2 text-xs text-gray-500 cursor-pointer hover:border-gray-300 min-w-0">
+                        <span className="truncate">{slot.arquivo ? slot.arquivo.name : `Selecionar planilha ${i + 1}…`}</span>
+                        <input
+                          type="file"
+                          accept={tipo === 'municipal' ? '.xlsx,.xls' : '.zip'}
+                          className="sr-only"
+                          onChange={e => setSlot(i, { arquivo: e.target.files?.[0] || null })}
+                        />
+                      </label>
+                      {slot.arquivo && (
+                        <button type="button" onClick={() => setSlot(i, { arquivo: null })}
+                          className="text-xs text-gray-300 hover:text-red-500 flex-shrink-0">✕</button>
+                      )}
+                    </div>
+                    {tipo === 'municipal' && (
+                      <label className="flex items-center gap-2 border border-dashed border-gray-200 rounded-lg px-3 py-1.5 text-[11px] text-gray-400 cursor-pointer hover:border-gray-300 ml-[168px]">
+                        <span className="truncate">
+                          {slot.grFiles.length
+                            ? `${slot.grFiles.length} PDF${slot.grFiles.length !== 1 ? 's' : ''} de GR selecionado${slot.grFiles.length !== 1 ? 's' : ''}`
+                            : 'PDFs de GR desta remessa (opcional, pode subir depois)'}
+                        </span>
+                        <input
+                          type="file"
+                          accept=".pdf"
+                          multiple
+                          className="sr-only"
+                          onChange={e => setSlot(i, { grFiles: Array.from(e.target.files || []) })}
+                        />
+                      </label>
                     )}
                   </div>
                 ))}
@@ -915,52 +947,22 @@ export default function RoteirizacaoPage() {
             <>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
                 {rotas.map((rota, i) => {
-                  const esc = rotaEscolhas[rota.ordem]
                   return (
                     <div key={i} className="border border-gray-200 rounded-xl p-4">
                       <div className="flex items-center justify-between mb-3">
-                        <span className="text-xs font-bold text-gray-500 uppercase tracking-wide">Rota {rota.ordem}</span>
+                        <span className="text-xs font-bold text-gray-500 uppercase tracking-wide">Manifesto {rota.ordem}</span>
                         <span className="text-xs text-gray-400">{rota.total_entregas} entregas · {rota.total_caixas} cx</span>
                       </div>
 
-                      <div className="grid grid-cols-2 gap-2 mb-3">
-                        <div>
-                          <label className="block text-xs font-medium text-gray-600 mb-1">Veículo</label>
-                          <select value={veiculos[i] || rota.veiculo_sugerido}
-                            onChange={e => setVeiculos(v => { const n = [...v]; n[i] = e.target.value; return n })}
-                            className="w-full border border-gray-200 rounded-lg px-2 py-1.5 text-xs outline-none focus:border-[#072740]">
-                            {VEICULOS.map(v => <option key={v} value={v}>{v.charAt(0).toUpperCase() + v.slice(1)}</option>)}
-                          </select>
-                        </div>
-                        <div>
-                          <label className="block text-xs font-medium text-gray-600 mb-1">Rota</label>
-                          <select
-                            value={esc?.modo === 'existente' ? esc.rotaId : '__nova__'}
-                            onChange={e => {
-                              const v = e.target.value
-                              if (v === '__nova__') {
-                                setRotaEscolhas(prev => ({ ...prev, [rota.ordem]: { modo: 'nova', rotaId: '', codigo: '', nome: '' } }))
-                              } else {
-                                setRotaEscolhas(prev => ({ ...prev, [rota.ordem]: { modo: 'existente', rotaId: v, codigo: '', nome: '' } }))
-                              }
-                            }}
-                            className="w-full border border-gray-200 rounded-lg px-2 py-1.5 text-xs outline-none focus:border-[#072740]">
-                            <option value="__nova__">+ Nova rota</option>
-                            {rotasCadastro.map(r => <option key={r.id} value={r.id}>{r.codigo} — {r.nome}</option>)}
-                          </select>
-                        </div>
+                      <div className="mb-3">
+                        <label className="block text-xs font-medium text-gray-600 mb-1">Veículo sugerido</label>
+                        <select value={veiculos[i] || rota.veiculo_sugerido}
+                          onChange={e => setVeiculos(v => { const n = [...v]; n[i] = e.target.value; return n })}
+                          className="w-full border border-gray-200 rounded-lg px-2 py-1.5 text-xs outline-none focus:border-[#072740]">
+                          {VEICULOS.map(v => <option key={v} value={v}>{v.charAt(0).toUpperCase() + v.slice(1)}</option>)}
+                        </select>
+                        <p className="text-[10px] text-gray-400 mt-0.5">Só uma referência — o motorista/veículo de verdade é atribuído depois, em Manifestos.</p>
                       </div>
-
-                      {esc?.modo === 'nova' && (
-                        <div className="grid grid-cols-2 gap-2 mb-3">
-                          <input type="text" placeholder="Código *" value={esc.codigo}
-                            onChange={e => setRotaEscolhas(prev => ({ ...prev, [rota.ordem]: { ...prev[rota.ordem], codigo: e.target.value } }))}
-                            className="w-full border border-gray-200 rounded-lg px-2 py-1.5 text-xs outline-none focus:border-[#072740] font-mono" />
-                          <input type="text" placeholder="Nome *" value={esc.nome}
-                            onChange={e => setRotaEscolhas(prev => ({ ...prev, [rota.ordem]: { ...prev[rota.ordem], nome: e.target.value } }))}
-                            className="w-full border border-gray-200 rounded-lg px-2 py-1.5 text-xs outline-none focus:border-[#072740]" />
-                        </div>
-                      )}
 
                       <div className="space-y-1 max-h-48 overflow-y-auto">
                         {rota.pontos.map((p, j) => (
