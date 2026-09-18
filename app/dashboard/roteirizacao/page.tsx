@@ -3,6 +3,23 @@
 import { useState, useEffect } from 'react'
 import dynamic from 'next/dynamic'
 import { getSupabase } from '@/lib/supabase'
+import {
+  DndContext,
+  closestCenter,
+  PointerSensor,
+  KeyboardSensor,
+  useSensor,
+  useSensors,
+  useDroppable,
+  type DragEndEvent,
+} from '@dnd-kit/core'
+import {
+  SortableContext,
+  sortableKeyboardCoordinates,
+  verticalListSortingStrategy,
+  useSortable,
+} from '@dnd-kit/sortable'
+import { CSS } from '@dnd-kit/utilities'
 
 const MapaPontos = dynamic(() => import('@/components/MapaPontos'), { ssr: false })
 
@@ -99,6 +116,86 @@ function calcularTotalCaixas(pontos: RotaSugerida['pontos'], capacidades: Record
     total += q.inteira + Math.ceil(q.fracionada / capacidade)
   }
   return total
+}
+
+// ── Ponto arrastável dentro de uma rota sugerida (Passo 4) ──────────────────
+// Mesmo padrão visual/mecânico do drag-and-drop já usado em
+// /dashboard/manifestos (SortablePonto) — arrastar tanto reordena dentro da
+// rota quanto move pra outra rota (substitui o antigo seletor "mover pra
+// outra rota").
+function SortablePontoRoteirizacao({ id, index, nome }: { id: string; index: number; nome: string }) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
+    useSortable({ id })
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.4 : 1,
+    zIndex: isDragging ? 10 : undefined,
+  }
+
+  return (
+    <div ref={setNodeRef} style={style} className="flex items-center gap-2 text-xs bg-white py-0.5">
+      <div
+        {...attributes}
+        {...listeners}
+        className="cursor-grab active:cursor-grabbing text-gray-300 hover:text-gray-500 flex-shrink-0"
+      >
+        <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor">
+          <circle cx="5" cy="4" r="1.5"/><circle cx="11" cy="4" r="1.5"/>
+          <circle cx="5" cy="8" r="1.5"/><circle cx="11" cy="8" r="1.5"/>
+          <circle cx="5" cy="12" r="1.5"/><circle cx="11" cy="12" r="1.5"/>
+        </svg>
+      </div>
+      <span className="text-gray-400 w-4 text-right flex-shrink-0">{index + 1}.</span>
+      <span className="text-gray-700 flex-1 truncate">{nome}</span>
+    </div>
+  )
+}
+
+// ── Card de uma rota sugerida — também é o container "solto" (droppable),
+// pra dar pra arrastar um ponto pra dentro mesmo se a rota estiver vazia. ────
+function RotaCard({
+  rota, veiculoValue, onVeiculoChange,
+}: {
+  rota: RotaSugerida
+  veiculoValue: string
+  onVeiculoChange: (v: string) => void
+}) {
+  const { setNodeRef, isOver } = useDroppable({ id: `rota-${rota.ordem}` })
+
+  return (
+    <div className="border border-gray-200 rounded-xl p-4">
+      <div className="flex items-center justify-between mb-3">
+        <span className="text-xs font-bold text-gray-500 uppercase tracking-wide">Manifesto {rota.ordem}</span>
+        <span className="text-xs text-gray-400">{rota.total_entregas} entregas · {rota.total_caixas} cx</span>
+      </div>
+
+      <div className="mb-3">
+        <label className="block text-xs font-medium text-gray-600 mb-1">Veículo sugerido</label>
+        <select value={veiculoValue}
+          onChange={e => onVeiculoChange(e.target.value)}
+          className="w-full border border-gray-200 rounded-lg px-2 py-1.5 text-xs outline-none focus:border-[#072740]">
+          {VEICULOS.map(v => <option key={v} value={v}>{v.charAt(0).toUpperCase() + v.slice(1)}</option>)}
+        </select>
+        <p className="text-[10px] text-gray-400 mt-0.5">Só uma referência — o motorista/veículo de verdade é atribuído depois, em Manifestos.</p>
+      </div>
+
+      <div
+        ref={setNodeRef}
+        className={`space-y-1 max-h-48 overflow-y-auto rounded-lg min-h-[36px] transition-colors ${isOver ? 'bg-blue-50' : ''}`}
+      >
+        <SortableContext items={rota.pontos.map(p => p.ponto_id)} strategy={verticalListSortingStrategy}>
+          {rota.pontos.map((p, j) => (
+            <SortablePontoRoteirizacao key={p.ponto_id} id={p.ponto_id} index={j} nome={p.nome} />
+          ))}
+        </SortableContext>
+        {rota.pontos.length === 0 && (
+          <p className="text-[10px] text-gray-300 italic py-2 text-center">Arraste um ponto aqui</p>
+        )}
+      </div>
+    </div>
+  )
 }
 
 export default function RoteirizacaoPage() {
@@ -428,19 +525,41 @@ export default function RoteirizacaoPage() {
     }
   }
 
-  // Move um ponto de uma rota sugerida pra outra e recalcula os totais das duas.
-  function moverPonto(pontoId: string, deOrdem: number, paraOrdem: number) {
-    if (deOrdem === paraOrdem) return
+  const dndSensors = useSensors(
+    useSensor(PointerSensor),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  )
+
+  // Arrastar um ponto: reordena dentro da mesma rota, ou move pra outra rota
+  // (inclusive rota vazia, soltando no container) — substitui o antigo
+  // seletor "mover pra outra rota", que sempre jogava o ponto pro final.
+  function handleDragEndRotas(event: DragEndEvent) {
+    const { active, over } = event
+    if (!over) return
+    const activeId = String(active.id)
+    const overId   = String(over.id)
+    if (activeId === overId) return
+
     setRotas(prev => {
       const next = prev.map(r => ({ ...r, pontos: [...r.pontos] }))
-      const origem  = next.find(r => r.ordem === deOrdem)
-      const destino = next.find(r => r.ordem === paraOrdem)
-      if (!origem || !destino) return prev
+      const origem = next.find(r => r.pontos.some(p => p.ponto_id === activeId))
+      if (!origem) return prev
 
-      const idx = origem.pontos.findIndex(p => p.ponto_id === pontoId)
-      if (idx === -1) return prev
-      const [ponto] = origem.pontos.splice(idx, 1)
-      destino.pontos.push(ponto)
+      const overERotaVazia = overId.startsWith('rota-')
+      const destino = overERotaVazia
+        ? next.find(r => `rota-${r.ordem}` === overId)
+        : next.find(r => r.pontos.some(p => p.ponto_id === overId))
+      if (!destino) return prev
+
+      const idxOrigem = origem.pontos.findIndex(p => p.ponto_id === activeId)
+      const [ponto] = origem.pontos.splice(idxOrigem, 1)
+
+      if (overERotaVazia) {
+        destino.pontos.push(ponto)
+      } else {
+        const idxDestino = destino.pontos.findIndex(p => p.ponto_id === overId)
+        destino.pontos.splice(idxDestino, 0, ponto)
+      }
 
       origem.pontos  = origem.pontos.map((p, i) => ({ ...p, ordem: i + 1 }))
       destino.pontos = destino.pontos.map((p, i) => ({ ...p, ordem: i + 1 }))
@@ -945,47 +1064,21 @@ export default function RoteirizacaoPage() {
             <p className="text-sm text-gray-500">Nenhuma rota sugerida. Verifique os dados e tente novamente.</p>
           ) : (
             <>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
-                {rotas.map((rota, i) => {
-                  return (
-                    <div key={i} className="border border-gray-200 rounded-xl p-4">
-                      <div className="flex items-center justify-between mb-3">
-                        <span className="text-xs font-bold text-gray-500 uppercase tracking-wide">Manifesto {rota.ordem}</span>
-                        <span className="text-xs text-gray-400">{rota.total_entregas} entregas · {rota.total_caixas} cx</span>
-                      </div>
-
-                      <div className="mb-3">
-                        <label className="block text-xs font-medium text-gray-600 mb-1">Veículo sugerido</label>
-                        <select value={veiculos[i] || rota.veiculo_sugerido}
-                          onChange={e => setVeiculos(v => { const n = [...v]; n[i] = e.target.value; return n })}
-                          className="w-full border border-gray-200 rounded-lg px-2 py-1.5 text-xs outline-none focus:border-[#072740]">
-                          {VEICULOS.map(v => <option key={v} value={v}>{v.charAt(0).toUpperCase() + v.slice(1)}</option>)}
-                        </select>
-                        <p className="text-[10px] text-gray-400 mt-0.5">Só uma referência — o motorista/veículo de verdade é atribuído depois, em Manifestos.</p>
-                      </div>
-
-                      <div className="space-y-1 max-h-48 overflow-y-auto">
-                        {rota.pontos.map((p, j) => (
-                          <div key={j} className="flex items-center gap-2 text-xs">
-                            <span className="text-gray-400 w-4 text-right flex-shrink-0">{j + 1}.</span>
-                            <span className="text-gray-700 flex-1 truncate">{p.nome}</span>
-                            {rotas.length > 1 && (
-                              <select
-                                value={rota.ordem}
-                                onChange={e => moverPonto(p.ponto_id, rota.ordem, +e.target.value)}
-                                className="text-[10px] border border-gray-200 rounded px-1 py-0.5 outline-none flex-shrink-0"
-                                title="Mover pra outra rota"
-                              >
-                                {rotas.map(r2 => <option key={r2.ordem} value={r2.ordem}>Rota {r2.ordem}</option>)}
-                              </select>
-                            )}
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )
-                })}
-              </div>
+              <DndContext sensors={dndSensors} collisionDetection={closestCenter} onDragEnd={handleDragEndRotas}>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
+                  {rotas.map((rota, i) => (
+                    <RotaCard
+                      key={rota.ordem}
+                      rota={rota}
+                      veiculoValue={veiculos[i] || rota.veiculo_sugerido}
+                      onVeiculoChange={v => setVeiculos(vs => { const n = [...vs]; n[i] = v; return n })}
+                    />
+                  ))}
+                </div>
+              </DndContext>
+              {rotas.length > 1 && (
+                <p className="text-[10px] text-gray-400 -mt-4 mb-6">Arraste um ponto pra reordenar dentro da rota ou mover pra outra rota (inclusive rotas vazias).</p>
+              )}
 
               {avisos.length > 0 && (
                 <div className="mb-4 p-3 bg-gray-50 border border-gray-100 rounded-lg max-h-32 overflow-y-auto">
