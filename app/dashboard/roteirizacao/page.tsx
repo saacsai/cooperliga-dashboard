@@ -176,45 +176,48 @@ function RotaCard({
         <span className="text-xs text-gray-400">{rota.total_entregas} entregas · {rota.total_caixas} cx</span>
       </div>
 
-      <div className="mb-3">
-        <label className="block text-xs font-medium text-gray-600 mb-1">Veículo sugerido</label>
-        <select value={veiculoValue}
-          onChange={e => onVeiculoChange(e.target.value)}
-          className="w-full border border-gray-200 rounded-lg px-2 py-1.5 text-xs outline-none focus:border-[#072740]">
-          {VEICULOS.map(v => <option key={v} value={v}>{v.charAt(0).toUpperCase() + v.slice(1)}</option>)}
-        </select>
-        <p className="text-[10px] text-gray-400 mt-0.5">Só uma referência — o motorista/veículo de verdade é atribuído depois, em Manifestos.</p>
-      </div>
+      <div className={`flex flex-col ${verMapa ? 'md:flex-row md:gap-5' : ''}`}>
+        <div className={verMapa ? 'md:w-72 md:flex-shrink-0' : ''}>
+          <div className="mb-3">
+            <label className="block text-xs font-medium text-gray-600 mb-1">Veículo sugerido</label>
+            <select value={veiculoValue}
+              onChange={e => onVeiculoChange(e.target.value)}
+              className="w-full border border-gray-200 rounded-lg px-2 py-1.5 text-xs outline-none focus:border-[#072740]">
+              {VEICULOS.map(v => <option key={v} value={v}>{v.charAt(0).toUpperCase() + v.slice(1)}</option>)}
+            </select>
+            <p className="text-[10px] text-gray-400 mt-0.5">Só uma referência — o motorista/veículo de verdade é atribuído depois, em Manifestos.</p>
+          </div>
 
-      <div
-        ref={setNodeRef}
-        className={`space-y-1 max-h-48 overflow-y-auto rounded-lg min-h-[36px] transition-colors ${isOver ? 'bg-blue-50' : ''}`}
-      >
-        <SortableContext items={rota.pontos.map(p => p.ponto_id)} strategy={verticalListSortingStrategy}>
-          {rota.pontos.map((p, j) => (
-            <SortablePontoRoteirizacao key={p.ponto_id} id={p.ponto_id} index={j} nome={p.nome} />
-          ))}
-        </SortableContext>
-        {rota.pontos.length === 0 && (
-          <p className="text-[10px] text-gray-300 italic py-2 text-center">Arraste um ponto aqui</p>
+          <div
+            ref={setNodeRef}
+            className={`space-y-1 max-h-64 overflow-y-auto rounded-lg min-h-[36px] transition-colors ${isOver ? 'bg-blue-50' : ''}`}
+          >
+            <SortableContext items={rota.pontos.map(p => p.ponto_id)} strategy={verticalListSortingStrategy}>
+              {rota.pontos.map((p, j) => (
+                <SortablePontoRoteirizacao key={p.ponto_id} id={p.ponto_id} index={j} nome={p.nome} />
+              ))}
+            </SortableContext>
+            {rota.pontos.length === 0 && (
+              <p className="text-[10px] text-gray-300 italic py-2 text-center">Arraste um ponto aqui</p>
+            )}
+          </div>
+
+          {pontosComGeo.length > 0 && (
+            <button
+              onClick={() => setVerMapa(v => !v)}
+              className="mt-2 text-[10px] font-medium text-[#072740] hover:underline"
+            >
+              {verMapa ? '▾ Esconder mapa' : '▸ Ver mapa'}
+            </button>
+          )}
+        </div>
+
+        {verMapa && pontosComGeo.length > 0 && (
+          <div className="mt-2 md:mt-0 flex-1 min-w-0">
+            <MapaRotaNumerada pontos={pontosComGeo} />
+          </div>
         )}
       </div>
-
-      {pontosComGeo.length > 0 && (
-        <>
-          <button
-            onClick={() => setVerMapa(v => !v)}
-            className="mt-2 text-[10px] font-medium text-[#072740] hover:underline"
-          >
-            {verMapa ? '▾ Esconder mapa' : '▸ Ver mapa'}
-          </button>
-          {verMapa && (
-            <div className="mt-2">
-              <MapaRotaNumerada pontos={pontosComGeo} />
-            </div>
-          )}
-        </>
-      )}
     </div>
   )
 }
@@ -754,7 +757,7 @@ export default function RoteirizacaoPage() {
   }
 
   return (
-    <div className="max-w-3xl pt-4">
+    <div className={fase === 'rotas' ? 'pt-4' : 'max-w-3xl pt-4'}>
       <h1 className="text-xl font-bold text-gray-900 mb-1">Roteirização</h1>
       <p className="text-sm text-gray-500 mb-6">Sugere e salva rotas/manifestos a partir das planilhas do ciclo</p>
 
@@ -1086,7 +1089,7 @@ export default function RoteirizacaoPage() {
           ) : (
             <>
               <DndContext sensors={dndSensors} collisionDetection={closestCenter} onDragEnd={handleDragEndRotas}>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
+                <div className="grid grid-cols-1 gap-4 mb-6">
                   {rotas.map((rota, i) => (
                     <RotaCard
                       key={rota.ordem}
