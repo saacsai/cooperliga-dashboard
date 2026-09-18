@@ -22,6 +22,7 @@ import {
 import { CSS } from '@dnd-kit/utilities'
 
 const MapaPontos = dynamic(() => import('@/components/MapaPontos'), { ssr: false })
+const MapaRotaNumerada = dynamic(() => import('@/components/MapaRotaNumerada'), { ssr: false })
 
 const PRIMARY = '#072740'
 const WORKER  = 'https://guias.cooperliga.saacs.com.br'
@@ -163,6 +164,10 @@ function RotaCard({
   onVeiculoChange: (v: string) => void
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: `rota-${rota.ordem}` })
+  const [verMapa, setVerMapa] = useState(false)
+  const pontosComGeo = rota.pontos.filter(
+    (p): p is typeof p & { lat: number; lng: number } => p.lat != null && p.lng != null
+  )
 
   return (
     <div className="border border-gray-200 rounded-xl p-4">
@@ -194,6 +199,22 @@ function RotaCard({
           <p className="text-[10px] text-gray-300 italic py-2 text-center">Arraste um ponto aqui</p>
         )}
       </div>
+
+      {pontosComGeo.length > 0 && (
+        <>
+          <button
+            onClick={() => setVerMapa(v => !v)}
+            className="mt-2 text-[10px] font-medium text-[#072740] hover:underline"
+          >
+            {verMapa ? '▾ Esconder mapa' : '▸ Ver mapa'}
+          </button>
+          {verMapa && (
+            <div className="mt-2">
+              <MapaRotaNumerada pontos={pontosComGeo} />
+            </div>
+          )}
+        </>
+      )}
     </div>
   )
 }
