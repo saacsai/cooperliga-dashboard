@@ -164,7 +164,7 @@ function RotaCard({
   onVeiculoChange: (v: string) => void
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: `rota-${rota.ordem}` })
-  const [verMapa, setVerMapa] = useState(false)
+  const [verMapa, setVerMapa] = useState(true)
   const pontosComGeo = rota.pontos.filter(
     (p): p is typeof p & { lat: number; lng: number } => p.lat != null && p.lng != null
   )
@@ -190,7 +190,7 @@ function RotaCard({
 
           <div
             ref={setNodeRef}
-            className={`space-y-1 max-h-64 overflow-y-auto rounded-lg min-h-[36px] transition-colors ${isOver ? 'bg-blue-50' : ''}`}
+            className={`space-y-1 h-72 overflow-y-auto rounded-lg transition-colors ${isOver ? 'bg-blue-50' : ''}`}
           >
             <SortableContext items={rota.pontos.map(p => p.ponto_id)} strategy={verticalListSortingStrategy}>
               {rota.pontos.map((p, j) => (

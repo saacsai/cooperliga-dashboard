@@ -111,10 +111,14 @@ export default function MapaRotaNumerada({ pontos }: Props) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pontos])
 
+  // h-72 = mesma altura da lista de pontos ao lado (roteirizacao/page.tsx) —
+  // combinadas de propósito, pra não ficar desproporcional (lista curta +
+  // mapa esticado, ou o contrário).
   return (
     <div
       ref={containerRef}
-      style={{ height: '260px', width: '100%', borderRadius: '8px', zIndex: 0 }}
+      className="h-72 w-full rounded-lg"
+      style={{ zIndex: 0 }}
     />
   )
 }
