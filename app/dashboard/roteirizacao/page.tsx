@@ -119,6 +119,15 @@ function calcularTotalCaixas(pontos: RotaSugerida['pontos'], capacidades: Record
   return total
 }
 
+// Mesmos limiares do worker (`_veiculo` em main.py) — replicado aqui só pra
+// rotas montadas a partir do histórico (ver handleCalcular), que não passam
+// pelo /roteirizar e portanto não vêm com veiculo_sugerido pronto.
+function veiculoSugerido(totalCx: number): string {
+  if (totalCx <= 25) return 'fiorino'
+  if (totalCx <= 50) return 'hr'
+  return 'iveco'
+}
+
 // ── Ponto arrastável dentro de uma rota sugerida (Passo 4) ──────────────────
 // Mesmo padrão visual/mecânico do drag-and-drop já usado em
 // /dashboard/manifestos (SortablePonto) — arrastar tanto reordena dentro da
@@ -511,20 +520,108 @@ export default function RoteirizacaoPage() {
     }
   }
 
+  // ── Reaproveitar roteirização anterior — mesma região + mesmo nº de
+  // produtos, mesmo número de rotas resultante. Se bater, reusa o
+  // agrupamento/ordem que o gestor já ajustou da última vez (só a
+  // arquitetura — dados de cada ponto vêm sempre da planilha de hoje).
+  // Pontos novos (que não estavam no histórico) caem numa rota extra
+  // "Não classificados" pro gestor arrastar pra onde fizer sentido.
+  async function tentarReaproveitarHistorico(
+    pontosDoCiclo: Array<{ ponto_id: string; lat: number; lng: number; nome: string; qtdes: Record<string, Qtde> }>,
+    rotasGeometricas: RotaSugerida[],
+  ): Promise<{ rotas: RotaSugerida[]; aviso: string | null }> {
+    const sb = getSupabase()
+
+    const { data: candidatos } = await sb
+      .from('ciclo_manifestos')
+      .select('id, data_entrega, numero')
+      .eq('regiao', regiao)
+      .eq('num_produtos', numProd)
+      .order('data_entrega', { ascending: false })
+      .limit(30)
+
+    if (!candidatos || candidatos.length === 0) return { rotas: rotasGeometricas, aviso: null }
+
+    const dataMaisRecente = candidatos[0].data_entrega
+    const manifestosDoCiclo = candidatos
+      .filter(c => c.data_entrega === dataMaisRecente)
+      .sort((a, b) => (a.numero as number) - (b.numero as number))
+
+    if (manifestosDoCiclo.length !== rotasGeometricas.length) {
+      return {
+        rotas: rotasGeometricas,
+        aviso: `Histórico encontrado pra "${regiao}" (${numProd} produto${numProd !== 1 ? 's' : ''}), mas o número de rotas mudou desde ${dataMaisRecente.split('-').reverse().join('/')} (${manifestosDoCiclo.length} → ${rotasGeometricas.length}) — recalculado do zero.`,
+      }
+    }
+
+    const { data: mps } = await sb
+      .from('manifesto_pontos')
+      .select('manifesto_id, pde_id, sequencia')
+      .in('manifesto_id', manifestosDoCiclo.map(m => m.id))
+      .order('sequencia', { ascending: true })
+
+    const idsPorManifesto = new Map<string, string[]>()
+    for (const mp of mps ?? []) {
+      const lista = idsPorManifesto.get(mp.manifesto_id as string) ?? []
+      lista.push(mp.pde_id as string)
+      idsPorManifesto.set(mp.manifesto_id as string, lista)
+    }
+
+    const pontoPorId = new Map(pontosDoCiclo.map(p => [p.ponto_id, p]))
+    const usados = new Set<string>()
+
+    const rotasHistorico: RotaSugerida[] = manifestosDoCiclo.map((m, i) => {
+      const ids = idsPorManifesto.get(m.id) ?? []
+      const pontos = ids
+        .map(id => pontoPorId.get(id))
+        .filter((p): p is NonNullable<typeof p> => !!p)
+        .map((p, j) => ({ ponto_id: p.ponto_id, nome: p.nome, ordem: j + 1, lat: p.lat, lng: p.lng, qtdes: p.qtdes }))
+      pontos.forEach(p => usados.add(p.ponto_id))
+      const totalCx = calcularTotalCaixas(pontos, capacidadesPorProduto)
+      return {
+        ordem: i + 1,
+        veiculo_sugerido: veiculoSugerido(totalCx),
+        total_entregas: pontos.length,
+        total_caixas: totalCx,
+        pontos,
+      }
+    })
+
+    const naoClassificados = pontosDoCiclo.filter(p => !usados.has(p.ponto_id))
+    if (naoClassificados.length > 0) {
+      const pontos = naoClassificados.map((p, j) => ({ ponto_id: p.ponto_id, nome: p.nome, ordem: j + 1, lat: p.lat, lng: p.lng, qtdes: p.qtdes }))
+      const totalCx = calcularTotalCaixas(pontos, capacidadesPorProduto)
+      rotasHistorico.push({
+        ordem: rotasHistorico.length + 1,
+        veiculo_sugerido: veiculoSugerido(totalCx),
+        total_entregas: pontos.length,
+        total_caixas: totalCx,
+        pontos,
+      })
+    }
+
+    return {
+      rotas: rotasHistorico,
+      aviso: `Rotas recuperadas do histórico de ${dataMaisRecente.split('-').reverse().join('/')} (região "${regiao}", ${numProd} produto${numProd !== 1 ? 's' : ''}).`
+        + (naoClassificados.length > 0 ? ` ${naoClassificados.length} ponto(s) novo(s) em "Não classificados" — arraste pra rota certa.` : ''),
+    }
+  }
+
   // ── Gerar sugestão de rotas ─────────────────────────────────────────────────
   async function handleCalcular() {
     setCarreg(true); setErro('')
     try {
+      const pontosDoCiclo = pontosGeo
+        .filter((p): p is typeof p & { lat: number; lng: number } => !!p.ponto_id && p.lat != null && p.lng != null)
+        .map(p => ({
+          ponto_id: p.ponto_id,
+          lat:      p.lat,
+          lng:      p.lng,
+          nome:     p.nome,
+          qtdes:    p.qtdes,
+        }))
       const payload = {
-        pontos: pontosGeo
-          .filter(p => p.ponto_id && p.lat && p.lng)
-          .map(p => ({
-            ponto_id: p.ponto_id,
-            lat:      p.lat,
-            lng:      p.lng,
-            nome:     p.nome,
-            qtdes:    p.qtdes,
-          })),
+        pontos: pontosDoCiclo,
         capacidades:  capacidadesPorProduto,
         num_produtos: numProd,
         max_entregas: maxEntregas,
@@ -536,10 +633,16 @@ export default function RoteirizacaoPage() {
       })
       const json = await res.json()
       if (!res.ok) throw new Error(json.detail || 'Erro ao calcular')
-      const rs: RotaSugerida[] = json.rotas || []
+      let rs: RotaSugerida[] = json.rotas || []
+      const novosAvisosCalculo: string[] = json.avisos?.length ? [...json.avisos] : []
+
+      const { rotas: rotasFinais, aviso: avisoHistorico } = await tentarReaproveitarHistorico(pontosDoCiclo, rs)
+      rs = rotasFinais
+      if (avisoHistorico) novosAvisosCalculo.push(avisoHistorico)
+
       setRotas(rs)
       setVeiculos(rs.map((r: RotaSugerida) => r.veiculo_sugerido))
-      if (json.avisos?.length) setAvisos(prev => [...prev, ...json.avisos])
+      if (novosAvisosCalculo.length) setAvisos(prev => [...prev, ...novosAvisosCalculo])
 
       setFase('rotas')
     } catch (e) {
@@ -637,7 +740,7 @@ export default function RoteirizacaoPage() {
         }
 
         const { data: novoManifesto, error } = await sb.from('ciclo_manifestos')
-          .insert({ data_entrega: dataCiclo, regiao })
+          .insert({ data_entrega: dataCiclo, regiao, num_produtos: numProd })
           .select('id').single()
         if (error || !novoManifesto) throw new Error(error?.message || 'Erro ao criar manifesto')
 
