@@ -36,6 +36,8 @@ interface PontoExtraido {
   gr_numero?: string
   cie?: string
   diretoria?: string
+  subprefeitura?: string
+  roteiro?: string
   nome_escola?: string
   nome?: string
   endereco?: string
@@ -60,6 +62,7 @@ interface PontoComGeo {
   qtdes: Record<string, Qtde> // produto_id -> quantidade
   geo_status?: string
   diretoria?: string
+  subprefeitura?: string
 }
 
 interface RotaSugerida {
@@ -325,6 +328,12 @@ export default function RoteirizacaoPage() {
         const fd  = new FormData()
         const url = tipo === 'municipal' ? `${WORKER}/extrair-prefeitura` : `${WORKER}/extrair-estado`
         fd.append(tipo === 'municipal' ? 'xls' : 'zip_grs', slot.arquivo!)
+        // PDFs das GRs dessa mesma planilha — enriquece cada ponto com subprefeitura
+        // (só existe no PDF, não na planilha). Antes ficava só no estado local,
+        // nunca era enviado pro worker.
+        if (tipo === 'municipal') {
+          for (const pdf of slot.grFiles) fd.append('pdf_grs', pdf)
+        }
 
         const res  = await fetch(url, { method: 'POST', body: fd })
         const json = await res.json()
@@ -361,7 +370,7 @@ export default function RoteirizacaoPage() {
   async function consolidarEGeocodificar(extraidosPorProduto: { produtoId: string; pontos: PontoExtraido[] }[]) {
     const sb = getSupabase()
 
-    type Consolidado = { nome: string; endereco: string; municipio?: string; diretoria?: string; qtdes: Record<string, Qtde> }
+    type Consolidado = { nome: string; endereco: string; municipio?: string; diretoria?: string; subprefeitura?: string; qtdes: Record<string, Qtde> }
     const porCodigo = new Map<string, Consolidado>()
 
     for (const { produtoId, pontos } of extraidosPorProduto) {
@@ -372,8 +381,10 @@ export default function RoteirizacaoPage() {
 
         let entry = porCodigo.get(codigo)
         if (!entry) {
-          entry = { nome, endereco: p.endereco || '', municipio: p.municipio, diretoria: p.diretoria, qtdes: {} }
+          entry = { nome, endereco: p.endereco || '', municipio: p.municipio, diretoria: p.diretoria, subprefeitura: p.subprefeitura, qtdes: {} }
           porCodigo.set(codigo, entry)
+        } else if (!entry.subprefeitura && p.subprefeitura) {
+          entry.subprefeitura = p.subprefeitura
         }
 
         const inteira    = tipo === 'municipal' ? (p.qtde_inteira || 0) : 0
@@ -400,12 +411,18 @@ export default function RoteirizacaoPage() {
     for (const [codigo, entry] of Array.from(porCodigo.entries())) {
       const { data } = await sb
         .from('pontos_de_entrega')
-        .select('id, lat, lng, geo_status, municipio')
+        .select('id, lat, lng, geo_status, municipio, subprefeitura')
         .eq(col, codigo)
         .limit(1)
         .single()
 
       if (data) {
+        // Ponto já existia (de uma importação anterior) — se descobrimos a
+        // subprefeitura agora e ele ainda não tinha, atualiza pra ficar
+        // disponível em consultas futuras sem precisar re-subir o PDF.
+        if (entry.subprefeitura && !data.subprefeitura) {
+          await sb.from('pontos_de_entrega').update({ subprefeitura: entry.subprefeitura }).eq('id', data.id)
+        }
         resultado.push({
           ponto_id:  data.id,
           codigo,
@@ -417,6 +434,7 @@ export default function RoteirizacaoPage() {
           qtdes:     entry.qtdes,
           geo_status: data.geo_status || 'pendente',
           diretoria: entry.diretoria,
+          subprefeitura: entry.subprefeitura || data.subprefeitura || undefined,
         })
       } else {
         const { data: novo } = await sb
@@ -426,6 +444,7 @@ export default function RoteirizacaoPage() {
             endereco:  entry.endereco || null,
             municipio: entry.municipio || (tipo === 'municipal' ? 'São Paulo' : null),
             [col]: codigo,
+            subprefeitura: entry.subprefeitura || null,
             origem: tipo === 'municipal' ? 'prefeitura' : 'estado',
             geo_status: 'pendente',
           })
@@ -440,6 +459,7 @@ export default function RoteirizacaoPage() {
           qtdes: entry.qtdes,
           geo_status: 'pendente',
           diretoria: entry.diretoria,
+          subprefeitura: entry.subprefeitura,
         })
       }
     }
