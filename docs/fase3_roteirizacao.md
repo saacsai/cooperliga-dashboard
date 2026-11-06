@@ -36,7 +36,8 @@ Upload das GRs → extração automática → 3 parâmetros → sugestão k-mean
 ## Endpoints do worker (FastAPI — guias.cooperliga.saacs.com.br)
 
 ### `POST /extrair-prefeitura`
-Recebe: XLSX de solicitação da Prefeitura  
+Recebe: XLSX de solicitação da Prefeitura + opcionalmente `pdf_grs` (as Guias
+de Remessa em PDF da mesma solicitação, um ou mais arquivos)  
 Retorna:
 ```json
 {
@@ -45,6 +46,7 @@ Retorna:
   "cooperativa": "AAGFAM",
   "alimento": "BANANA NANICA UN",
   "total_pontos": 297,
+  "avisos": [],
   "pontos": [
     {
       "codigo_prefeitura": "7842",
@@ -52,11 +54,23 @@ Retorna:
       "endereco": "R. CTE. CARLOS RUHL Nº 177",
       "gr_numero": 79124,
       "qtde_inteira": 1,
-      "qtde_fracionada": 5
+      "qtde_fracionada": 5,
+      "subprefeitura": "G",
+      "roteiro": "09999"
     }
   ]
 }
 ```
+
+**Subprefeitura (2026-11-06)**: só existe no PDF da guia, por ponto — a coluna
+`AGRUP` da planilha é mais grosseira e mistura várias subprefeituras reais sob
+o mesmo valor (confirmado com dado real: uma cooperativa teve 12
+subprefeituras distintas sob só 2 valores de AGRUP). Quando `pdf_grs` é
+enviado, o worker casa cada ponto pelo nº da guia (GR) e preenche
+`subprefeitura`/`roteiro`. O frontend persiste isso em
+`pontos_de_entrega.subprefeitura` — uma vez capturado, fica disponível pra
+sessões futuras sem precisar re-subir o PDF, útil especialmente pra combinar
+produtos/cooperativas diferentes que atendem a mesma subprefeitura.
 
 ### `POST /extrair-estado`
 Recebe: ZIP com PDFs das GRs do Estado  
