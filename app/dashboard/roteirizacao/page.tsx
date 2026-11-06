@@ -283,10 +283,24 @@ export default function RoteirizacaoPage() {
       .then(({ data }) => setProdutos((data || []) as Produto[]))
   }, [])
 
-  // Capacidades por produto usado nesta sessão — usadas tanto pra mandar
-  // pro worker quanto pra recalcular total na tela depois de mover ponto.
+  // Unidades reais por pacote/saco fracionado (ex: "SC 12.00 UN" → 12),
+  // extraído da planilha de cada produto no momento do upload. qtde_fracionada
+  // sempre vem contada em pacotes, nunca em unidades soltas — capacidade_por_caixa
+  // é cadastrada em unidades reais (ex: 144), então pra "pacotes" e "unidades"
+  // baterem na mesma conta, a capacidade usada no cálculo precisa virar
+  // "pacotes por caixa" dividindo pelo tamanho real do pacote dessa planilha.
+  const [embalagemFracPorProduto, setEmbalagemFracPorProduto] = useState<Record<string, number>>({})
+
+  // Capacidades por produto usado nesta sessão (em PACOTES, não unidades) —
+  // usadas tanto pra mandar pro worker quanto pra recalcular total na tela
+  // depois de mover ponto. Antes do upload (embalagem ainda não conhecida),
+  // cai no valor cadastrado puro — só fica certo depois de extrair.
   const capacidadesPorProduto: Record<string, number> = {}
-  for (const p of produtos) capacidadesPorProduto[p.id] = p.capacidade_por_caixa || 12
+  for (const p of produtos) {
+    const unidadesPorCaixa = p.capacidade_por_caixa || 12
+    const unidadesPorPacote = embalagemFracPorProduto[p.id] || 1
+    capacidadesPorProduto[p.id] = unidadesPorCaixa / unidadesPorPacote
+  }
 
   function ajustarNumProd(n: number) {
     const v = Math.max(1, Math.min(MAX_PRODUTOS, n))
@@ -323,6 +337,7 @@ export default function RoteirizacaoPage() {
     try {
       const extraidosPorProduto: { produtoId: string; pontos: PontoExtraido[] }[] = []
       const novosNumeros: Record<string, string> = {}
+      const novaEmbalagemFrac: Record<string, number> = {}
 
       for (const slot of slotsAtivos) {
         const fd  = new FormData()
@@ -341,6 +356,7 @@ export default function RoteirizacaoPage() {
 
         extraidosPorProduto.push({ produtoId: slot.produtoId, pontos: json.pontos || [] })
         if (json.avisos?.length) setAvisos(prev => [...prev, ...json.avisos])
+        if (json.embalagem_fracionada_un) novaEmbalagemFrac[slot.produtoId] = json.embalagem_fracionada_un
 
         const produtoNome = produtos.find(p => p.id === slot.produtoId)?.nome || slot.produtoId
         novosNumeros[slot.produtoId] = json.numero_solicitacao
@@ -348,6 +364,9 @@ export default function RoteirizacaoPage() {
           : `ESTADO-${dataCiclo || 'sem-data'}-${produtoNome}`
       }
       setNumerosPedido(novosNumeros)
+      if (Object.keys(novaEmbalagemFrac).length) {
+        setEmbalagemFracPorProduto(prev => ({ ...prev, ...novaEmbalagemFrac }))
+      }
 
       // detectar região automaticamente a partir do primeiro arquivo
       if (!regiao) {
